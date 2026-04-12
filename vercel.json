@@ -1,1 +1,15 @@
-{\n  \"version\": 2,\n  \"builds\": [\n    {\n      \"src\": \"server.ts\",\n      \"use\": \"@vercel/node\"\n    }\n  ],\n  \"routes\": [\n    {\n      \"src\": "/(.*)",\n      \"dest\": "/index.html"\n    }\n  ]\n}
+{
+  "version": 1,
+  "builds": [
+    {
+      "src": "server.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/server.ts"
+    }
+  ]
+}
