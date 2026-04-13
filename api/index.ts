@@ -3,6 +3,8 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import path from "path";
 import { fileURLToPath } from "url";
+import "dotenv/config";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,7 +31,7 @@ app.get("/api/markdown", async (req, res) => {
 });
 
 // Proxy endpoint
-app.get("/api/proxy", async (req, res) => {
+app.get(["/api/proxy", "/proxy"], async (req, res) => {
   let targetUrl = req.query.url as string;
   const adBlock = req.query.adblock === 'true';
 
@@ -284,10 +286,10 @@ app.get("/api/proxy", async (req, res) => {
     } catch (error: any) {
       res.status(500).send(`Proxy error: ${error.message}`);
     }
-  });
+});
 
-  // Source view endpoint
-  app.get("/api/source", async (req, res) => {
+// Source view endpoint
+app.get("/api/source", async (req, res) => {
     const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
@@ -297,12 +299,10 @@ app.get("/api/proxy", async (req, res) => {
     } catch (error: any) {
       res.status(500).send(`Error fetching source: ${error.message}`);
     }
-  });
+});
 
-  // Reader mode endpoint (simplified)
-  app.get(["/api/reader", "/reader"], async (req, res) => {
-    const targetUrl = getTargetUrl(req);
-  app.get("/api/reader", async (req, res) => {
+// Reader mode endpoint (simplified)
+app.get(["/api/reader", "/reader"], async (req, res) => {
     const targetUrl = req.query.url as string;
     const adBlock = req.query.adblock === 'true';
     if (!targetUrl) return res.status(400).send("URL is required");
@@ -355,6 +355,41 @@ app.get("/api/proxy", async (req, res) => {
       res.status(500).send(`Error fetching reader mode: ${error.message}`);
     }
   });
+
+// AI Analysis endpoint
+app.get("/api/analyze", async (req, res) => {
+  const targetUrl = req.query.url as string;
+  if (!targetUrl) return res.status(400).send("URL is required");
+
+  const apiKey = process.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).send("Gemini API key not configured");
+
+  try {
+    const response = await axios.get(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      }
+    });
+    const $ = cheerio.load(response.data);
+
+    // Extract main content
+    $("script, style, nav, footer, header").remove();
+    const text = $("article").text() || $("main").text() || $("body").text();
+    const cleanText = text.replace(/\s+/g, ' ').trim().substring(0, 10000);
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = `Summarize the following web page content in a concise way with key highlights. Content: ${cleanText}`;
+
+    const result = await model.generateContent(prompt);
+    const summary = result.response.text();
+
+    res.json({ summary });
+  } catch (error: any) {
+    res.status(500).send(`AI Analysis error: ${error.message}`);
+  }
+});
 
 // Setup development or production environment
 async function setupApp() {
