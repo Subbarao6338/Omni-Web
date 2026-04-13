@@ -9,9 +9,16 @@
     "preview": "vite preview",
     "start": "node api/index.ts",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "cap:init": "cap init",
+    "cap:sync": "cap sync",
+    "cap:open:android": "cap open android",
+    "cap:add:android": "cap add android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
     "@google/generative-ai": "^0.24.1",
     "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.15.0",
