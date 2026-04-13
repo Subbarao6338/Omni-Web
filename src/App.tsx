@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { App as CapApp } from '@capacitor/app';
+import { Device } from '@capacitor/device';
 import { 
   Search, 
   ChevronLeft, 
@@ -125,31 +127,32 @@ const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
   };
 
   return (
-    <div className="flex flex-col items-center pt-16 px-6 h-full bg-[#F5F5F5] dark:bg-zinc-950 overflow-y-auto">
+    <div className="flex flex-col items-center pt-24 px-8 h-full bg-surface overflow-y-auto scrollbar-hide">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-20 h-20 bg-primary rounded-[28px] flex items-center justify-center mb-8 shadow-xl shadow-primary/20"
+        initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
+        animate={{ scale: 1, opacity: 1, rotate: 0 }}
+        transition={{ type: 'spring', damping: 15 }}
+        className="w-24 h-24 bg-primary rounded-[36px] flex items-center justify-center mb-10 shadow-expressive"
       >
-        <Globe size={48} className="text-white" />
+        <Globe size={56} className="text-on-primary" />
       </motion.div>
       <motion.h1
-        initial={{ y: 10, opacity: 0 }}
+        initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1 }}
-        className="text-2xl font-bold mb-8 text-on-surface dark:text-zinc-100 tracking-tight"
+        transition={{ delay: 0.1, type: 'spring' }}
+        className="text-3xl font-bold mb-10 text-on-surface tracking-tighter"
       >
-        Omni Web
+        Omni Browser
       </motion.h1>
 
       <motion.div
-        initial={{ y: 10, opacity: 0 }}
+        initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
-        className="w-full max-w-md relative mb-12"
+        transition={{ delay: 0.2, type: 'spring' }}
+        className="w-full max-w-lg relative mb-16"
       >
-        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary">
-          <Search size={20} />
+        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-primary">
+          <Search size={24} />
         </div>
         <input
           type="text"
@@ -157,46 +160,46 @@ const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onNavigate(query)}
           placeholder="Search or type URL"
-          className="w-full pl-14 pr-6 py-4.5 bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-3xl shadow-sm border-none focus:ring-4 focus:ring-primary/10 text-base transition-all"
+          className="w-full pl-16 pr-8 py-5 bg-surface-container-high rounded-[32px] shadow-sm border-none focus:ring-8 focus:ring-primary/5 focus:bg-surface-container-lowest text-lg transition-all"
         />
       </motion.div>
 
       <motion.div
-        initial={{ y: 10, opacity: 0 }}
+        initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="grid grid-cols-4 gap-y-8 gap-x-4 w-full max-w-md pb-20"
+        transition={{ delay: 0.3, type: 'spring' }}
+        className="grid grid-cols-4 gap-y-10 gap-x-6 w-full max-w-lg pb-32"
       >
         {shortcuts.map((s: any, i: number) => (
-          <div key={i} className="flex flex-col items-center gap-2 group relative">
+          <div key={i} className="flex flex-col items-center gap-3 group relative">
             <button
               onClick={() => onNavigate(s.url)}
               onContextMenu={(e) => { e.preventDefault(); removeShortcut(i); }}
-              className="w-14 h-14 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all"
+              className="w-16 h-16 bg-surface-container-low rounded-[24px] flex items-center justify-center shadow-sm group-active:scale-[0.85] group-hover:shadow-md transition-all duration-300"
             >
               <img
-                src={`https://www.google.com/s2/favicons?domain=${s.url}&sz=64`}
+                src={`https://www.google.com/s2/favicons?domain=${s.url}&sz=128`}
                 alt={s.title}
-                className="w-8 h-8 rounded-lg"
+                className="w-10 h-10 rounded-xl"
               />
             </button>
-            <span className="text-[10px] font-bold text-on-surface-variant dark:text-zinc-400 truncate w-full text-center px-1">{s.title}</span>
+            <span className="text-xs font-bold text-on-surface-variant truncate w-full text-center px-1">{s.title}</span>
             <button
               onClick={() => removeShortcut(i)}
-              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
             >
-              <X size={10} />
+              <X size={12} />
             </button>
           </div>
         ))}
         <button
           onClick={addShortcut}
-          className="flex flex-col items-center gap-2 group"
+          className="flex flex-col items-center gap-3 group"
         >
-          <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all">
-            <Plus size={24} />
+          <div className="w-16 h-16 bg-primary-container text-on-primary-container rounded-[24px] flex items-center justify-center shadow-sm group-active:scale-[0.85] transition-all duration-300">
+            <Plus size={32} />
           </div>
-          <span className="text-[10px] font-bold text-primary truncate w-full text-center px-1">Add</span>
+          <span className="text-xs font-bold text-primary truncate w-full text-center px-1">Add</span>
         </button>
       </motion.div>
     </div>
@@ -259,6 +262,7 @@ export default function App() {
   const [isFindOnPageOpen, setIsFindOnPageOpen] = useState(false);
   const [findText, setFindText] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isAndroid, setIsAndroid] = useState(false);
 
   const [showNav, setShowNav] = useState(true);
   const lastScrollY = useRef(0);
@@ -322,6 +326,28 @@ export default function App() {
   const [pageToolView, setPageToolView] = useState<'normal' | 'reader' | 'source'>('normal');
 
   useEffect(() => {
+    const checkPlatform = async () => {
+      const info = await Device.getInfo();
+      setIsAndroid(info.platform === 'android');
+    };
+    checkPlatform();
+
+    CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (isTabsOpen) setIsTabsOpen(false);
+      else if (isDownloadsOpen) setIsDownloadsOpen(false);
+      else if (isMenuOpen) setIsMenuOpen(false);
+      else if (isToolboxOpen) setIsToolboxOpen(false);
+      else if (isMediaSnifferOpen) setIsMediaSnifferOpen(false);
+      else if (isHistoryOpen) setIsHistoryOpen(false);
+      else if (isBookmarksOpen) setIsBookmarksOpen(false);
+      else if (isSettingsOpen) setIsSettingsOpen(false);
+      else if (activeTab.url !== 'about:home') {
+        window.history.back();
+      } else {
+        CapApp.exitApp();
+      }
+    });
+
     document.documentElement.setAttribute('data-font-size', settings.fontSize || 'medium');
     document.documentElement.setAttribute('data-compact', (settings.compactMode ?? false).toString());
     document.documentElement.style.setProperty('--color-primary', settings.themeColor || '#3B82F6');
