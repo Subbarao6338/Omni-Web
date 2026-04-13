@@ -35,28 +35,35 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   let targetUrl = req.query.url as string;
   const adBlock = req.query.adblock === 'true';
 
-  // Robust URL extraction from raw request
-  // This handles cases where & in the target URL wasn't properly escaped
-  const rawUrl = req.url;
-  const urlParamIndex = rawUrl.indexOf('url=');
-  if (urlParamIndex !== -1) {
-    let extracted = rawUrl.substring(urlParamIndex + 4);
-    // Remove other proxy params if they exist at the end
-    const adBlockIndex = extracted.indexOf('&adblock=');
-    if (adBlockIndex !== -1) {
-      extracted = extracted.substring(0, adBlockIndex);
-    }
+  // Reconstruct the full target URL by including all query parameters except 'url' and 'adblock'
+  // This handles cases where the target URL itself contains query parameters that weren't properly encoded
+  const queryParams = { ...req.query };
+  delete queryParams.url;
+  delete queryParams.adblock;
 
+  if (targetUrl && Object.keys(queryParams).length > 0) {
     try {
-      const decoded = decodeURIComponent(extracted);
-      // If the decoded version looks more like a full URL, use it
-      if (decoded.startsWith('http') && (!targetUrl || decoded.length > targetUrl.length)) {
-        targetUrl = decoded;
-      }
+      const urlObj = new URL(targetUrl);
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value !== undefined) {
+          urlObj.searchParams.append(key, String(value));
+        }
+      });
+      targetUrl = urlObj.toString();
     } catch (e) {
-      // If decode fails, use the raw extracted if it looks like a URL
-      if (extracted.startsWith('http') && (!targetUrl || extracted.length > targetUrl.length)) {
-        targetUrl = extracted;
+      // If targetUrl is not a full URL yet, we'll handle it later
+    }
+  }
+
+  // Robust URL extraction from raw request as a fallback
+  if (targetUrl && !targetUrl.startsWith('http')) {
+    const rawUrl = req.url;
+    const urlParamMatch = rawUrl.match(/[?&]url=([^&]+)/);
+    if (urlParamMatch) {
+      try {
+        targetUrl = decodeURIComponent(urlParamMatch[1]);
+      } catch (e) {
+        targetUrl = urlParamMatch[1];
       }
     }
   }
@@ -70,6 +77,23 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   targetUrl = targetUrl.trim();
   if (targetUrl.startsWith('"') && targetUrl.endsWith('"')) {
     targetUrl = targetUrl.substring(1, targetUrl.length - 1);
+  }
+
+  // Prevent self-proxying recursion
+  const host = req.headers.host;
+  if (targetUrl && host) {
+    try {
+      const targetUrlObj = new URL(targetUrl);
+      const targetHost = targetUrlObj.host;
+      if (targetHost === host || (process.env.NODE_ENV !== 'production' && (targetHost === 'localhost' || targetHost.startsWith('localhost:')))) {
+        const urlPath = targetUrlObj.pathname;
+        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/proxy')) {
+          return res.status(400).send("Circular proxy detected. Cannot proxy the browser itself.");
+        }
+      }
+    } catch (e) {
+      // Invalid URL, continue to axios which will handle it
+    }
   }
 
   try {
