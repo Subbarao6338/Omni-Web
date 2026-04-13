@@ -70,6 +70,26 @@ import html2canvas from 'html2canvas';
 
 const DEFAULT_URL = 'https://www.google.com';
 
+const toBase64Url = (url: string) => {
+  if (!url || url === 'about:blank') return url;
+  try {
+    return `b64:${btoa(url)}`;
+  } catch (e) {
+    return url;
+  }
+};
+
+const fromBase64Url = (url: string) => {
+  if (url.startsWith('b64:')) {
+    try {
+      return atob(url.substring(4));
+    } catch (e) {
+      return url;
+    }
+  }
+  return url;
+};
+
 export default function App() {
   const isFramed = typeof window !== 'undefined' && window.self !== window.top;
 
@@ -307,19 +327,19 @@ export default function App() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const getIframeSrc = () => {
-    if (!activeTab.url) return 'about:blank';
+    if (!activeTab.url || activeTab.url === 'about:blank') return 'about:blank';
     
     const adBlock = settings.enableAdBlock ? '&adblock=true' : '';
     const url = activeTab.url;
     
     // If it's already a proxy URL, don't wrap it again
-    if (url.startsWith('/api/browse') || url.includes('/api/browse?u=')) {
+    if (url.startsWith('/api/v1/content') || url.includes('/api/v1/content?id=') || url.startsWith('/api/browse') || url.includes('/api/browse?u=')) {
       return url;
     }
     
     if (pageToolView === 'reader') return `/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
     if (pageToolView === 'source') return `/api/source?u=${encodeURIComponent(url)}`;
-    return `/api/browse?u=${encodeURIComponent(url)}${adBlock}`;
+    return `/api/v1/content?id=${toBase64Url(url)}${adBlock}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -398,31 +418,32 @@ export default function App() {
     let finalUrl = trimmedUrl;
     
     // If the URL is already a proxied URL, extract the real target URL
-    if (finalUrl.includes('/api/browse?u=') || finalUrl.includes('/browse?u=')) {
+    if (finalUrl.includes('/api/v1/content') || finalUrl.includes('/api/browse')) {
       try {
         const urlObj = new URL(finalUrl, window.location.origin);
-        const extracted = urlObj.searchParams.get('u');
+        const extracted = urlObj.searchParams.get('id') || urlObj.searchParams.get('u');
         if (extracted) {
+          let realUrl = fromBase64Url(extracted);
           try {
-            const targetUrlObj = new URL(extracted);
+            const targetUrlObj = new URL(realUrl);
             // Re-append other parameters that might be on the proxy URL but belong to the target
             urlObj.searchParams.forEach((value, key) => {
-              if (key !== 'u' && key !== 'adblock') {
+              if (key !== 'id' && key !== 'u' && key !== 'adblock') {
                 targetUrlObj.searchParams.append(key, value);
               }
             });
             finalUrl = targetUrlObj.toString();
           } catch (e) {
-            finalUrl = extracted;
+            finalUrl = realUrl;
           }
         }
       } catch (e) {
-        const match = finalUrl.match(/[?&]u=([^&]+)/);
+        const match = finalUrl.match(/[?&](id|u)=([^&]+)/);
         if (match) {
           try {
-            finalUrl = decodeURIComponent(match[1]);
+            finalUrl = fromBase64Url(decodeURIComponent(match[2]));
           } catch (de) {
-            finalUrl = match[1];
+            finalUrl = fromBase64Url(match[2]);
           }
         }
       }
@@ -558,7 +579,7 @@ export default function App() {
 
   const toDataURL = async (url: string): Promise<string> => {
     try {
-      const response = await fetch(`/api/browse?u=${encodeURIComponent(url)}`);
+      const response = await fetch(`/api/v1/content?id=${toBase64Url(url)}`);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -685,7 +706,7 @@ export default function App() {
     try {
       const cleanUrl = hubUrl.endsWith('/') ? hubUrl : hubUrl + '/';
       const targetUrl = `${cleanUrl}links.json`;
-      const response = await fetch(`/api/browse?u=${encodeURIComponent(targetUrl)}`);
+      const response = await fetch(`/api/v1/content?id=${toBase64Url(targetUrl)}`);
       if (!response.ok) throw new Error('Failed to fetch links.json');
       const data = await response.json();
       if (Array.isArray(data)) {
