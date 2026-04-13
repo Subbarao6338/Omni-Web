@@ -319,7 +319,7 @@ export default function App() {
     
     if (pageToolView === 'reader') return `/api/reader?url=${encodeURIComponent(url)}${adBlock}`;
     if (pageToolView === 'source') return `/api/source?url=${encodeURIComponent(url)}`;
-    return `/proxy?url=${encodeURIComponent(url)}${adBlock}`;
+    return `/api/proxy?url=${encodeURIComponent(url)}${adBlock}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -1918,7 +1918,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide pb-2">
+                          <div className="flex flex-col gap-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide pb-2">
                             {hubLinks
                               .filter(l => {
                                 const matchesSearch = l.title.toLowerCase().includes(hubSearch.toLowerCase()) ||
@@ -1949,17 +1949,17 @@ export default function App() {
                                   onMouseLeave={handleLinkPressEnd}
                                   onTouchStart={() => handleLinkPressStart(link)}
                                   onTouchEnd={handleLinkPressEnd}
-                                  className="flex flex-col items-center gap-2 p-3 bg-surface-container hover:bg-surface-container-high rounded-2xl transition-all active:scale-95 text-center relative overflow-hidden aspect-square justify-center shadow-sm"
+                                  className="flex flex-row items-center gap-4 p-3 bg-surface-container hover:bg-surface-container-high rounded-full transition-all active:scale-95 text-left relative overflow-hidden w-full shadow-sm"
                                 >
-                                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
+                                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0">
                                     <Link size={20} />
                                   </div>
-                                  <div className="w-full">
-                                    <p className="text-[10px] font-bold text-on-surface leading-tight line-clamp-2">{link.title}</p>
-                                    <p className="text-[8px] text-on-surface-variant opacity-60 mt-0.5">{link.urls.length} URLs</p>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-on-surface truncate">{link.title}</p>
+                                    <p className="text-[10px] text-on-surface-variant opacity-60">{link.urls.length} {link.urls.length === 1 ? 'URL' : 'URLs'}</p>
                                   </div>
                                   {link.category && (
-                                    <span className="absolute top-1 right-1 text-[6px] font-bold bg-primary/5 text-primary/60 px-1 rounded uppercase tracking-tighter">
+                                    <span className="text-[10px] font-bold bg-primary/5 text-primary/60 px-3 py-1 rounded-full uppercase tracking-tighter shrink-0 ml-auto">
                                       {link.category}
                                     </span>
                                   )}
