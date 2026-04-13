@@ -10,39 +10,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Helper to get target URL from various possible sources
-const getTargetUrl = (req: express.Request) => {
-  let targetUrl = req.query.url as string;
-
-  // Robust URL extraction from raw request if query param is missing or malformed
-  const rawUrl = req.url;
-  const urlMatch = rawUrl.match(/[?&]url=([^&]+)/);
-  if (urlMatch) {
-    try {
-      const extracted = decodeURIComponent(urlMatch[1]);
-      if (extracted.startsWith('http') && (!targetUrl || extracted.length > targetUrl.length)) {
-        targetUrl = extracted;
-      }
-    } catch (e) {
-      if (urlMatch[1].startsWith('http') && (!targetUrl || urlMatch[1].length > targetUrl.length)) {
-        targetUrl = urlMatch[1];
-      }
-    }
-  }
-
-  // Handle double quoting or other minor malformations
-  if (targetUrl) {
-    targetUrl = targetUrl.trim();
-    if (targetUrl.startsWith('"') && targetUrl.endsWith('"')) {
-      targetUrl = targetUrl.substring(1, targetUrl.length - 1);
-    }
-  }
-
-  return targetUrl;
-};
-
 // Markdown conversion endpoint
-app.get(["/api/markdown", "/markdown"], async (req, res) => {
+app.get("/api/markdown", async (req, res) => {
   const targetUrl = req.query.url as string;
   if (!targetUrl) return res.status(400).send("URL is required");
   try {
@@ -60,13 +29,45 @@ app.get(["/api/markdown", "/markdown"], async (req, res) => {
 });
 
 // Proxy endpoint
-app.get(["/api/proxy", "/proxy"], async (req, res) => {
-  let targetUrl = getTargetUrl(req);
+app.get("/api/proxy", async (req, res) => {
+  let targetUrl = req.query.url as string;
   const adBlock = req.query.adblock === 'true';
+
+  // Robust URL extraction from raw request
+  // This handles cases where & in the target URL wasn't properly escaped
+  const rawUrl = req.url;
+  const urlParamIndex = rawUrl.indexOf('url=');
+  if (urlParamIndex !== -1) {
+    let extracted = rawUrl.substring(urlParamIndex + 4);
+    // Remove other proxy params if they exist at the end
+    const adBlockIndex = extracted.indexOf('&adblock=');
+    if (adBlockIndex !== -1) {
+      extracted = extracted.substring(0, adBlockIndex);
+    }
+
+    try {
+      const decoded = decodeURIComponent(extracted);
+      // If the decoded version looks more like a full URL, use it
+      if (decoded.startsWith('http') && (!targetUrl || decoded.length > targetUrl.length)) {
+        targetUrl = decoded;
+      }
+    } catch (e) {
+      // If decode fails, use the raw extracted if it looks like a URL
+      if (extracted.startsWith('http') && (!targetUrl || extracted.length > targetUrl.length)) {
+        targetUrl = extracted;
+      }
+    }
+  }
 
   if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null' || targetUrl.trim() === '') {
     console.error(`[Proxy] Missing URL. Query:`, req.query, `Raw URL:`, req.url);
-    return res.status(400).send(`URL is required. (Received: ${targetUrl}). Please try refreshing the page or re-entering the URL.`);
+    return res.status(400).send("URL is required. Please try refreshing the page or re-entering the URL.");
+  }
+
+  // Clean up the URL (sometimes it gets double encoded or has trailing junk)
+  targetUrl = targetUrl.trim();
+  if (targetUrl.startsWith('"') && targetUrl.endsWith('"')) {
+    targetUrl = targetUrl.substring(1, targetUrl.length - 1);
   }
 
   try {
@@ -174,10 +175,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
           }
 
           // Proxy ALL resources to avoid CORS/Mixed Content and broken links
-          // But only if they're not already proxied
-          if (!val.includes('/api/proxy?url=') && !val.includes('/proxy?url=')) {
-            $(el).attr(attr, `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`);
-          }
+          $(el).attr(attr, `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`);
         } catch (e) {
           // Ignore invalid URLs
         }
@@ -289,8 +287,8 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   });
 
   // Source view endpoint
-  app.get(["/api/source", "/source"], async (req, res) => {
-    const targetUrl = getTargetUrl(req);
+  app.get("/api/source", async (req, res) => {
+    const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
       const response = await axios.get(targetUrl);
@@ -304,6 +302,8 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   // Reader mode endpoint (simplified)
   app.get(["/api/reader", "/reader"], async (req, res) => {
     const targetUrl = getTargetUrl(req);
+  app.get("/api/reader", async (req, res) => {
+    const targetUrl = req.query.url as string;
     const adBlock = req.query.adblock === 'true';
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
