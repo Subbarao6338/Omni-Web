@@ -149,13 +149,13 @@ export default function App() {
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [hubUrl, setHubUrl] = useState(() => localStorage.getItem('omni_hub_url') || '');
-  const [hubLinks, setHubLinks] = useState<{title: string, urls: {label: string, url: string}[], category?: string}[]>(() => {
+  const [hubLinks, setHubLinks] = useState<{title: string, url?: string, urls: (string | {label: string, url: string})[], category?: string}[]>(() => {
     const saved = localStorage.getItem('omni_hub_links');
     return saved ? JSON.parse(saved) : [];
   });
   const [hubSearch, setHubSearch] = useState('');
   const [hubCategory, setHubCategory] = useState('All');
-  const [longPressedLink, setLongPressedLink] = useState<{title: string, urls: {label: string, url: string}[]} | null>(null);
+  const [longPressedLink, setLongPressedLink] = useState<{title: string, url?: string, urls: (string | {label: string, url: string})[]} | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -299,7 +299,7 @@ export default function App() {
     
     if (pageToolView === 'reader') return `/api/reader?url=${encodeURIComponent(url)}${adBlock}`;
     if (pageToolView === 'source') return `/api/source?url=${encodeURIComponent(url)}`;
-    return `/api/proxy?url=${encodeURIComponent(url)}${adBlock}`;
+    return `/proxy?url=${encodeURIComponent(url)}${adBlock}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -378,14 +378,20 @@ export default function App() {
     let finalUrl = trimmedUrl;
     
     // If the URL is already a proxied URL, extract the real target URL
-    if (finalUrl.includes('/api/proxy?url=')) {
+    if (finalUrl.includes('/api/proxy?url=') || finalUrl.includes('/proxy?url=')) {
       try {
         const urlObj = new URL(finalUrl, window.location.origin);
         const extracted = urlObj.searchParams.get('url');
         if (extracted) finalUrl = extracted;
       } catch (e) {
         const match = finalUrl.match(/[?&]url=([^&]+)/);
-        if (match) finalUrl = decodeURIComponent(match[1]);
+        if (match) {
+          try {
+            finalUrl = decodeURIComponent(match[1]);
+          } catch (de) {
+            finalUrl = match[1];
+          }
+        }
       }
     }
 
@@ -656,7 +662,7 @@ export default function App() {
     }
   };
 
-  const handleLinkPressStart = (link: {title: string, urls: {label: string, url: string}[]}) => {
+  const handleLinkPressStart = (link: {title: string, url?: string, urls: (string | {label: string, url: string})[]}) => {
     longPressTimer.current = setTimeout(() => {
       setLongPressedLink(link);
     }, 600);
@@ -1810,10 +1816,14 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
+                          <div className="grid grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide pb-2">
                             {hubLinks
                               .filter(l => {
-                                const matchesSearch = l.title.toLowerCase().includes(hubSearch.toLowerCase()) || l.urls.some(u => u.url.toLowerCase().includes(hubSearch.toLowerCase()));
+                                const matchesSearch = l.title.toLowerCase().includes(hubSearch.toLowerCase()) ||
+                                  l.urls.some(u => {
+                                    const urlStr = typeof u === 'string' ? u : u.url;
+                                    return urlStr.toLowerCase().includes(hubSearch.toLowerCase());
+                                  });
                                 const matchesCategory = hubCategory === 'All' || (l.category || 'Uncategorized') === hubCategory;
                                 return matchesSearch && matchesCategory;
                               })
@@ -1821,23 +1831,33 @@ export default function App() {
                               .map((link, i) => (
                                 <button 
                                   key={i}
-                                  onClick={() => { if (link.urls.length === 1) { navigate(link.urls[0].url); setIsToolboxOpen(false); } else { setLongPressedLink(link); } }}
+                                  onClick={() => {
+                                    if (link.url) {
+                                      navigate(link.url);
+                                      setIsToolboxOpen(false);
+                                    } else if (link.urls.length === 1) {
+                                      navigate(link.urls[0].url);
+                                      setIsToolboxOpen(false);
+                                    } else {
+                                      setLongPressedLink(link);
+                                    }
+                                  }}
                                   onMouseDown={() => handleLinkPressStart(link)}
                                   onMouseUp={handleLinkPressEnd}
                                   onMouseLeave={handleLinkPressEnd}
                                   onTouchStart={() => handleLinkPressStart(link)}
                                   onTouchEnd={handleLinkPressEnd}
-                                  className="flex items-center gap-3 p-3 bg-surface-container hover:bg-surface-container-high rounded-xl transition-all active:scale-[0.98] text-left relative overflow-hidden"
+                                  className="flex flex-col items-center gap-2 p-3 bg-surface-container hover:bg-surface-container-high rounded-2xl transition-all active:scale-95 text-center relative overflow-hidden aspect-square justify-center shadow-sm"
                                 >
-                                  <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
-                                    <Link size={16} />
+                                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary shrink-0">
+                                    <Link size={20} />
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-xs font-bold text-on-surface truncate">{link.title}</p>
-                                    <p className="text-[9px] text-on-surface-variant truncate opacity-60">{link.urls.length} URLs</p>
+                                  <div className="w-full">
+                                    <p className="text-[10px] font-bold text-on-surface leading-tight line-clamp-2">{link.title}</p>
+                                    <p className="text-[8px] text-on-surface-variant opacity-60 mt-0.5">{link.urls.length} URLs</p>
                                   </div>
                                   {link.category && (
-                                    <span className="text-[8px] font-bold bg-primary/5 text-primary/60 px-1.5 py-0.5 rounded uppercase tracking-tighter shrink-0">
+                                    <span className="absolute top-1 right-1 text-[6px] font-bold bg-primary/5 text-primary/60 px-1 rounded uppercase tracking-tighter">
                                       {link.category}
                                     </span>
                                   )}
@@ -2882,21 +2902,25 @@ export default function App() {
                 <p className="text-xs text-on-surface-variant opacity-60 truncate">Select a URL to open</p>
               </div>
               <div className="p-4 space-y-2 max-h-[300px] overflow-y-auto">
-                {longPressedLink.urls.map((u, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => { navigate(u.url); setLongPressedLink(null); setIsToolboxOpen(false); }}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-surface-variant rounded-2xl transition-colors text-sm font-bold text-on-surface text-left"
-                  >
-                    <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
-                      <ExternalLink size={20} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-on-surface truncate">{u.label}</p>
-                      <p className="text-[10px] text-on-surface-variant opacity-60 truncate">{u.url}</p>
-                    </div>
-                  </button>
-                ))}
+                {longPressedLink.urls.map((u, i) => {
+                  const url = typeof u === 'string' ? u : u.url;
+                  const label = typeof u === 'string' ? u : u.label;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => { navigate(url); setLongPressedLink(null); setIsToolboxOpen(false); }}
+                      className="w-full flex items-center gap-4 p-4 hover:bg-surface-variant rounded-2xl transition-colors text-sm font-bold text-on-surface text-left"
+                    >
+                      <div className="w-10 h-10 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
+                        <ExternalLink size={20} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate">{label}</p>
+                        <p className="text-[10px] text-on-surface-variant opacity-60 truncate">{url}</p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
               <div className="p-4 bg-surface-container-low">
                 <button 

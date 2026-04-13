@@ -300,6 +300,8 @@ app.get("/api/proxy", async (req, res) => {
   });
 
   // Reader mode endpoint (simplified)
+  app.get(["/api/reader", "/reader"], async (req, res) => {
+    const targetUrl = getTargetUrl(req);
   app.get("/api/reader", async (req, res) => {
     const targetUrl = req.query.url as string;
     const adBlock = req.query.adblock === 'true';
