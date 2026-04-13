@@ -223,6 +223,8 @@ export default function App() {
   const [isDownloadsOpen, setIsDownloadsOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+  const downloadBlobs = useRef<Record<string, Blob>>({});
+  const downloadControllers = useRef<Record<string, AbortController>>({});
   const [detectedMedia, setDetectedMedia] = useState<MediaItem[]>([]);
   const [showMediaGrabber, setShowMediaGrabber] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>(() => {
@@ -317,6 +319,16 @@ export default function App() {
   });
 
   const [cookies, setCookies] = useState<{name: string, value: string}[]>([]);
+  const [sessionId] = useState(() => {
+    const saved = localStorage.getItem('browser_session_id');
+    if (saved) return saved;
+    const newId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('browser_session_id', newId);
+    return newId;
+  });
+  const [networkLogs, setNetworkLogs] = useState<any[]>([]);
+  const [securityData, setSecurityData] = useState<any>(null);
+  const [isSecurityLoading, setIsSecurityLoading] = useState(false);
   const [newCookie, setNewCookie] = useState({ name: '', value: '' });
   const [bookmarklets, setBookmarklets] = useState<Bookmarklet[]>(() => {
     const saved = localStorage.getItem('browser_bookmarklets');
@@ -517,9 +529,10 @@ export default function App() {
     }
     
     const baseUrl = settings.proxyBaseUrl || window.location.origin;
-    if (pageToolView === 'reader') return `${baseUrl}/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
-    if (pageToolView === 'source') return `${baseUrl}/api/source?u=${encodeURIComponent(url)}`;
-    return `${baseUrl}/api/v1/content?id=${toBase64Url(url)}${adBlock}`;
+    const sid = `&sid=${sessionId}`;
+    if (pageToolView === 'reader') return `${baseUrl}/api/reader?u=${encodeURIComponent(url)}${adBlock}${sid}`;
+    if (pageToolView === 'source') return `${baseUrl}/api/source?u=${encodeURIComponent(url)}${sid}`;
+    return `${baseUrl}/api/v1/content?id=${toBase64Url(url)}${adBlock}${sid}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -573,7 +586,40 @@ export default function App() {
     if (activeTool === 'Cookie Manager') {
       refreshCookies();
     }
-  }, [activeTool]);
+    if (activeTool === 'Network Monitor') {
+      const fetchLogs = async () => {
+        try {
+          const res = await fetch(`/api/v1/network-logs?sid=${sessionId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setNetworkLogs(data);
+          }
+        } catch (e) {
+          console.error("Failed to fetch network logs:", e);
+        }
+      };
+      fetchLogs();
+      const interval = setInterval(fetchLogs, 3000);
+      return () => clearInterval(interval);
+    }
+    if (activeTool === 'Security Scan') {
+      const runSecurityScan = async () => {
+        setIsSecurityLoading(true);
+        try {
+          const res = await fetch(`/api/v1/security-check?u=${encodeURIComponent(activeTab.url)}`);
+          if (res.ok) {
+            const data = await res.json();
+            setSecurityData(data);
+          }
+        } catch (e) {
+          console.error("Security scan failed:", e);
+        } finally {
+          setIsSecurityLoading(false);
+        }
+      };
+      runSecurityScan();
+    }
+  }, [activeTool, activeTab.url]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -988,7 +1034,7 @@ export default function App() {
     }
   };
 
-  const startDownload = (media: MediaItem) => {
+  const startDownload = async (media: MediaItem) => {
     const id = Math.random().toString(36).substr(2, 9);
     
     // Smart Detection for YouTube/Social Media
@@ -1008,81 +1054,131 @@ export default function App() {
 
     const filename = media.src.split('/').pop()?.split('?')[0] || `media_${id}.${media.type === 'video' ? 'mp4' : media.type === 'audio' ? 'mp3' : 'jpg'}`;
     
-    const activeDownloads = downloads.filter(d => d.status === 'downloading').length;
-    const status = activeDownloads >= 2 ? 'queued' : 'downloading';
-
     const newDownload: DownloadItem = {
       id,
       url: media.src,
       filename,
       fileType: media.type === 'video' ? 'video' : media.type === 'audio' ? 'audio' : media.type === 'image' ? 'image' : 'other',
       progress: 0,
-      status,
+      status: 'downloading',
       timestamp: Date.now(),
-      size: 'Pending...',
-      downloadedSize: 0,
-      totalSize: 1024 * 1024 * (Math.random() * 20 + 5) // Mock size
+      size: 'Starting...',
+      downloadedSize: 0
     };
 
     setDownloads(prev => [newDownload, ...prev]);
     setIsDownloadsOpen(true);
+
+    try {
+      const controller = new AbortController();
+      downloadControllers.current[id] = controller;
+
+      const response = await fetch(media.src, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const contentLength = response.headers.get('content-length');
+      const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('ReadableStream not supported');
+
+      let receivedLength = 0;
+      const chunks = [];
+      const startTime = Date.now();
+
+      while(true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedLength += value.length;
+
+        const now = Date.now();
+        const duration = (now - startTime) / 1000;
+        const speed = duration > 0 ? receivedLength / duration : 0;
+        const progress = total ? (receivedLength / total) * 100 : 0;
+        const eta = (total && speed > 0) ? (total - receivedLength) / speed : 0;
+
+        const sizeStr = total
+          ? `${(receivedLength / (1024 * 1024)).toFixed(1)} / ${(total / (1024 * 1024)).toFixed(1)} MB`
+          : `${(receivedLength / (1024 * 1024)).toFixed(1)} MB`;
+
+        setDownloads(prev => prev.map(d => d.id === id ? {
+          ...d,
+          progress,
+          downloadedSize: receivedLength,
+          totalSize: total,
+          size: sizeStr,
+          speed,
+          eta
+        } : d));
+      }
+
+      const blob = new Blob(chunks);
+      downloadBlobs.current[id] = blob;
+
+      setDownloads(prev => prev.map(d => d.id === id ? {
+        ...d,
+        status: 'completed',
+        progress: 100,
+        size: `${(blob.size / (1024 * 1024)).toFixed(1)} MB`
+      } : d));
+
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      setDownloads(prev => prev.map(d => d.id === id ? {
+        ...d,
+        status: 'failed',
+        error: error.message,
+        size: 'Failed'
+      } : d));
+    } finally {
+      delete downloadControllers.current[id];
+    }
+  };
+
+  const cancelDownload = (id: string) => {
+    if (downloadControllers.current[id]) {
+      downloadControllers.current[id].abort();
+      delete downloadControllers.current[id];
+    }
+    setDownloads(prev => prev.filter(d => d.id !== id));
+  };
+
+  const removeDownload = (id: string) => {
+    delete downloadBlobs.current[id];
+    setDownloads(prev => prev.filter(d => d.id !== id));
+  };
+
+  const openDownload = (id: string) => {
+    const blob = downloadBlobs.current[id];
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+    } else {
+      const download = downloads.find(d => d.id === id);
+      if (download) window.open(download.url, '_blank');
+    }
   };
 
   const toggleDownload = (id: string) => {
-    setDownloads(prev => prev.map(d => {
-      if (d.id === id) {
-        const newStatus = d.status === 'downloading' ? 'paused' : 'downloading';
-        return { ...d, status: newStatus };
+    const download = downloads.find(d => d.id === id);
+    if (download?.status === 'downloading') {
+      if (downloadControllers.current[id]) {
+        downloadControllers.current[id].abort();
+        delete downloadControllers.current[id];
       }
-      return d;
-    }));
+      setDownloads(prev => prev.map(d => d.id === id ? { ...d, status: 'paused' } : d));
+    } else if (download?.status === 'paused') {
+      const media: MediaItem = {
+        id: download.id,
+        src: download.url,
+        type: download.fileType === 'other' ? 'image' : download.fileType as any,
+        title: download.filename
+      };
+      setDownloads(prev => prev.filter(d => d.id !== id));
+      startDownload(media);
+    }
   };
-
-  // Background Download Simulation Effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setDownloads(prev => {
-        const next = [...prev];
-        let downloadingCount = next.filter(d => d.status === 'downloading').length;
-
-        // Process queue
-        if (downloadingCount < 2) {
-          const queued = next.find(d => d.status === 'queued');
-          if (queued) {
-            queued.status = 'downloading';
-            downloadingCount++;
-          }
-        }
-
-        return next.map(d => {
-          if (d.status === 'downloading') {
-            const speed = Math.random() * 1024 * 1024 * 1.5 + 512 * 1024; // 0.5 - 2 MB/s
-            const totalSize = d.totalSize || 1024 * 1024 * 10;
-            const downloadedSize = Math.min((d.downloadedSize || 0) + speed, totalSize);
-            const newProgress = (downloadedSize / totalSize) * 100;
-            const status = newProgress >= 100 ? 'completed' : 'downloading';
-            const size = status === 'completed' 
-              ? `${(totalSize / (1024 * 1024)).toFixed(1)} MB` 
-              : `${(downloadedSize / (1024 * 1024)).toFixed(1)} / ${(totalSize / (1024 * 1024)).toFixed(1)} MB`;
-            const eta = status === 'completed' ? 0 : (totalSize - downloadedSize) / speed;
-            
-            return { 
-              ...d, 
-              progress: newProgress, 
-              status, 
-              size, 
-              downloadedSize,
-              speed: status === 'completed' ? 0 : speed,
-              eta: status === 'completed' ? 0 : eta
-            };
-          }
-          return d;
-        });
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const formatSpeed = (bytesPerSec?: number) => {
     if (!bytesPerSec) return '0 B/s';
@@ -1547,7 +1643,10 @@ export default function App() {
                                 >
                                   <Pause size={14} /> Pause
                                 </button>
-                                <button className="flex-1 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                <button
+                                  onClick={() => cancelDownload(download.id)}
+                                  className="flex-1 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                >
                                   <X size={14} /> Cancel
                                 </button>
                               </div>
@@ -1573,7 +1672,10 @@ export default function App() {
                                 >
                                   <Play size={14} /> Resume
                                 </button>
-                                <button className="flex-1 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-all">
+                                <button
+                                  onClick={() => removeDownload(download.id)}
+                                  className="flex-1 py-2 bg-red-50 text-red-600 rounded-xl text-[11px] font-bold flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                >
                                   <Trash2 size={14} /> Remove
                                 </button>
                               </div>
@@ -1583,7 +1685,12 @@ export default function App() {
                           {download.status === 'queued' && (
                             <div className="flex items-center justify-between mt-2">
                               <span className="text-[11px] font-bold text-outline italic">Waiting in queue...</span>
-                              <button className="text-red-600 text-[11px] font-bold uppercase tracking-widest">Cancel</button>
+                              <button
+                                onClick={() => cancelDownload(download.id)}
+                                className="text-red-600 text-[11px] font-bold uppercase tracking-widest"
+                              >
+                                Cancel
+                              </button>
                             </div>
                           )}
 
@@ -1591,8 +1698,16 @@ export default function App() {
                             <div className="flex items-center justify-between mt-2">
                               <span className="text-[11px] font-bold text-on-surface-variant opacity-60">{download.size} • Completed</span>
                               <div className="flex gap-4">
-                                <button className="text-primary text-[11px] font-bold uppercase tracking-widest">Open</button>
-                                <button className="text-outline hover:text-red-500 transition-colors">
+                                <button
+                                  onClick={() => openDownload(download.id)}
+                                  className="text-primary text-[11px] font-bold uppercase tracking-widest"
+                                >
+                                  Open
+                                </button>
+                                <button
+                                  onClick={() => removeDownload(download.id)}
+                                  className="text-outline hover:text-red-500 transition-colors"
+                                >
                                   <Trash2 size={18} />
                                 </button>
                               </div>
@@ -2404,27 +2519,30 @@ export default function App() {
                         <span className="text-[10px] font-bold text-green-600">LIVE</span>
                       </div>
                       <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                        {[
-                          { method: 'GET', url: activeTab.url, status: 200, size: '45.2 KB', type: 'document' },
-                          { method: 'GET', url: '/assets/main.css', status: 200, size: '12.8 KB', type: 'stylesheet' },
-                          { method: 'GET', url: '/assets/vendor.js', status: 200, size: '245.1 KB', type: 'script' },
-                          { method: 'POST', url: '/api/analytics', status: 204, size: '0.4 KB', type: 'xhr' },
-                          { method: 'GET', url: '/images/logo.png', status: 200, size: '8.2 KB', type: 'image' },
-                        ].map((req, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 bg-surface-container rounded-xl text-[10px] font-mono">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <span className={cn(
-                                "px-1.5 py-0.5 rounded text-[8px] font-bold",
-                                req.method === 'GET' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                              )}>{req.method}</span>
-                              <span className="truncate text-on-surface opacity-80">{req.url}</span>
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0 ml-4">
-                              <span className="text-green-600 font-bold">{req.status}</span>
-                              <span className="text-outline">{req.size}</span>
-                            </div>
+                        {networkLogs.length === 0 ? (
+                          <div className="py-8 text-center text-outline">
+                            <p className="text-xs">No activity yet</p>
                           </div>
-                        ))}
+                        ) : (
+                          networkLogs.map((req, i) => (
+                            <div key={i} className="flex items-center justify-between p-3 bg-surface-container rounded-xl text-[10px] font-mono">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <span className={cn(
+                                  "px-1.5 py-0.5 rounded text-[8px] font-bold",
+                                  req.method === 'GET' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                                )}>{req.method}</span>
+                                <span className="truncate text-on-surface opacity-80" title={req.url}>{req.url}</span>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0 ml-4">
+                                <span className={cn(
+                                  "font-bold",
+                                  req.status >= 200 && req.status < 300 ? "text-green-600" : "text-red-600"
+                                )}>{req.status}</span>
+                                <span className="text-outline">{req.size}</span>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
@@ -2558,35 +2676,78 @@ export default function App() {
                   {activeTool === 'Security Scan' && (
                     <div className="md-card p-6 space-y-6">
                       <div className="flex flex-col items-center gap-4 py-6">
-                        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                          <ShieldCheck size={48} />
+                        <div className={cn(
+                          "w-20 h-20 rounded-full flex items-center justify-center transition-all",
+                          isSecurityLoading ? "bg-surface-container animate-pulse" :
+                          securityData?.isHttps ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                        )}>
+                          {isSecurityLoading ? <RefreshCw className="animate-spin" size={32} /> : <ShieldCheck size={48} />}
                         </div>
                         <div className="text-center">
-                          <p className="text-lg font-bold">Site is Secure</p>
-                          <p className="text-xs text-outline font-bold">HTTPS Encryption Active</p>
+                          <p className="text-lg font-bold">
+                            {isSecurityLoading ? 'Scanning...' : (securityData?.isHttps ? 'Site is Secure' : 'Site is Unsecure')}
+                          </p>
+                          <p className="text-xs text-outline font-bold">
+                            {securityData?.isHttps ? 'HTTPS Encryption Active' : 'Unencrypted Connection'}
+                          </p>
                         </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl">
-                          <div className="flex items-center gap-3">
-                            <Globe size={18} className="text-primary" />
-                            <span className="text-xs font-bold">SSL Certificate</span>
+
+                      {!isSecurityLoading && securityData && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                          <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl">
+                            <div className="flex items-center gap-3">
+                              <Globe size={18} className="text-primary" />
+                              <span className="text-xs font-bold">SSL/TLS</span>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-bold px-2 py-1 rounded-lg",
+                              securityData.isHttps ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+                            )}>{securityData.isHttps ? 'VALID' : 'MISSING'}</span>
                           </div>
-                          <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-lg">VALID</span>
-                        </div>
-                        <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl">
-                          <div className="flex items-center gap-3">
-                            <ShieldCheck size={18} className="text-primary" />
-                            <span className="text-xs font-bold">Ad Blocker</span>
+                          <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl">
+                            <div className="flex items-center gap-3">
+                              <ShieldCheck size={18} className="text-primary" />
+                              <span className="text-xs font-bold">HSTS</span>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-bold px-2 py-1 rounded-lg",
+                              securityData.hsts ? "text-green-600 bg-green-50" : "text-outline bg-surface-variant"
+                            )}>{securityData.hsts ? 'ENABLED' : 'DISABLED'}</span>
                           </div>
-                          <span className={cn(
-                            "text-[10px] font-bold px-2 py-1 rounded-lg",
-                            settings.enableAdBlock ? "text-green-600 bg-green-50" : "text-outline bg-surface-variant"
-                          )}>
-                            {settings.enableAdBlock ? 'ACTIVE' : 'OFF'}
-                          </span>
+                          <div className="flex items-center justify-between p-4 bg-surface-container rounded-2xl">
+                            <div className="flex items-center gap-3">
+                              <ShieldCheck size={18} className="text-primary" />
+                              <span className="text-xs font-bold">CSP</span>
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-bold px-2 py-1 rounded-lg",
+                              securityData.csp ? "text-green-600 bg-green-50" : "text-outline bg-surface-variant"
+                            )}>{securityData.csp ? 'ACTIVE' : 'MISSING'}</span>
+                          </div>
+                          <div className="p-4 bg-surface-container rounded-2xl space-y-2">
+                            <div className="flex justify-between text-[10px] font-bold text-outline uppercase tracking-wider">
+                              <span>Server Info</span>
+                              <span>Details</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-on-surface-variant">Server</span>
+                              <span className="font-bold">{securityData.server}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span className="text-on-surface-variant">X-Powered-By</span>
+                              <span className="font-bold">{securityData.poweredBy}</span>
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      <button
+                        onClick={() => setActiveTool('Security Scan')}
+                        className="md-button-tonal w-full py-3 text-xs"
+                      >
+                        Refresh Scan
+                      </button>
                     </div>
                   )}
 
@@ -3489,6 +3650,40 @@ export default function App() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* Media Grabber Floating Notification */}
+      <AnimatePresence>
+        {showMediaGrabber && detectedMedia.length > 0 && !isMediaSnifferOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 100 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 100 }}
+            className="fixed bottom-24 right-6 z-[40]"
+          >
+            <button
+              onClick={() => {
+                setIsMediaSnifferOpen(true);
+                setShowMediaGrabber(false);
+              }}
+              className="md-fab relative group"
+            >
+              <Video size={28} />
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-surface shadow-sm">
+                {detectedMedia.length}
+              </span>
+              <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-surface-container-highest px-3 py-1.5 rounded-xl shadow-lg border border-outline-variant/30 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                <span className="text-[10px] font-bold text-on-surface">Media Found!</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setShowMediaGrabber(false)}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-surface-container-highest text-on-surface-variant rounded-full flex items-center justify-center shadow-md border border-outline-variant/30"
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -1,5 +1,6 @@
 import express from "express";
 import axios from "axios";
+import https from "https";
 import * as cheerio from "cheerio";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,8 +13,16 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+let networkLogs: any[] = [];
+const MAX_LOGS = 100;
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Network logs endpoint
+app.get("/api/v1/network-logs", (req, res) => {
+  res.json(networkLogs);
+});
 
 // Markdown conversion endpoint
 app.get("/api/markdown", async (req, res) => {
@@ -151,6 +160,18 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
 
     const response = await axios(axiosConfig);
 
+    // Log the request
+    const logEntry = {
+      method: req.method,
+      url: targetUrl,
+      status: response.status,
+      size: response.headers['content-length'] ? `${(parseInt(response.headers['content-length']) / 1024).toFixed(1)} KB` : 'N/A',
+      type: response.headers['content-type']?.split(';')[0] || 'unknown',
+      timestamp: Date.now()
+    };
+    networkLogs.unshift(logEntry);
+    if (networkLogs.length > MAX_LOGS) networkLogs.pop();
+
     // Forward Set-Cookie headers from the target back to the client
     if (response.headers['set-cookie']) {
       res.setHeader('Set-Cookie', response.headers['set-cookie']);
@@ -227,7 +248,9 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         'aside.sidebar-ads', 'div.sponsor-content', 'div.promoted-content',
         'iframe[src*="doubleclick.net"]', 'iframe[src*="googlesyndication.com"]',
         'iframe[src*="adnxs.com"]', 'iframe[src*="taboola.com"]',
-        'iframe[src*="outbrain.com"]', 'iframe[src*="amazon-adsystem.com"]'
+        'iframe[src*="outbrain.com"]', 'iframe[src*="amazon-adsystem.com"]',
+        'div[class*="ad-"]', 'div[id*="ad-"]', 'div[class*="sponsor"]',
+        'section[class*="ad-"]', 'iframe[id*="google_ads"]', 'div[data-ad-unit]'
       ];
       $(adSelectors.join(', ')).remove();
     }
@@ -250,7 +273,8 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
             const [url, size] = part.trim().split(/\s+/);
             try {
               const absUrl = new URL(url, finalUrl).href;
-              return `//${host}/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${size ? ' ' + size : ''}`;
+              const sidParam = sessionId ? `&sid=${sessionId}` : '';
+              return `//${host}/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${sidParam}${size ? ' ' + size : ''}`;
             } catch (e) {
               return part;
             }
@@ -260,16 +284,13 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         }
 
         try {
-          let absoluteUrl = "";
-          if (val.startsWith("http") || val.startsWith("//")) {
-            absoluteUrl = val.startsWith("//") ? "https:" + val : val;
-          } else {
-            // Use the final URL after redirects for relative resolution
-            absoluteUrl = new URL(val, finalUrl).href;
-          }
+          // Use URL constructor with finalUrl as base to handle relative and protocol-relative URLs
+          const absoluteUrl = new URL(val, finalUrl).href;
 
           const encodedUrl = `b64:${Buffer.from(absoluteUrl).toString('base64')}`;
-          $(el).attr(attr, `//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+          // Preserve sessionId if present
+          const sidParam = sessionId ? `&sid=${sessionId}` : '';
+          $(el).attr(attr, `//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}${sidParam}`);
         } catch (e) {
           // Ignore invalid URLs
         }
@@ -306,6 +327,9 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         if (adBlock && $(el).find('input[name="adblock"]').length === 0) {
           $(el).prepend('<input type="hidden" name="adblock" value="true">');
         }
+        if (sessionId && $(el).find('input[name="sid"]').length === 0) {
+          $(el).prepend(`<input type="hidden" name="sid" value="${sessionId}">`);
+        }
       } catch (e) {}
     });
 
@@ -318,7 +342,8 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
           try {
             const refreshUrl = new URL(parts[1].trim(), finalUrl).href;
             const encodedUrl = `b64:${Buffer.from(refreshUrl).toString('base64')}`;
-            $(el).attr('content', `${parts[0]}url=//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+            const sidParam = sessionId ? `&sid=${sessionId}` : '';
+            $(el).attr('content', `${parts[0]}url=//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}${sidParam}`);
           } catch (e) {}
         }
       }
@@ -534,6 +559,39 @@ app.get(["/api/reader", "/reader"], async (req, res) => {
       res.status(500).send(`Error fetching reader mode: ${error.message}`);
     }
   });
+
+// Security check endpoint
+app.get("/api/v1/security-check", async (req, res) => {
+  const targetUrl = req.query.u as string;
+  if (!targetUrl) return res.status(400).send("URL is required");
+
+  try {
+    const response = await axios.get(targetUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+      },
+      timeout: 10000,
+      validateStatus: () => true,
+    });
+
+    const headers = response.headers;
+    const isHttps = targetUrl.startsWith('https://');
+
+    const check = {
+      isHttps,
+      hsts: !!headers['strict-transport-security'],
+      csp: !!headers['content-security-policy'],
+      xFrameOptions: headers['x-frame-options'] || 'Not set',
+      contentTypeOptions: headers['x-content-type-options'] || 'Not set',
+      poweredBy: headers['x-powered-by'] || 'Hidden',
+      server: headers['server'] || 'Hidden'
+    };
+
+    res.json(check);
+  } catch (error: any) {
+    res.status(500).send(`Security check error: ${error.message}`);
+  }
+});
 
 // AI Analysis endpoint
 app.get("/api/analyze", async (req, res) => {
