@@ -95,6 +95,8 @@ export default function App() {
   const [isMediaSnifferOpen, setIsMediaSnifferOpen] = useState(false);
   const [isToolboxOpen, setIsToolboxOpen] = useState(false);
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<string[]>([]);
   const [calcValue, setCalcValue] = useState('0');
   const [qrText, setQrText] = useState('');
@@ -284,6 +286,22 @@ export default function App() {
       setTranslateResult('Translation failed. Please try again.');
     }
   };
+
+  const handleAiAnalyze = async () => {
+    setIsAiLoading(true);
+    setAiSummary('');
+    try {
+      const res = await fetch(`/api/analyze?url=${encodeURIComponent(activeTab.url)}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      setAiSummary(data.summary);
+    } catch (e: any) {
+      setAiSummary(`AI Analysis failed: ${e.message}`);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const getIframeSrc = () => {
@@ -401,13 +419,17 @@ export default function App() {
       if (finalUrl.includes('.') && !finalUrl.includes(' ')) {
         finalUrl = `https://${finalUrl}`;
       } else {
-        const searchUrls = {
-          google: 'https://www.google.com/search?q=',
-          bing: 'https://www.bing.com/search?q=',
-          duckduckgo: 'https://duckduckgo.com/?q='
-        };
-        const baseUrl = searchUrls[settings.searchEngine] || searchUrls.google;
-        finalUrl = `${baseUrl}${encodeURIComponent(finalUrl)}`;
+        if (settings.searchEngine === 'custom' && settings.customSearchUrl) {
+          finalUrl = settings.customSearchUrl.replace('%s', encodeURIComponent(finalUrl));
+        } else {
+          const searchUrls = {
+            google: 'https://www.google.com/search?q=',
+            bing: 'https://www.bing.com/search?q=',
+            duckduckgo: 'https://duckduckgo.com/?q='
+          };
+          const baseUrl = (searchUrls as any)[settings.searchEngine] || searchUrls.google;
+          finalUrl = `${baseUrl}${encodeURIComponent(finalUrl)}`;
+        }
       }
     }
     
@@ -549,7 +571,7 @@ export default function App() {
       }
     }
 
-    const mhtml = `From: <Saved by DroidSurf>\nSubject: ${activeTab.title}\nDate: ${new Date().toUTCString()}\nMIME-Version: 1.0\nContent-Type: text/html; charset="utf-8"\n\n${html}`;
+    const mhtml = `From: <Saved by Omni Web>\nSubject: ${activeTab.title}\nDate: ${new Date().toUTCString()}\nMIME-Version: 1.0\nContent-Type: text/html; charset="utf-8"\n\n${html}`;
     const blob = new Blob([mhtml], { type: 'message/rfc822' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1376,6 +1398,7 @@ export default function App() {
                   </CategorySection>
 
                   <CategorySection title="Utilities" id="utils">
+                    <ToolButton label="AI Summary" icon={Wand2} color="text-purple-600" bg="bg-purple-50" id="AI Summary" />
                     <ToolButton label="Calculator" icon={Calculator} color="text-green-600" bg="bg-green-50" id="Calculator" />
                     <ToolButton label="Translate" icon={Languages} color="text-blue-600" bg="bg-blue-50" id="Translate" />
                     <ToolButton label="QR Gen" icon={QrCode} color="text-rose-600" bg="bg-rose-50" id="QR Generator" />
@@ -1711,6 +1734,49 @@ export default function App() {
                           <p className="font-mono font-bold text-lg truncate">{qrText}</p>
                           <button onClick={() => navigator.clipboard.writeText(qrText)} className="text-primary p-2">
                             <Copy size={20} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTool === 'AI Summary' && (
+                    <div className="md-card p-6 space-y-6">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className={cn(
+                          "w-16 h-16 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center transition-all",
+                          isAiLoading ? "animate-pulse" : ""
+                        )}>
+                          <Wand2 size={32} />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-bold">AI Page Summary</p>
+                          <p className="text-xs text-outline font-bold">Powered by Gemini 1.5 Flash</p>
+                        </div>
+                        <button
+                          onClick={handleAiAnalyze}
+                          disabled={isAiLoading}
+                          className="md-button-filled w-full py-3 flex items-center justify-center gap-2"
+                        >
+                          {isAiLoading ? <RefreshCw className="animate-spin" size={18} /> : <Wand2 size={18} />}
+                          {isAiLoading ? 'Analyzing...' : 'Generate Summary'}
+                        </button>
+                      </div>
+
+                      {aiSummary && (
+                        <div className="bg-purple-50/50 border border-purple-100 p-5 rounded-2xl animate-in fade-in slide-in-from-top-4 duration-300">
+                          <div className="flex items-center gap-2 mb-3 text-purple-600">
+                            <FileText size={16} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Summary Result</span>
+                          </div>
+                          <p className="text-sm leading-relaxed text-on-surface whitespace-pre-wrap">
+                            {aiSummary}
+                          </p>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(aiSummary)}
+                            className="mt-4 text-[10px] font-bold text-purple-600 flex items-center gap-1 hover:underline"
+                          >
+                            <Copy size={12} /> Copy Summary
                           </button>
                         </div>
                       )}
