@@ -71,6 +71,8 @@ import html2canvas from 'html2canvas';
 const DEFAULT_URL = 'https://www.google.com';
 
 export default function App() {
+  const isFramed = typeof window !== 'undefined' && window.self !== window.top;
+
   const [tabs, setTabs] = useState<Tab[]>(() => {
     const saved = localStorage.getItem('browser_settings');
     const initialUrl = saved ? JSON.parse(saved).homepageUrl : DEFAULT_URL;
@@ -400,7 +402,20 @@ export default function App() {
       try {
         const urlObj = new URL(finalUrl, window.location.origin);
         const extracted = urlObj.searchParams.get('url');
-        if (extracted) finalUrl = extracted;
+        if (extracted) {
+          try {
+            const targetUrlObj = new URL(extracted);
+            // Re-append other parameters that might be on the proxy URL but belong to the target
+            urlObj.searchParams.forEach((value, key) => {
+              if (key !== 'url' && key !== 'adblock') {
+                targetUrlObj.searchParams.append(key, value);
+              }
+            });
+            finalUrl = targetUrlObj.toString();
+          } catch (e) {
+            finalUrl = extracted;
+          }
+        }
       } catch (e) {
         const match = finalUrl.match(/[?&]url=([^&]+)/);
         if (match) {
@@ -669,7 +684,8 @@ export default function App() {
     if (!hubUrl) return;
     try {
       const cleanUrl = hubUrl.endsWith('/') ? hubUrl : hubUrl + '/';
-      const response = await fetch(`${cleanUrl}links.json`);
+      const targetUrl = `${cleanUrl}links.json`;
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
       if (!response.ok) throw new Error('Failed to fetch links.json');
       const data = await response.json();
       if (Array.isArray(data)) {
@@ -854,6 +870,26 @@ export default function App() {
     return matchesFilter && matchesSearch;
   });
 
+  if (isFramed) {
+    return (
+      <div className="w-full h-screen bg-white overflow-hidden relative">
+        <iframe
+          ref={iframeRef}
+          src={getIframeSrc()}
+          className="w-full h-full border-none"
+          onLoad={handleIframeLoad}
+          referrerPolicy="no-referrer"
+          allow="autoplay; camera; clipboard-read; clipboard-write; encrypted-media; fullscreen; geolocation; microphone; midi; screen-wake-lock; web-share"
+        />
+        {activeTab.loading && (
+          <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-50">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div 
       className="flex flex-col h-screen bg-[#F5F5F5] font-sans text-[#1A1A1A] overflow-hidden select-none"
@@ -950,7 +986,7 @@ export default function App() {
         </div>
         
         {/* Loading Overlay */}
-        {activeTab.loading && (
+        {activeTab.loading && !isFramed && (
           <div className="absolute inset-0 bg-white/80 flex items-center justify-center z-10">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
