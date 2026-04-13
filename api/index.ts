@@ -66,19 +66,20 @@ function getTargetUrl(req: express.Request): string | null {
 // Proxy endpoint
 app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
   let targetUrl = getTargetUrl(req);
-  const adBlock = (req.query.adblock === 'true' || req.body?.adblock === 'true');
+  const adBlock = (req.query.ab === 'true' || req.body?.ab === 'true' || req.query.adblock === 'true' || req.body?.adblock === 'true');
 
   if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null' || targetUrl.trim() === '') {
     console.error(`[Proxy] Missing URL. Method: ${req.method}, Query:`, req.query, `Body:`, req.body, `Raw URL:`, req.url);
     return res.status(400).send("URL is required. Please try refreshing the page or re-entering the URL.");
   }
 
-  // Reconstruct the full target URL by including all query parameters except 'id', 'u', 'adblock'
+  // Reconstruct the full target URL by including all query parameters except 'id', 'u', 'ab', 'adblock'
   // Only for GET requests where the targetUrl doesn't already have these params
   if (req.method === 'GET') {
     const queryParams = { ...req.query };
     delete queryParams.id;
     delete queryParams.u;
+    delete queryParams.ab;
     delete queryParams.adblock;
 
     if (Object.keys(queryParams).length > 0) {
@@ -232,6 +233,26 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
       $(adSelectors.join(', ')).remove();
     }
 
+    // Handle GET forms first to prevent them from being rewritten as simple links
+    $('form[method="GET"], form:not([method])').each((_, el) => {
+      const action = $(el).attr('action') || '';
+      try {
+        const absoluteAction = new URL(action, finalUrl).href;
+        const encodedAction = `b64:${Buffer.from(absoluteAction).toString('base64')}`;
+
+        // Change action to our proxy
+        $(el).attr('action', '/api/v1/content');
+
+        // Inject hidden input if not already present
+        if ($(el).find('input[name="id"]').length === 0) {
+          $(el).prepend(`<input type="hidden" name="id" value="${encodedAction}">`);
+        }
+        if (adBlock && $(el).find('input[name="ab"]').length === 0 && $(el).find('input[name="adblock"]').length === 0) {
+          $(el).prepend('<input type="hidden" name="ab" value="true">');
+        }
+      } catch (e) {}
+    });
+
     // Rewrite URLs to stay within proxy
     $("[href], [src], [action], [data-href], [data-src], [srcset]").each((_, el) => {
       const attrs = ["href", "src", "action", "data-href", "data-src", "srcset"];
@@ -239,12 +260,15 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         let val = $(el).attr(attr);
         if (!val || val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('#')) return;
 
+        // Skip if it's already a proxy URL
+        if (val.startsWith('/api/v1/content') || val.startsWith('/api/browse') || val.startsWith('/browse')) return;
+
         if (attr === 'srcset') {
           const parts = val.split(',').map(part => {
             const [url, size] = part.trim().split(/\s+/);
             try {
               const absUrl = new URL(url, finalUrl).href;
-              return `/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${size ? ' ' + size : ''}`;
+              return `/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&ab=true' : ''}${size ? ' ' + size : ''}`;
             } catch (e) {
               return part;
             }
@@ -263,31 +287,11 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
           }
 
           const encodedUrl = `b64:${Buffer.from(absoluteUrl).toString('base64')}`;
-          $(el).attr(attr, `/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+          $(el).attr(attr, `/api/v1/content?id=${encodedUrl}${adBlock ? '&ab=true' : ''}`);
         } catch (e) {
           // Ignore invalid URLs
         }
       });
-    });
-
-    // Handle GET forms by injecting a hidden 'id' field
-    $('form[method="GET"], form:not([method])').each((_, el) => {
-      const action = $(el).attr('action') || '';
-      try {
-        const absoluteAction = new URL(action, finalUrl).href;
-        const encodedAction = `b64:${Buffer.from(absoluteAction).toString('base64')}`;
-
-        // Change action to our proxy
-        $(el).attr('action', '/api/v1/content');
-
-        // Inject hidden input if not already present
-        if ($(el).find('input[name="id"]').length === 0) {
-          $(el).prepend(`<input type="hidden" name="id" value="${encodedAction}">`);
-        }
-        if (adBlock && $(el).find('input[name="adblock"]').length === 0) {
-          $(el).prepend('<input type="hidden" name="adblock" value="true">');
-        }
-      } catch (e) {}
     });
 
     // Handle meta refresh
@@ -298,8 +302,9 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         if (parts.length > 1) {
           try {
             const refreshUrl = new URL(parts[1].trim(), finalUrl).href;
+            if (refreshUrl.includes('/api/v1/content') || refreshUrl.includes('/api/browse')) return;
             const encodedUrl = `b64:${Buffer.from(refreshUrl).toString('base64')}`;
-            $(el).attr('content', `${parts[0]}url=/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+            $(el).attr('content', `${parts[0]}url=/api/v1/content?id=${encodedUrl}${adBlock ? '&ab=true' : ''}`);
           } catch (e) {}
         }
       }
@@ -425,7 +430,7 @@ app.get("/api/source", async (req, res) => {
 // Reader mode endpoint (simplified)
 app.get(["/api/reader", "/reader"], async (req, res) => {
     const targetUrl = req.query.u as string;
-    const adBlock = req.query.adblock === 'true';
+    const adBlock = req.query.ab === 'true' || req.query.adblock === 'true';
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
       const response = await axios.get(targetUrl, { timeout: 15000 });

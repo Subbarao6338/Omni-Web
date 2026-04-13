@@ -329,7 +329,7 @@ export default function App() {
   const getIframeSrc = () => {
     if (!activeTab.url || activeTab.url === 'about:blank') return 'about:blank';
     
-    const adBlock = settings.enableAdBlock ? '&adblock=true' : '';
+    const adBlock = settings.enableAdBlock ? '&ab=true' : '';
     const url = activeTab.url;
     
     // If it's already a proxy URL, don't wrap it again
@@ -428,7 +428,7 @@ export default function App() {
             const targetUrlObj = new URL(realUrl);
             // Re-append other parameters that might be on the proxy URL but belong to the target
             urlObj.searchParams.forEach((value, key) => {
-              if (key !== 'id' && key !== 'u' && key !== 'adblock') {
+              if (key !== 'id' && key !== 'u' && key !== 'ab' && key !== 'adblock') {
                 targetUrlObj.searchParams.append(key, value);
               }
             });
