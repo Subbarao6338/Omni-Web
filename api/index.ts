@@ -360,6 +360,15 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         '  setInterval(sniff, 3000);' +
         '  sniff();' +
         '  ' +
+        '  let lastY = window.scrollY;' +
+        '  window.addEventListener("scroll", () => {' +
+        '    const currentY = window.scrollY;' +
+        '    if (Math.abs(currentY - lastY) > 10) {' +
+        '      window.parent.postMessage({ type: "SCROLL", direction: currentY > lastY ? "down" : "up", y: currentY }, "*");' +
+        '      lastY = currentY;' +
+        '    }' +
+        '  }, { passive: true });' +
+        '  ' +
         '  document.addEventListener("click", (e) => {' +
         '    const link = e.target.closest("a");' +
         '    if (link && link.href && !link.href.startsWith("javascript:") && !link.href.startsWith("#")) {' +

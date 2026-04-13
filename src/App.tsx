@@ -68,7 +68,7 @@ import TurndownService from 'turndown';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
-const DEFAULT_URL = 'https://www.google.com';
+const DEFAULT_URL = 'about:home';
 
 const toBase64Url = (url: string) => {
   if (!url || url === 'about:blank') return url;
@@ -88,6 +88,83 @@ const fromBase64Url = (url: string) => {
     }
   }
   return url;
+};
+
+const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
+  const [query, setQuery] = React.useState('');
+  const shortcuts = [
+    { title: 'Google', url: 'https://www.google.com' },
+    { title: 'YouTube', url: 'https://www.youtube.com' },
+    { title: 'GitHub', url: 'https://www.github.com' },
+    { title: 'Reddit', url: 'https://www.reddit.com' },
+    { title: 'Wikipedia', url: 'https://www.wikipedia.org' },
+    { title: 'Amazon', url: 'https://www.amazon.com' },
+    { title: 'X', url: 'https://x.com' },
+    { title: 'Instagram', url: 'https://www.instagram.com' },
+  ];
+
+  return (
+    <div className="flex flex-col items-center pt-16 px-6 h-full bg-[#F5F5F5] overflow-y-auto">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-20 h-20 bg-primary rounded-[28px] flex items-center justify-center mb-8 shadow-xl shadow-primary/20"
+      >
+        <Globe size={48} className="text-white" />
+      </motion.div>
+      <motion.h1
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="text-2xl font-bold mb-8 text-on-surface tracking-tight"
+      >
+        Omni Web
+      </motion.h1>
+
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="w-full max-w-md relative mb-12"
+      >
+        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-primary">
+          <Search size={20} />
+        </div>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onNavigate(query)}
+          placeholder="Search or type URL"
+          className="w-full pl-14 pr-6 py-4.5 bg-white rounded-3xl shadow-sm border-none focus:ring-4 focus:ring-primary/10 text-base transition-all"
+        />
+      </motion.div>
+
+      <motion.div
+        initial={{ y: 10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-4 gap-y-8 gap-x-4 w-full max-w-md pb-20"
+      >
+        {shortcuts.map((s, i) => (
+          <button
+            key={i}
+            onClick={() => onNavigate(s.url)}
+            className="flex flex-col items-center gap-2 group"
+          >
+            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all">
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${s.url}&sz=64`}
+                alt={s.title}
+                className="w-8 h-8 rounded-lg"
+              />
+            </div>
+            <span className="text-[10px] font-bold text-on-surface-variant truncate w-full text-center px-1">{s.title}</span>
+          </button>
+        ))}
+      </motion.div>
+    </div>
+  );
 };
 
 export default function App() {
@@ -140,6 +217,9 @@ export default function App() {
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isFindOnPageOpen, setIsFindOnPageOpen] = useState(false);
   const [findText, setFindText] = useState('');
+
+  const [showNav, setShowNav] = useState(true);
+  const lastScrollY = useRef(0);
 
   const [mediaFilter, setMediaFilter] = useState<'all' | 'video' | 'audio' | 'image'>('all');
   const [mediaSearch, setMediaSearch] = useState('');
@@ -327,7 +407,7 @@ export default function App() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const getIframeSrc = () => {
-    if (!activeTab.url || activeTab.url === 'about:blank') return 'about:blank';
+    if (!activeTab.url || activeTab.url === 'about:blank' || activeTab.url === 'about:home') return 'about:blank';
     
     const adBlock = settings.enableAdBlock ? '&adblock=true' : '';
     const url = activeTab.url;
@@ -356,6 +436,12 @@ export default function App() {
         if (newMedia.length > 0) setShowMediaGrabber(true);
       } else if (event.data?.type === 'NAVIGATE_TO') {
         navigate(event.data.url);
+      } else if (event.data?.type === 'SCROLL') {
+        if (event.data.direction === 'down' && event.data.y > 50) {
+          setShowNav(false);
+        } else {
+          setShowNav(true);
+        }
       }
     };
 
@@ -388,6 +474,21 @@ export default function App() {
       refreshCookies();
     }
   }, [activeTool]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY > lastScrollY.current && currentScrollY > 50) {
+        setShowNav(false);
+      } else {
+        setShowNav(true);
+      }
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Execute User Scripts on page load
   const handleIframeLoad = () => {
@@ -917,24 +1018,25 @@ export default function App() {
       onContextMenu={handleContextMenu}
     >
       {/* Address Bar */}
-      <div className="bg-surface px-4 py-2 flex flex-col gap-2 z-30 border-b border-outline-variant/30 shadow-sm">
-        <div className="flex items-center gap-2">
-          <button onClick={() => window.history.back()} className="p-1.5 hover:bg-primary/10 rounded-full transition-colors text-primary">
-            <ChevronLeft size={20} />
+      <motion.div
+        animate={{ y: showNav ? 0 : -100 }}
+        transition={{ duration: 0.2 }}
+        className="bg-surface/95 backdrop-blur-lg px-4 py-3 flex flex-col gap-2 z-30 border-b border-outline-variant/20 shadow-sm sticky top-0"
+      >
+        <div className="flex items-center gap-3">
+          <button onClick={() => { if (activeTab.url === 'about:home') window.history.back(); else navigate('about:home'); }} className="p-2 hover:bg-primary/10 rounded-full transition-colors text-primary">
+            {activeTab.url === 'about:home' ? <ChevronLeft size={24} /> : <Globe size={24} />}
           </button>
           <div className="flex-1 relative group">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">
-              <Search size={16} />
-            </div>
             <input 
               type="text"
-              value={urlInput}
+              value={urlInput === 'about:home' ? '' : urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && navigate(urlInput)}
-              className="md-input w-full pl-10 pr-20 bg-surface-container-low border-none text-on-surface placeholder:text-on-surface/40 focus:bg-white py-2 text-xs shadow-inner"
+              className="w-full pl-5 pr-12 py-3 bg-surface-container-highest border-none rounded-2xl text-on-surface placeholder:text-on-surface/40 focus:bg-white focus:ring-2 focus:ring-primary/20 text-sm transition-all shadow-inner"
               placeholder="Search or type URL"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
               {isSocialUrl(activeTab.url) && (
                 <button 
                   onClick={() => window.open(`https://cobalt.tools/?url=${encodeURIComponent(activeTab.url)}`, '_blank')}
@@ -952,8 +1054,8 @@ export default function App() {
               </button>
             </div>
           </div>
-          <button onClick={() => navigate(activeTab.url)} className="p-1.5 hover:bg-primary/10 rounded-full transition-colors text-primary">
-            <RotateCcw size={18} />
+          <button onClick={() => navigate(activeTab.url)} className="p-2 hover:bg-primary/10 rounded-full transition-colors text-primary">
+            <RotateCcw size={22} />
           </button>
         </div>
 
@@ -982,29 +1084,33 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       {/* Browser Viewport */}
       <div className="flex-1 relative bg-white overflow-hidden">
-        <div className={cn(
-          "w-full h-full transition-all duration-500",
-          settings.desktopMode ? "origin-top-left" : ""
+        {activeTab.url === 'about:home' ? (
+          <HomeView onNavigate={navigate} />
+        ) : (
+          <div className={cn(
+            "w-full h-full transition-all duration-500",
+            settings.desktopMode ? "origin-top-left" : ""
+          )}
+          style={settings.desktopMode ? {
+            width: '1280px',
+            height: `${100 / (1280 / window.innerWidth)}%`,
+            transform: `scale(${window.innerWidth / 1280})`,
+          } : {}}
+          >
+            <iframe
+              ref={iframeRef}
+              src={getIframeSrc()}
+              className="w-full h-full border-none"
+              onLoad={handleIframeLoad}
+              referrerPolicy="no-referrer"
+              allow="autoplay; camera; clipboard-read; clipboard-write; encrypted-media; fullscreen; geolocation; microphone; midi; screen-wake-lock; web-share"
+            />
+          </div>
         )}
-        style={settings.desktopMode ? {
-          width: '1280px',
-          height: `${100 / (1280 / window.innerWidth)}%`,
-          transform: `scale(${window.innerWidth / 1280})`,
-        } : {}}
-        >
-          <iframe 
-            ref={iframeRef}
-            src={getIframeSrc()}
-            className="w-full h-full border-none"
-            onLoad={handleIframeLoad}
-            referrerPolicy="no-referrer"
-            allow="autoplay; camera; clipboard-read; clipboard-write; encrypted-media; fullscreen; geolocation; microphone; midi; screen-wake-lock; web-share"
-          />
-        </div>
         
         {/* Loading Overlay */}
         {activeTab.loading && !isFramed && (
@@ -1015,7 +1121,11 @@ export default function App() {
       </div>
 
       {/* Bottom Navigation Bar */}
-      <div className="md-bottom-nav">
+      <motion.div
+        animate={{ y: showNav ? 0 : 100 }}
+        transition={{ duration: 0.2 }}
+        className="md-bottom-nav sticky bottom-0 bg-surface/95 backdrop-blur-lg border-t border-outline-variant/20 pb-safe shadow-2xl"
+      >
         <button 
           onClick={() => setIsTabsOpen(true)} 
           className={cn(
@@ -1024,8 +1134,8 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "relative w-12 h-6 flex items-center justify-center rounded-full transition-colors",
-            isTabsOpen ? "bg-primary/10" : "hover:bg-primary/5"
+            "relative w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            isTabsOpen ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <Layers size={18} />
             <span className="absolute -top-1 -right-1 bg-primary text-on-primary text-[7px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center border border-surface">
@@ -1042,8 +1152,8 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "w-12 h-6 flex items-center justify-center rounded-full transition-colors",
-            isDownloadsOpen ? "bg-primary/10" : "hover:bg-primary/5"
+            "w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            isDownloadsOpen ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <Download size={18} />
           </div>
@@ -1057,8 +1167,8 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "w-14 h-8 flex items-center justify-center rounded-full transition-colors",
-            isMenuOpen ? "bg-primary/10" : "hover:bg-primary/5"
+            "w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            isMenuOpen ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <MoreVertical size={24} />
           </div>
@@ -1072,8 +1182,8 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "relative w-12 h-6 flex items-center justify-center rounded-full transition-colors",
-            isMediaSnifferOpen ? "bg-primary/10" : "hover:bg-primary/5"
+            "relative w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            isMediaSnifferOpen ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <Video size={18} />
             {detectedMedia.length > 0 && (
@@ -1092,8 +1202,8 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "w-12 h-6 flex items-center justify-center rounded-full transition-colors",
-            activeTool === 'Omni Hub' && isToolboxOpen ? "bg-primary/10" : "hover:bg-primary/5"
+            "w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            activeTool === 'Omni Hub' && isToolboxOpen ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <Globe size={18} />
           </div>
@@ -1107,14 +1217,14 @@ export default function App() {
           )}
         >
           <div className={cn(
-            "w-12 h-6 flex items-center justify-center rounded-full transition-colors",
-            isToolboxOpen && !activeTool ? "bg-primary/10" : "hover:bg-primary/5"
+            "w-16 h-8 flex items-center justify-center rounded-2xl transition-all",
+            isToolboxOpen && !activeTool ? "bg-primary text-white shadow-lg shadow-primary/20 scale-105" : "hover:bg-primary/5"
           )}>
             <Wand2 size={18} />
           </div>
           <span className="text-[10px] font-bold tracking-tight">Tools</span>
         </button>
-      </div>
+      </motion.div>
 
       {/* Tabs Overlay */}
       <AnimatePresence>
