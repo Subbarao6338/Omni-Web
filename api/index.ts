@@ -17,7 +17,7 @@ app.get("/api/markdown", async (req, res) => {
   const targetUrl = req.query.url as string;
   if (!targetUrl) return res.status(400).send("URL is required");
   try {
-    const response = await axios.get(targetUrl);
+    const response = await axios.get(targetUrl, { timeout: 15000 });
     const $ = cheerio.load(response.data);
 
     // Remove noise
@@ -87,7 +87,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
       const targetHost = targetUrlObj.host;
       if (targetHost === host || (process.env.NODE_ENV !== 'production' && (targetHost === 'localhost' || targetHost.startsWith('localhost:')))) {
         const urlPath = targetUrlObj.pathname;
-        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/proxy')) {
+        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/proxy') || urlPath.startsWith('/api/proxy')) {
           return res.status(400).send("Circular proxy detected. Cannot proxy the browser itself.");
         }
       }
@@ -97,6 +97,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   }
 
   try {
+    console.log("[Proxy] Fetching:", targetUrl);
     const response = await axios.get(targetUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -106,6 +107,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
       responseType: "arraybuffer", // Use arraybuffer to handle images/binary
       maxRedirects: 10,
       validateStatus: () => true,
+      timeout: 15000,
     });
 
     // Get the final URL after redirects
@@ -308,6 +310,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
 
       res.send($.html());
     } catch (error: any) {
+      console.error("[Proxy] Error:", error.message);
       res.status(500).send(`Proxy error: ${error.message}`);
     }
 });
@@ -317,7 +320,7 @@ app.get("/api/source", async (req, res) => {
     const targetUrl = req.query.url as string;
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
-      const response = await axios.get(targetUrl);
+      const response = await axios.get(targetUrl, { timeout: 15000 });
       res.set("Content-Type", "text/plain");
       res.send(response.data);
     } catch (error: any) {
@@ -331,7 +334,7 @@ app.get(["/api/reader", "/reader"], async (req, res) => {
     const adBlock = req.query.adblock === 'true';
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
-      const response = await axios.get(targetUrl);
+      const response = await axios.get(targetUrl, { timeout: 15000 });
       const $ = cheerio.load(response.data);
 
       // Remove noise
@@ -392,7 +395,8 @@ app.get("/api/analyze", async (req, res) => {
     const response = await axios.get(targetUrl, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-      }
+      },
+      timeout: 15000
     });
     const $ = cheerio.load(response.data);
 
