@@ -12,6 +12,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Markdown conversion endpoint
 app.get("/api/markdown", async (req, res) => {
   const targetUrl = req.query.u as string;
@@ -30,47 +33,67 @@ app.get("/api/markdown", async (req, res) => {
   }
 });
 
-// Proxy endpoint
-app.get(["/api/browse", "/browse"], async (req, res) => {
-  let targetUrl = req.query.u as string;
-  const adBlock = req.query.adblock === 'true';
+// Helper to decode URL from id or u parameter
+function getTargetUrl(req: express.Request): string | null {
+  let url = (req.query.id || req.query.u || req.body?.id || req.body?.u) as string;
 
-  // Reconstruct the full target URL by including all query parameters except 'u' and 'adblock'
-  // This handles cases where the target URL itself contains query parameters that weren't properly encoded
-  const queryParams = { ...req.query };
-  delete queryParams.u;
-  delete queryParams.adblock;
-
-  if (targetUrl && Object.keys(queryParams).length > 0) {
-    try {
-      const urlObj = new URL(targetUrl);
-      Object.entries(queryParams).forEach(([key, value]) => {
-        if (value !== undefined) {
-          urlObj.searchParams.append(key, String(value));
-        }
-      });
-      targetUrl = urlObj.toString();
-    } catch (e) {
-      // If targetUrl is not a full URL yet, we'll handle it later
-    }
-  }
-
-  // Robust URL extraction from raw request as a fallback
-  if (targetUrl && !targetUrl.startsWith('http')) {
+  if (!url && req.method === 'GET') {
+    // Fallback for when query params are stripped by forms
     const rawUrl = req.url;
-    const urlParamMatch = rawUrl.match(/[?&]u=([^&]+)/);
-    if (urlParamMatch) {
+    const match = rawUrl.match(/[?&](id|u)=([^&]+)/);
+    if (match) {
       try {
-        targetUrl = decodeURIComponent(urlParamMatch[1]);
+        url = decodeURIComponent(match[2]);
       } catch (e) {
-        targetUrl = urlParamMatch[1];
+        url = match[2];
       }
     }
   }
 
+  if (!url) return null;
+
+  if (url.startsWith('b64:')) {
+    try {
+      return Buffer.from(url.substring(4), 'base64').toString('utf-8');
+    } catch (e) {
+      return url;
+    }
+  }
+
+  return url;
+}
+
+// Proxy endpoint
+app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
+  let targetUrl = getTargetUrl(req);
+  const adBlock = (req.query.adblock === 'true' || req.body?.adblock === 'true');
+
   if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null' || targetUrl.trim() === '') {
-    console.error(`[Proxy] Missing URL. Query:`, req.query, `Raw URL:`, req.url);
+    console.error(`[Proxy] Missing URL. Method: ${req.method}, Query:`, req.query, `Body:`, req.body, `Raw URL:`, req.url);
     return res.status(400).send("URL is required. Please try refreshing the page or re-entering the URL.");
+  }
+
+  // Reconstruct the full target URL by including all query parameters except 'id', 'u', 'adblock'
+  // Only for GET requests where the targetUrl doesn't already have these params
+  if (req.method === 'GET') {
+    const queryParams = { ...req.query };
+    delete queryParams.id;
+    delete queryParams.u;
+    delete queryParams.adblock;
+
+    if (Object.keys(queryParams).length > 0) {
+      try {
+        const urlObj = new URL(targetUrl);
+        Object.entries(queryParams).forEach(([key, value]) => {
+          if (value !== undefined && !urlObj.searchParams.has(key)) {
+            urlObj.searchParams.append(key, String(value));
+          }
+        });
+        targetUrl = urlObj.toString();
+      } catch (e) {
+        // Not a full URL yet
+      }
+    }
   }
 
   // Clean up the URL (sometimes it gets double encoded or has trailing junk)
@@ -87,7 +110,7 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
       const targetHost = targetUrlObj.host;
       if (targetHost === host || (process.env.NODE_ENV !== 'production' && (targetHost === 'localhost' || targetHost.startsWith('localhost:')))) {
         const urlPath = targetUrlObj.pathname;
-        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/browse') || urlPath.startsWith('/api/browse')) {
+        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/browse') || urlPath.startsWith('/api/browse') || urlPath.startsWith('/api/v1/content')) {
           return res.status(400).send("Circular proxy detected. Cannot proxy the browser itself.");
         }
       }
@@ -97,18 +120,41 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
   }
 
   try {
-    console.log("[Proxy] Fetching:", targetUrl);
-    const response = await axios.get(targetUrl, {
+    console.log(`[Proxy] [${req.method}] Fetching:`, targetUrl);
+
+    const axiosConfig: any = {
+      method: req.method,
+      url: targetUrl,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
       },
-      responseType: "arraybuffer", // Use arraybuffer to handle images/binary
+      responseType: "arraybuffer",
       maxRedirects: 10,
       validateStatus: () => true,
       timeout: 15000,
-    });
+    };
+
+    if (req.method === 'POST') {
+      axiosConfig.data = req.body;
+      // Forward content-type for POST
+      if (req.headers['content-type']) {
+        axiosConfig.headers['Content-Type'] = req.headers['content-type'];
+      }
+    }
+
+    // Forward cookies from the client
+    if (req.headers.cookie) {
+      axiosConfig.headers['Cookie'] = req.headers.cookie;
+    }
+
+    const response = await axios(axiosConfig);
+
+    // Forward Set-Cookie headers from the target back to the client
+    if (response.headers['set-cookie']) {
+      res.setHeader('Set-Cookie', response.headers['set-cookie']);
+    }
 
     // Get the final URL after redirects
     const finalUrl = response.request.res.responseUrl || targetUrl;
@@ -187,11 +233,25 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
     }
 
     // Rewrite URLs to stay within proxy
-    $("[href], [src], [action], [data-href], [data-src]").each((_, el) => {
-      const attrs = ["href", "src", "action", "data-href", "data-src"];
+    $("[href], [src], [action], [data-href], [data-src], [srcset]").each((_, el) => {
+      const attrs = ["href", "src", "action", "data-href", "data-src", "srcset"];
       attrs.forEach(attr => {
         let val = $(el).attr(attr);
         if (!val || val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('#')) return;
+
+        if (attr === 'srcset') {
+          const parts = val.split(',').map(part => {
+            const [url, size] = part.trim().split(/\s+/);
+            try {
+              const absUrl = new URL(url, finalUrl).href;
+              return `/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${size ? ' ' + size : ''}`;
+            } catch (e) {
+              return part;
+            }
+          });
+          $(el).attr(attr, parts.join(', '));
+          return;
+        }
 
         try {
           let absoluteUrl = "";
@@ -202,12 +262,32 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
             absoluteUrl = new URL(val, finalUrl).href;
           }
 
-          // Proxy ALL resources to avoid CORS/Mixed Content and broken links
-          $(el).attr(attr, `/api/browse?u=${encodeURIComponent(absoluteUrl)}`);
+          const encodedUrl = `b64:${Buffer.from(absoluteUrl).toString('base64')}`;
+          $(el).attr(attr, `/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
         } catch (e) {
           // Ignore invalid URLs
         }
       });
+    });
+
+    // Handle GET forms by injecting a hidden 'id' field
+    $('form[method="GET"], form:not([method])').each((_, el) => {
+      const action = $(el).attr('action') || '';
+      try {
+        const absoluteAction = new URL(action, finalUrl).href;
+        const encodedAction = `b64:${Buffer.from(absoluteAction).toString('base64')}`;
+
+        // Change action to our proxy
+        $(el).attr('action', '/api/v1/content');
+
+        // Inject hidden input if not already present
+        if ($(el).find('input[name="id"]').length === 0) {
+          $(el).prepend(`<input type="hidden" name="id" value="${encodedAction}">`);
+        }
+        if (adBlock && $(el).find('input[name="adblock"]').length === 0) {
+          $(el).prepend('<input type="hidden" name="adblock" value="true">');
+        }
+      } catch (e) {}
     });
 
     // Handle meta refresh
@@ -218,7 +298,8 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
         if (parts.length > 1) {
           try {
             const refreshUrl = new URL(parts[1].trim(), finalUrl).href;
-            $(el).attr('content', `${parts[0]}url=/api/browse?u=${encodeURIComponent(refreshUrl)}`);
+            const encodedUrl = `b64:${Buffer.from(refreshUrl).toString('base64')}`;
+            $(el).attr('content', `${parts[0]}url=/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
           } catch (e) {}
         }
       }
@@ -284,16 +365,29 @@ app.get(["/api/browse", "/browse"], async (req, res) => {
         '    if (link && link.href && !link.href.startsWith("javascript:") && !link.href.startsWith("#")) {' +
         '      e.preventDefault();' +
         '      let targetUrl = link.href;' +
-        '      if (targetUrl.includes("/api/browse?u=")) {' +
+        '      if (targetUrl.includes("/api/v1/content?id=") || targetUrl.includes("/api/browse?u=")) {' +
         '        try {' +
-          '          const urlObj = new URL(targetUrl, window.location.origin);' +
-          '          const extracted = urlObj.searchParams.get("u");' +
-          '          if (extracted) targetUrl = extracted;' +
-          '        } catch (err) {' +
-          '          const match = targetUrl.match(/[?&]u=([^&]+)/);' +
-          '          if (match) targetUrl = decodeURIComponent(match[1]);' +
-          '        }' +
-          '      }' +
+        '          const urlObj = new URL(targetUrl, window.location.origin);' +
+        '          const extracted = urlObj.searchParams.get("id") || urlObj.searchParams.get("u");' +
+        '          if (extracted) {' +
+        '            if (extracted.startsWith("b64:")) {' +
+        '              targetUrl = atob(extracted.substring(4));' +
+        '            } else {' +
+        '              targetUrl = extracted;' +
+        '            }' +
+        '          }' +
+        '        } catch (err) {' +
+        '          const match = targetUrl.match(/[?&](id|u)=([^&]+)/);' +
+        '          if (match) {' +
+        '            const extracted = decodeURIComponent(match[2]);' +
+        '            if (extracted.startsWith("b64:")) {' +
+        '              targetUrl = atob(extracted.substring(4));' +
+        '            } else {' +
+        '              targetUrl = extracted;' +
+        '            }' +
+        '          }' +
+        '        }' +
+        '      }' +
           '      if (targetUrl) {' +
           '        window.parent.postMessage({ type: "NAVIGATE_TO", url: targetUrl }, "*");' +
           '      }' +
