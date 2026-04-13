@@ -310,14 +310,15 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
       '(function() {' +
       '  function sniff() {' +
       '    const media = [];' +
-      '    document.querySelectorAll("video, audio, source, [data-src]").forEach(el => {' +
-      '      const src = el.src || el.getAttribute("src") || el.getAttribute("data-src");' +
-      '      if (src && src.startsWith("http")) {' +
-      '        const type = (el.tagName.toLowerCase().includes("video") || src.match(/\\.(mp4|webm|ogg|mov)$|video/i)) ? "video" : "audio";' +
+      '    document.querySelectorAll("video, audio, source, [data-src], embed, object").forEach(el => {' +
+      '      const src = el.src || el.getAttribute("src") || el.getAttribute("data-src") || el.data;' +
+      '      if (src && (src.startsWith("http") || src.startsWith("/"))) {' +
+      '        let absoluteSrc = src.startsWith("/") ? new URL(src, window.location.href).href : src;' +
+      '        const type = (el.tagName.toLowerCase().includes("video") || absoluteSrc.match(/\\.(mp4|webm|ogg|mov|m3u8|mkv)$|video/i)) ? "video" : "audio";' +
       '        media.push({' +
         '          id: Math.random().toString(36).substr(2, 9),' +
         '          type: type,' +
-        '          src: src,' +
+        '          src: absoluteSrc,' +
         '          title: el.getAttribute("title") || el.getAttribute("aria-label") || document.title || (type.charAt(0).toUpperCase() + type.slice(1) + " File")' +
         '        });' +
         '      }' +
@@ -333,13 +334,14 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         '          if (match) src = match[1];' +
         '        }' +
         '      }' +
-        '      if (src && src.startsWith("http")) {' +
+        '      if (src && (src.startsWith("http") || src.startsWith("/"))) {' +
+        '        let absoluteSrc = src.startsWith("/") ? new URL(src, window.location.href).href : src;' +
         '        const isLarge = el.naturalWidth > 100 || el.naturalHeight > 100 || !el.naturalWidth;' +
         '        if (isLarge) {' +
         '          media.push({' +
         '            id: Math.random().toString(36).substr(2, 9),' +
         '            type: "image",' +
-        '            src: src,' +
+        '            src: absoluteSrc,' +
         '            title: el.alt || el.title || "Image File"' +
         '          });' +
         '        }' +

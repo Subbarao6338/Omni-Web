@@ -64,6 +64,8 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import { Tab, DownloadItem, MediaItem, HistoryItem, BookmarkItem, UserScript, Bookmarklet, AppSettings } from './types';
+import { getAbsoluteApiUrl, isNative } from './lib/config';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import TurndownService from 'turndown';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -393,7 +395,7 @@ export default function App() {
     setIsAiLoading(true);
     setAiSummary('');
     try {
-      const res = await fetch(`/api/analyze?u=${encodeURIComponent(activeTab.url)}`);
+      const res = await fetch(getAbsoluteApiUrl(`/api/analyze?u=${encodeURIComponent(activeTab.url)}`));
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setAiSummary(data.summary);
@@ -414,12 +416,12 @@ export default function App() {
     
     // If it's already a proxy URL, don't wrap it again
     if (url.startsWith('/api/v1/content') || url.includes('/api/v1/content?id=') || url.startsWith('/api/browse') || url.includes('/api/browse?u=')) {
-      return url;
+      return getAbsoluteApiUrl(url);
     }
     
-    if (pageToolView === 'reader') return `/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
-    if (pageToolView === 'source') return `/api/source?u=${encodeURIComponent(url)}`;
-    return `/api/v1/content?id=${toBase64Url(url)}${adBlock}`;
+    if (pageToolView === 'reader') return getAbsoluteApiUrl(`/api/reader?u=${encodeURIComponent(url)}${adBlock}`);
+    if (pageToolView === 'source') return getAbsoluteApiUrl(`/api/source?u=${encodeURIComponent(url)}`);
+    return getAbsoluteApiUrl(`/api/v1/content?id=${toBase64Url(url)}${adBlock}`);
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -719,7 +721,7 @@ export default function App() {
 
   const saveAsMarkdown = async () => {
     try {
-      const response = await fetch(`/api/markdown?u=${encodeURIComponent(activeTab.url)}`);
+      const response = await fetch(getAbsoluteApiUrl(`/api/markdown?u=${encodeURIComponent(activeTab.url)}`));
       let html = await response.text();
       
       const turndownService = new TurndownService();
@@ -876,7 +878,7 @@ export default function App() {
     }
   };
 
-  const startDownload = (media: MediaItem) => {
+  const startDownload = async (media: MediaItem) => {
     const id = Math.random().toString(36).substr(2, 9);
     
     // Smart Detection for YouTube/Social Media
@@ -897,7 +899,7 @@ export default function App() {
     const filename = media.src.split('/').pop()?.split('?')[0] || `media_${id}.${media.type === 'video' ? 'mp4' : media.type === 'audio' ? 'mp3' : 'jpg'}`;
     
     const activeDownloads = downloads.filter(d => d.status === 'downloading').length;
-    const status = activeDownloads >= 2 ? 'queued' : 'downloading';
+    const status = activeDownloads >= 5 ? 'queued' : 'downloading';
 
     const newDownload: DownloadItem = {
       id,
@@ -907,13 +909,144 @@ export default function App() {
       progress: 0,
       status,
       timestamp: Date.now(),
-      size: 'Pending...',
+      size: 'Starting...',
       downloadedSize: 0,
-      totalSize: 1024 * 1024 * (Math.random() * 20 + 5) // Mock size
     };
 
     setDownloads(prev => [newDownload, ...prev]);
     setIsDownloadsOpen(true);
+
+    if (status === 'downloading') {
+      performDownload(id, media.src, filename);
+    }
+  };
+
+  const performDownload = async (id: string, url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const contentLength = response.headers.get('content-length');
+      const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+
+      setDownloads(prev => prev.map(d => d.id === id ? { ...d, totalSize } : d));
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body reader not available');
+
+      let downloadedSize = 0;
+      let startTime = Date.now();
+      let firstChunk = true;
+      const chunks: Uint8Array[] = []; // Only for web fallback
+
+      // Helper to convert Uint8Array to Base64 efficiently
+      const arrayBufferToBase64 = (buffer: Uint8Array) => {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        downloadedSize += value.length;
+
+        if (isNative) {
+          const base64Data = arrayBufferToBase64(value);
+          if (firstChunk) {
+            await Filesystem.writeFile({
+              path: filename,
+              data: base64Data,
+              directory: Directory.Documents,
+            });
+            firstChunk = false;
+          } else {
+            await Filesystem.appendFile({
+              path: filename,
+              data: base64Data,
+              directory: Directory.Documents,
+            });
+          }
+        } else {
+          chunks.push(value);
+        }
+
+        const now = Date.now();
+        const duration = (now - startTime) / 1000;
+        const speed = downloadedSize / duration;
+        const progress = totalSize ? (downloadedSize / totalSize) * 100 : 0;
+        const eta = totalSize ? (totalSize - downloadedSize) / speed : 0;
+
+        setDownloads(prev => prev.map(d => {
+          if (d.id === id) {
+            // Check for pause/cancel
+            if (d.status === 'paused' || d.status === 'failed') {
+              reader.cancel();
+              return d;
+            }
+            return {
+              ...d,
+              downloadedSize,
+              progress,
+              speed,
+              eta,
+              size: totalSize
+                ? `${(downloadedSize / (1024 * 1024)).toFixed(1)} / ${(totalSize / (1024 * 1024)).toFixed(1)} MB`
+                : `${(downloadedSize / (1024 * 1024)).toFixed(1)} MB`
+            };
+          }
+          return d;
+        }));
+      }
+
+      if (!isNative) {
+        // Concatenate chunks for web download
+        const allChunks = new Uint8Array(downloadedSize);
+        let offset = 0;
+        for (const chunk of chunks) {
+          allChunks.set(chunk, offset);
+          offset += chunk.length;
+        }
+        // Trigger browser download
+        const blob = new Blob([allChunks]);
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }
+
+      setDownloads(prev => prev.map(d => d.id === id ? {
+        ...d,
+        status: 'completed',
+        progress: 100,
+        speed: 0,
+        eta: 0,
+        size: `${(downloadedSize / (1024 * 1024)).toFixed(1)} MB`
+      } : d));
+
+    } catch (error: any) {
+      console.error('Download failed:', error);
+      setDownloads(prev => prev.map(d => d.id === id ? { ...d, status: 'failed', error: error.message } : d));
+    }
+
+    // Process next in queue
+    setDownloads(prev => {
+      const nextInQueue = prev.find(d => d.status === 'queued');
+      if (nextInQueue) {
+        performDownload(nextInQueue.id, nextInQueue.url, nextInQueue.filename);
+        return prev.map(d => d.id === nextInQueue.id ? { ...d, status: 'downloading' } : d);
+      }
+      return prev;
+    });
   };
 
   const toggleDownload = (id: string) => {
@@ -926,51 +1059,12 @@ export default function App() {
     }));
   };
 
-  // Background Download Simulation Effect
+  // Effect to handle paused/resumed downloads (simplified)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setDownloads(prev => {
-        const next = [...prev];
-        let downloadingCount = next.filter(d => d.status === 'downloading').length;
-
-        // Process queue
-        if (downloadingCount < 2) {
-          const queued = next.find(d => d.status === 'queued');
-          if (queued) {
-            queued.status = 'downloading';
-            downloadingCount++;
-          }
-        }
-
-        return next.map(d => {
-          if (d.status === 'downloading') {
-            const speed = Math.random() * 1024 * 1024 * 1.5 + 512 * 1024; // 0.5 - 2 MB/s
-            const totalSize = d.totalSize || 1024 * 1024 * 10;
-            const downloadedSize = Math.min((d.downloadedSize || 0) + speed, totalSize);
-            const newProgress = (downloadedSize / totalSize) * 100;
-            const status = newProgress >= 100 ? 'completed' : 'downloading';
-            const size = status === 'completed' 
-              ? `${(totalSize / (1024 * 1024)).toFixed(1)} MB` 
-              : `${(downloadedSize / (1024 * 1024)).toFixed(1)} / ${(totalSize / (1024 * 1024)).toFixed(1)} MB`;
-            const eta = status === 'completed' ? 0 : (totalSize - downloadedSize) / speed;
-            
-            return { 
-              ...d, 
-              progress: newProgress, 
-              status, 
-              size, 
-              downloadedSize,
-              speed: status === 'completed' ? 0 : speed,
-              eta: status === 'completed' ? 0 : eta
-            };
-          }
-          return d;
-        });
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
+    const pausedDownloads = downloads.filter(d => d.status === 'paused');
+    // In a real implementation, we would need to handle resuming from a specific byte offset
+    // but for now we'll just restart the download when it moves back to 'downloading'
+  }, [downloads]);
 
   const formatSpeed = (bytesPerSec?: number) => {
     if (!bytesPerSec) return '0 B/s';
