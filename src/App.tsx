@@ -413,7 +413,8 @@ export default function App() {
     const url = activeTab.url;
     
     // If it's already a proxy URL, don't wrap it again
-    if (url.startsWith('/api/v1/content') || url.includes('/api/v1/content?id=') || url.startsWith('/api/browse') || url.includes('/api/browse?u=')) {
+    const proxyRegex = new RegExp(`^(https?:)?//${window.location.host}/(api/v1/content|api/browse|browse)`);
+    if (url.startsWith('/api/v1/content') || url.includes('/api/v1/content?id=') || url.startsWith('/api/browse') || url.includes('/api/browse?u=') || proxyRegex.test(url)) {
       return url;
     }
     
@@ -518,37 +519,41 @@ export default function App() {
     
     let finalUrl = trimmedUrl;
     
-    // If the URL is already a proxied URL, extract the real target URL
-    if (finalUrl.includes('/api/v1/content') || finalUrl.includes('/api/browse')) {
-      try {
-        const urlObj = new URL(finalUrl, window.location.origin);
-        const extracted = urlObj.searchParams.get('id') || urlObj.searchParams.get('u');
-        if (extracted) {
-          let realUrl = fromBase64Url(extracted);
-          try {
-            const targetUrlObj = new URL(realUrl);
-            // Re-append other parameters that might be on the proxy URL but belong to the target
-            urlObj.searchParams.forEach((value, key) => {
-              if (key !== 'id' && key !== 'u' && key !== 'adblock') {
-                targetUrlObj.searchParams.append(key, value);
-              }
-            });
-            finalUrl = targetUrlObj.toString();
-          } catch (e) {
-            finalUrl = realUrl;
+    // Recursive unwrapping of proxied URLs
+    const unwrap = (u: string): string => {
+      if (u.includes('/api/v1/content') || u.includes('/api/browse')) {
+        try {
+          const urlObj = new URL(u, window.location.origin);
+          const extracted = urlObj.searchParams.get('id') || urlObj.searchParams.get('u');
+          if (extracted) {
+            let realUrl = fromBase64Url(extracted);
+            try {
+              const targetUrlObj = new URL(realUrl);
+              urlObj.searchParams.forEach((value, key) => {
+                if (key !== 'id' && key !== 'u' && key !== 'adblock') {
+                  targetUrlObj.searchParams.set(key, value);
+                }
+              });
+              return unwrap(targetUrlObj.toString());
+            } catch (e) {
+              return unwrap(realUrl);
+            }
           }
-        }
-      } catch (e) {
-        const match = finalUrl.match(/[?&](id|u)=([^&]+)/);
-        if (match) {
-          try {
-            finalUrl = fromBase64Url(decodeURIComponent(match[2]));
-          } catch (de) {
-            finalUrl = fromBase64Url(match[2]);
+        } catch (e) {
+          const match = u.match(/[?&](id|u)=([^&]+)/);
+          if (match) {
+            try {
+              return unwrap(fromBase64Url(decodeURIComponent(match[2])));
+            } catch (de) {
+              return unwrap(fromBase64Url(match[2]));
+            }
           }
         }
       }
-    }
+      return u;
+    };
+
+    finalUrl = unwrap(finalUrl);
 
     if (!finalUrl || finalUrl === 'undefined' || finalUrl === 'null' || finalUrl === '') return;
 

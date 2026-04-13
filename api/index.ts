@@ -239,12 +239,18 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
         let val = $(el).attr(attr);
         if (!val || val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('#')) return;
 
+        // Prevent double proxying
+        if (val.startsWith('/api/v1/content') || val.startsWith('/api/browse') || val.startsWith('/browse') ||
+            (host && (val.startsWith(`//${host}/api/v1/content`) || val.startsWith(`http://${host}/api/v1/content`) || val.startsWith(`https://${host}/api/v1/content`)))) {
+          return;
+        }
+
         if (attr === 'srcset') {
           const parts = val.split(',').map(part => {
             const [url, size] = part.trim().split(/\s+/);
             try {
               const absUrl = new URL(url, finalUrl).href;
-              return `/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${size ? ' ' + size : ''}`;
+              return `//${host}/api/v1/content?id=b64:${Buffer.from(absUrl).toString('base64')}${adBlock ? '&adblock=true' : ''}${size ? ' ' + size : ''}`;
             } catch (e) {
               return part;
             }
@@ -263,7 +269,7 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
           }
 
           const encodedUrl = `b64:${Buffer.from(absoluteUrl).toString('base64')}`;
-          $(el).attr(attr, `/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+          $(el).attr(attr, `//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
         } catch (e) {
           // Ignore invalid URLs
         }
@@ -272,13 +278,26 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
 
     // Handle GET forms by injecting a hidden 'id' field
     $('form[method="GET"], form:not([method])').each((_, el) => {
-      const action = $(el).attr('action') || '';
+      let action = $(el).attr('action') || '';
       try {
+        // If the action was already rewritten by the general rewriter, unwrap it
+        if (action.includes('/api/v1/content?id=')) {
+          const urlObj = new URL(action, `http://${host}`);
+          const id = urlObj.searchParams.get('id');
+          if (id) {
+            if (id.startsWith('b64:')) {
+              action = Buffer.from(id.substring(4), 'base64').toString('utf-8');
+            } else {
+              action = id;
+            }
+          }
+        }
+
         const absoluteAction = new URL(action, finalUrl).href;
         const encodedAction = `b64:${Buffer.from(absoluteAction).toString('base64')}`;
 
         // Change action to our proxy
-        $(el).attr('action', '/api/v1/content');
+        $(el).attr('action', `//${host}/api/v1/content`);
 
         // Inject hidden input if not already present
         if ($(el).find('input[name="id"]').length === 0) {
@@ -299,7 +318,7 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
           try {
             const refreshUrl = new URL(parts[1].trim(), finalUrl).href;
             const encodedUrl = `b64:${Buffer.from(refreshUrl).toString('base64')}`;
-            $(el).attr('content', `${parts[0]}url=/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
+            $(el).attr('content', `${parts[0]}url=//${host}/api/v1/content?id=${encodedUrl}${adBlock ? '&adblock=true' : ''}`);
           } catch (e) {}
         }
       }
@@ -402,6 +421,36 @@ app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
           '      }' +
           '    }' +
           '  }, true);' +
+          '  ' +
+          '  document.addEventListener("submit", (e) => {' +
+          '    const form = e.target;' +
+          '    if (form.method.toUpperCase() === "GET") {' +
+          '      e.preventDefault();' +
+          '      const formData = new FormData(form);' +
+          '      const params = new URLSearchParams();' +
+          '      for (const [key, value] of formData.entries()) {' +
+          '        params.append(key, value);' +
+          '      }' +
+          '      let action = form.getAttribute("action") || "";' +
+          '      if (action.includes("/api/v1/content?id=") || action.includes("/api/browse?u=")) {' +
+          '        try {' +
+          '          const urlObj = new URL(action, window.location.origin);' +
+          '          const extracted = urlObj.searchParams.get("id") || urlObj.searchParams.get("u");' +
+          '          if (extracted) {' +
+          '            if (extracted.startsWith("b64:")) {' +
+          '              action = atob(extracted.substring(4));' +
+          '            } else {' +
+          '              action = extracted;' +
+          '            }' +
+          '          }' +
+          '        } catch (err) {}' +
+          '      }' +
+          '      const targetUrl = new URL(action, window.location.href);' +
+          '      params.forEach((v, k) => { if (k !== "id" && k !== "u" && k !== "adblock") targetUrl.searchParams.set(k, v); });' +
+          '      window.parent.postMessage({ type: "NAVIGATE_TO", url: targetUrl.href }, "*");' +
+          '    }' +
+          '  }, true);' +
+          '  ' +
           '  window.addEventListener("message", (event) => {' +
           '    if (event.data?.type === "EXECUTE_SCRIPT") {' +
           '      try { eval(event.data.code); } catch (e) { console.error("User Script Error:", e); }' +
