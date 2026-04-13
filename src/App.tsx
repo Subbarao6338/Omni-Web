@@ -293,7 +293,7 @@ export default function App() {
     setIsAiLoading(true);
     setAiSummary('');
     try {
-      const res = await fetch(`/api/analyze?url=${encodeURIComponent(activeTab.url)}`);
+      const res = await fetch(`/api/analyze?u=${encodeURIComponent(activeTab.url)}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setAiSummary(data.summary);
@@ -313,13 +313,13 @@ export default function App() {
     const url = activeTab.url;
     
     // If it's already a proxy URL, don't wrap it again
-    if (url.startsWith('/api/proxy') || url.includes('/api/proxy?url=')) {
+    if (url.startsWith('/api/browse') || url.includes('/api/browse?u=')) {
       return url;
     }
     
-    if (pageToolView === 'reader') return `/api/reader?url=${encodeURIComponent(url)}${adBlock}`;
-    if (pageToolView === 'source') return `/api/source?url=${encodeURIComponent(url)}`;
-    return `/api/proxy?url=${encodeURIComponent(url)}${adBlock}`;
+    if (pageToolView === 'reader') return `/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
+    if (pageToolView === 'source') return `/api/source?u=${encodeURIComponent(url)}`;
+    return `/api/browse?u=${encodeURIComponent(url)}${adBlock}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -398,16 +398,16 @@ export default function App() {
     let finalUrl = trimmedUrl;
     
     // If the URL is already a proxied URL, extract the real target URL
-    if (finalUrl.includes('/api/proxy?url=') || finalUrl.includes('/proxy?url=')) {
+    if (finalUrl.includes('/api/browse?u=') || finalUrl.includes('/browse?u=')) {
       try {
         const urlObj = new URL(finalUrl, window.location.origin);
-        const extracted = urlObj.searchParams.get('url');
+        const extracted = urlObj.searchParams.get('u');
         if (extracted) {
           try {
             const targetUrlObj = new URL(extracted);
             // Re-append other parameters that might be on the proxy URL but belong to the target
             urlObj.searchParams.forEach((value, key) => {
-              if (key !== 'url' && key !== 'adblock') {
+              if (key !== 'u' && key !== 'adblock') {
                 targetUrlObj.searchParams.append(key, value);
               }
             });
@@ -417,7 +417,7 @@ export default function App() {
           }
         }
       } catch (e) {
-        const match = finalUrl.match(/[?&]url=([^&]+)/);
+        const match = finalUrl.match(/[?&]u=([^&]+)/);
         if (match) {
           try {
             finalUrl = decodeURIComponent(match[1]);
@@ -558,7 +558,7 @@ export default function App() {
 
   const toDataURL = async (url: string): Promise<string> => {
     try {
-      const response = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`);
+      const response = await fetch(`/api/browse?u=${encodeURIComponent(url)}`);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -597,7 +597,7 @@ export default function App() {
 
   const saveAsMarkdown = async () => {
     try {
-      const response = await fetch(`/api/markdown?url=${encodeURIComponent(activeTab.url)}`);
+      const response = await fetch(`/api/markdown?u=${encodeURIComponent(activeTab.url)}`);
       let html = await response.text();
       
       const turndownService = new TurndownService();
@@ -685,7 +685,7 @@ export default function App() {
     try {
       const cleanUrl = hubUrl.endsWith('/') ? hubUrl : hubUrl + '/';
       const targetUrl = `${cleanUrl}links.json`;
-      const response = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
+      const response = await fetch(`/api/browse?u=${encodeURIComponent(targetUrl)}`);
       if (!response.ok) throw new Error('Failed to fetch links.json');
       const data = await response.json();
       if (Array.isArray(data)) {

@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3000;
 
 // Markdown conversion endpoint
 app.get("/api/markdown", async (req, res) => {
-  const targetUrl = req.query.url as string;
+  const targetUrl = req.query.u as string;
   if (!targetUrl) return res.status(400).send("URL is required");
   try {
     const response = await axios.get(targetUrl, { timeout: 15000 });
@@ -31,14 +31,14 @@ app.get("/api/markdown", async (req, res) => {
 });
 
 // Proxy endpoint
-app.get(["/api/proxy", "/proxy"], async (req, res) => {
-  let targetUrl = req.query.url as string;
+app.get(["/api/browse", "/browse"], async (req, res) => {
+  let targetUrl = req.query.u as string;
   const adBlock = req.query.adblock === 'true';
 
-  // Reconstruct the full target URL by including all query parameters except 'url' and 'adblock'
+  // Reconstruct the full target URL by including all query parameters except 'u' and 'adblock'
   // This handles cases where the target URL itself contains query parameters that weren't properly encoded
   const queryParams = { ...req.query };
-  delete queryParams.url;
+  delete queryParams.u;
   delete queryParams.adblock;
 
   if (targetUrl && Object.keys(queryParams).length > 0) {
@@ -58,7 +58,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   // Robust URL extraction from raw request as a fallback
   if (targetUrl && !targetUrl.startsWith('http')) {
     const rawUrl = req.url;
-    const urlParamMatch = rawUrl.match(/[?&]url=([^&]+)/);
+    const urlParamMatch = rawUrl.match(/[?&]u=([^&]+)/);
     if (urlParamMatch) {
       try {
         targetUrl = decodeURIComponent(urlParamMatch[1]);
@@ -87,7 +87,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
       const targetHost = targetUrlObj.host;
       if (targetHost === host || (process.env.NODE_ENV !== 'production' && (targetHost === 'localhost' || targetHost.startsWith('localhost:')))) {
         const urlPath = targetUrlObj.pathname;
-        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/proxy') || urlPath.startsWith('/api/proxy')) {
+        if (urlPath === '/' || urlPath === '/index.html' || urlPath.startsWith('/browse') || urlPath.startsWith('/api/browse')) {
           return res.status(400).send("Circular proxy detected. Cannot proxy the browser itself.");
         }
       }
@@ -203,7 +203,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
           }
 
           // Proxy ALL resources to avoid CORS/Mixed Content and broken links
-          $(el).attr(attr, `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`);
+          $(el).attr(attr, `/api/browse?u=${encodeURIComponent(absoluteUrl)}`);
         } catch (e) {
           // Ignore invalid URLs
         }
@@ -218,7 +218,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
         if (parts.length > 1) {
           try {
             const refreshUrl = new URL(parts[1].trim(), finalUrl).href;
-            $(el).attr('content', `${parts[0]}url=/api/proxy?url=${encodeURIComponent(refreshUrl)}`);
+            $(el).attr('content', `${parts[0]}url=/api/browse?u=${encodeURIComponent(refreshUrl)}`);
           } catch (e) {}
         }
       }
@@ -284,13 +284,13 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
         '    if (link && link.href && !link.href.startsWith("javascript:") && !link.href.startsWith("#")) {' +
         '      e.preventDefault();' +
         '      let targetUrl = link.href;' +
-        '      if (targetUrl.includes("/api/proxy?url=")) {' +
+        '      if (targetUrl.includes("/api/browse?u=")) {' +
         '        try {' +
           '          const urlObj = new URL(targetUrl, window.location.origin);' +
-          '          const extracted = urlObj.searchParams.get("url");' +
+          '          const extracted = urlObj.searchParams.get("u");' +
           '          if (extracted) targetUrl = extracted;' +
           '        } catch (err) {' +
-          '          const match = targetUrl.match(/[?&]url=([^&]+)/);' +
+          '          const match = targetUrl.match(/[?&]u=([^&]+)/);' +
           '          if (match) targetUrl = decodeURIComponent(match[1]);' +
           '        }' +
           '      }' +
@@ -317,7 +317,7 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
 
 // Source view endpoint
 app.get("/api/source", async (req, res) => {
-    const targetUrl = req.query.url as string;
+    const targetUrl = req.query.u as string;
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
       const response = await axios.get(targetUrl, { timeout: 15000 });
@@ -330,7 +330,7 @@ app.get("/api/source", async (req, res) => {
 
 // Reader mode endpoint (simplified)
 app.get(["/api/reader", "/reader"], async (req, res) => {
-    const targetUrl = req.query.url as string;
+    const targetUrl = req.query.u as string;
     const adBlock = req.query.adblock === 'true';
     if (!targetUrl) return res.status(400).send("URL is required");
     try {
@@ -385,7 +385,7 @@ app.get(["/api/reader", "/reader"], async (req, res) => {
 
 // AI Analysis endpoint
 app.get("/api/analyze", async (req, res) => {
-  const targetUrl = req.query.url as string;
+  const targetUrl = req.query.u as string;
   if (!targetUrl) return res.status(400).send("URL is required");
 
   const apiKey = process.env.VITE_GEMINI_API_KEY;
