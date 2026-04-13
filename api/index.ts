@@ -69,8 +69,8 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
   }
 
   if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null' || targetUrl.trim() === '') {
-    console.error(`[Proxy] Missing URL. Query:`, req.query, `Raw URL:`, req.url);
-    return res.status(400).send("URL is required. Please try refreshing the page or re-entering the URL.");
+    console.warn(`[Proxy] Missing URL. Query:`, req.query, `Raw URL:`, req.url);
+    return res.status(400).send("URL parameter is missing or invalid. If you're seeing this, a form might have been submitted without the target URL preserved.");
   }
 
   // Clean up the URL (sometimes it gets double encoded or has trailing junk)
@@ -185,11 +185,26 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
     }
 
     // Rewrite URLs to stay within proxy
-    $("[href], [src], [action], [data-href], [data-src]").each((_, el) => {
-      const attrs = ["href", "src", "action", "data-href", "data-src"];
+    $("[href], [src], [srcset], [action], [data-href], [data-src]").each((_, el) => {
+      const attrs = ["href", "src", "srcset", "action", "data-href", "data-src"];
       attrs.forEach(attr => {
         let val = $(el).attr(attr);
         if (!val || val.startsWith('javascript:') || val.startsWith('data:') || val.startsWith('#')) return;
+
+        if (attr === 'srcset') {
+          const parts = val.split(',').map(part => {
+            const [url, size] = part.trim().split(/\s+/);
+            if (!url) return part;
+            try {
+              const absUrl = new URL(url, finalUrl).href;
+              return `/api/proxy?url=${encodeURIComponent(absUrl)}${size ? ' ' + size : ''}`;
+            } catch (e) {
+              return part;
+            }
+          });
+          $(el).attr(attr, parts.join(', '));
+          return;
+        }
 
         try {
           let absoluteUrl = "";
@@ -206,6 +221,27 @@ app.get(["/api/proxy", "/proxy"], async (req, res) => {
           // Ignore invalid URLs
         }
       });
+    });
+
+    // Special handling for GET forms to preserve the proxied URL and destination
+    $('form[method="get"], form:not([method])').each((_, el) => {
+      const originalAction = $(el).attr('action') || '';
+      let resolvedAction = finalUrl;
+
+      if (originalAction && !originalAction.startsWith('javascript:') && !originalAction.startsWith('#')) {
+        try {
+          resolvedAction = new URL(originalAction, finalUrl).href;
+        } catch (e) {
+          // Fallback to current URL if resolution fails
+        }
+      }
+
+      $(el).attr('action', '/api/proxy');
+
+      // Safe injection using Cheerio methods to prevent XSS
+      if ($(el).find('input[name="url"]').length === 0) {
+        $('<input type="hidden" name="url">').val(resolvedAction).prependTo(el);
+      }
     });
 
     // Handle meta refresh

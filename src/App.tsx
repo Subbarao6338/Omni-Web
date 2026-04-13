@@ -307,10 +307,10 @@ export default function App() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const getIframeSrc = () => {
-    if (!activeTab.url) return 'about:blank';
+    if (!activeTab.url || !activeTab.url.trim() || activeTab.url === 'undefined' || activeTab.url === 'null') return 'about:blank';
     
     const adBlock = settings.enableAdBlock ? '&adblock=true' : '';
-    const url = activeTab.url;
+    const url = activeTab.url.trim();
     
     // If it's already a proxy URL, don't wrap it again
     if (url.startsWith('/api/proxy') || url.includes('/api/proxy?url=')) {
@@ -557,8 +557,9 @@ export default function App() {
   };
 
   const toDataURL = async (url: string): Promise<string> => {
+    if (!url || !url.trim() || url === 'undefined' || url === 'null') return url;
     try {
-      const response = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`);
+      const response = await fetch(`/api/proxy?url=${encodeURIComponent(url.trim())}`);
       const blob = await response.blob();
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -681,9 +682,10 @@ export default function App() {
   };
 
   const fetchHubLinks = async () => {
-    if (!hubUrl) return;
+    if (!hubUrl || !hubUrl.trim() || hubUrl === 'undefined' || hubUrl === 'null') return;
     try {
-      const cleanUrl = hubUrl.endsWith('/') ? hubUrl : hubUrl + '/';
+      const trimmedHubUrl = hubUrl.trim();
+      const cleanUrl = trimmedHubUrl.endsWith('/') ? trimmedHubUrl : trimmedHubUrl + '/';
       const targetUrl = `${cleanUrl}links.json`;
       const response = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
       if (!response.ok) throw new Error('Failed to fetch links.json');
