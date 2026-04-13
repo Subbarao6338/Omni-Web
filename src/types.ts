@@ -69,4 +69,6 @@ export interface AppSettings {
   privacyMode: boolean;
   compactMode: boolean;
   desktopMode: boolean;
+  darkMode?: boolean;
+  proxyBaseUrl?: string;
 }

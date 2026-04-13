@@ -92,19 +92,40 @@ const fromBase64Url = (url: string) => {
 
 const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
   const [query, setQuery] = React.useState('');
-  const shortcuts = [
-    { title: 'Google', url: 'https://www.google.com' },
-    { title: 'YouTube', url: 'https://www.youtube.com' },
-    { title: 'GitHub', url: 'https://www.github.com' },
-    { title: 'Reddit', url: 'https://www.reddit.com' },
-    { title: 'Wikipedia', url: 'https://www.wikipedia.org' },
-    { title: 'Amazon', url: 'https://www.amazon.com' },
-    { title: 'X', url: 'https://x.com' },
-    { title: 'Instagram', url: 'https://www.instagram.com' },
-  ];
+  const [shortcuts, setShortcuts] = React.useState(() => {
+    const saved = localStorage.getItem('browser_shortcuts');
+    return saved ? JSON.parse(saved) : [
+      { title: 'Google', url: 'https://www.google.com' },
+      { title: 'YouTube', url: 'https://www.youtube.com' },
+      { title: 'GitHub', url: 'https://www.github.com' },
+      { title: 'Reddit', url: 'https://www.reddit.com' },
+      { title: 'Wikipedia', url: 'https://www.wikipedia.org' },
+      { title: 'Amazon', url: 'https://www.amazon.com' },
+      { title: 'X', url: 'https://x.com' },
+      { title: 'Instagram', url: 'https://www.instagram.com' },
+    ];
+  });
+
+  const addShortcut = () => {
+    const title = prompt('Shortcut Title:');
+    const url = prompt('Shortcut URL:');
+    if (title && url) {
+      const newShortcuts = [...shortcuts, { title, url }];
+      setShortcuts(newShortcuts);
+      localStorage.setItem('browser_shortcuts', JSON.stringify(newShortcuts));
+    }
+  };
+
+  const removeShortcut = (index: number) => {
+    if (confirm('Remove this shortcut?')) {
+      const newShortcuts = shortcuts.filter((_: any, i: number) => i !== index);
+      setShortcuts(newShortcuts);
+      localStorage.setItem('browser_shortcuts', JSON.stringify(newShortcuts));
+    }
+  };
 
   return (
-    <div className="flex flex-col items-center pt-16 px-6 h-full bg-[#F5F5F5] overflow-y-auto">
+    <div className="flex flex-col items-center pt-16 px-6 h-full bg-[#F5F5F5] dark:bg-zinc-950 overflow-y-auto">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -116,7 +137,7 @@ const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
         initial={{ y: 10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="text-2xl font-bold mb-8 text-on-surface tracking-tight"
+        className="text-2xl font-bold mb-8 text-on-surface dark:text-zinc-100 tracking-tight"
       >
         Omni Web
       </motion.h1>
@@ -136,7 +157,7 @@ const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && onNavigate(query)}
           placeholder="Search or type URL"
-          className="w-full pl-14 pr-6 py-4.5 bg-white rounded-3xl shadow-sm border-none focus:ring-4 focus:ring-primary/10 text-base transition-all"
+          className="w-full pl-14 pr-6 py-4.5 bg-white dark:bg-zinc-900 dark:text-zinc-100 rounded-3xl shadow-sm border-none focus:ring-4 focus:ring-primary/10 text-base transition-all"
         />
       </motion.div>
 
@@ -146,22 +167,37 @@ const HomeView = ({ onNavigate }: { onNavigate: (url: string) => void }) => {
         transition={{ delay: 0.3 }}
         className="grid grid-cols-4 gap-y-8 gap-x-4 w-full max-w-md pb-20"
       >
-        {shortcuts.map((s, i) => (
-          <button
-            key={i}
-            onClick={() => onNavigate(s.url)}
-            className="flex flex-col items-center gap-2 group"
-          >
-            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all">
+        {shortcuts.map((s: any, i: number) => (
+          <div key={i} className="flex flex-col items-center gap-2 group relative">
+            <button
+              onClick={() => onNavigate(s.url)}
+              onContextMenu={(e) => { e.preventDefault(); removeShortcut(i); }}
+              className="w-14 h-14 bg-white dark:bg-zinc-900 rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all"
+            >
               <img
                 src={`https://www.google.com/s2/favicons?domain=${s.url}&sz=64`}
                 alt={s.title}
                 className="w-8 h-8 rounded-lg"
               />
-            </div>
-            <span className="text-[10px] font-bold text-on-surface-variant truncate w-full text-center px-1">{s.title}</span>
-          </button>
+            </button>
+            <span className="text-[10px] font-bold text-on-surface-variant dark:text-zinc-400 truncate w-full text-center px-1">{s.title}</span>
+            <button
+              onClick={() => removeShortcut(i)}
+              className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <X size={10} />
+            </button>
+          </div>
         ))}
+        <button
+          onClick={addShortcut}
+          className="flex flex-col items-center gap-2 group"
+        >
+          <div className="w-14 h-14 bg-primary/10 text-primary rounded-2xl flex items-center justify-center shadow-sm group-active:scale-90 transition-all">
+            <Plus size={24} />
+          </div>
+          <span className="text-[10px] font-bold text-primary truncate w-full text-center px-1">Add</span>
+        </button>
       </motion.div>
     </div>
   );
@@ -200,6 +236,7 @@ export default function App() {
   const [calcValue, setCalcValue] = useState('0');
   const [qrText, setQrText] = useState('');
   const [notes, setNotes] = useState<string>(() => localStorage.getItem('browser_notes') || '');
+  const [laps, setLaps] = useState<number[]>([]);
   
   // New Tools State
   const [unitFrom, setUnitFrom] = useState('cm');
@@ -207,7 +244,11 @@ export default function App() {
   const [unitValue, setUnitValue] = useState('1');
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
+  const [timerTime, setTimerTime] = useState(0);
+  const [timerInput, setTimerInput] = useState('5');
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [textInput, setTextInput] = useState('');
+  const [textInput2, setTextInput2] = useState('');
   const [jsonInput, setJsonInput] = useState('');
   const [jsonOutput, setJsonOutput] = useState('');
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>(() => {
@@ -217,6 +258,7 @@ export default function App() {
   const [isBookmarksOpen, setIsBookmarksOpen] = useState(false);
   const [isFindOnPageOpen, setIsFindOnPageOpen] = useState(false);
   const [findText, setFindText] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [showNav, setShowNav] = useState(true);
   const lastScrollY = useRef(0);
@@ -242,8 +284,10 @@ export default function App() {
       showBottomNav: true,
       enableAdBlock: true,
       privacyMode: false,
+      darkMode: false,
       compactMode: false,
-      desktopMode: false
+      desktopMode: false,
+      proxyBaseUrl: window.location.origin
     };
     try {
       return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
@@ -281,7 +325,12 @@ export default function App() {
     document.documentElement.setAttribute('data-font-size', settings.fontSize || 'medium');
     document.documentElement.setAttribute('data-compact', (settings.compactMode ?? false).toString());
     document.documentElement.style.setProperty('--color-primary', settings.themeColor || '#3B82F6');
-  }, [settings.fontSize, settings.compactMode, settings.themeColor]);
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.fontSize, settings.compactMode, settings.themeColor, settings.darkMode]);
 
   useEffect(() => {
     let interval: any;
@@ -292,6 +341,24 @@ export default function App() {
     }
     return () => clearInterval(interval);
   }, [isStopwatchRunning]);
+
+  useEffect(() => {
+    let interval: any;
+    if (isTimerRunning && timerTime > 0) {
+      interval = setInterval(() => {
+        setTimerTime(prev => {
+          if (prev <= 10) {
+            setIsTimerRunning(false);
+            return 0;
+          }
+          return prev - 10;
+        });
+      }, 10);
+    } else if (timerTime === 0) {
+      setIsTimerRunning(false);
+    }
+    return () => clearInterval(interval);
+  }, [isTimerRunning, timerTime]);
 
   const formatTime = (ms: number) => {
     const minutes = Math.floor(ms / 60000);
@@ -313,9 +380,14 @@ export default function App() {
       'm_ft': 3.28084,
       'ft_m': 0.3048,
       'c_f': (n: number) => (n * 9/5) + 32,
-      'f_c': (n: number) => (n - 32) * 5/9
+      'f_c': (n: number) => (n - 32) * 5/9,
+      'kmh_mph': 0.621371,
+      'mph_kmh': 1.60934,
+      'sqm_sqft': 10.7639,
+      'sqft_sqm': 0.092903
     };
     
+    if (from === to) return val;
     const key = `${from}_${to}`;
     const rate = rates[key];
     if (typeof rate === 'function') return rate(num).toFixed(2);
@@ -418,9 +490,10 @@ export default function App() {
       return url;
     }
     
-    if (pageToolView === 'reader') return `/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
-    if (pageToolView === 'source') return `/api/source?u=${encodeURIComponent(url)}`;
-    return `/api/v1/content?id=${toBase64Url(url)}${adBlock}`;
+    const baseUrl = settings.proxyBaseUrl || window.location.origin;
+    if (pageToolView === 'reader') return `${baseUrl}/api/reader?u=${encodeURIComponent(url)}${adBlock}`;
+    if (pageToolView === 'source') return `${baseUrl}/api/source?u=${encodeURIComponent(url)}`;
+    return `${baseUrl}/api/v1/content?id=${toBase64Url(url)}${adBlock}`;
   };
 
   // Handle messages from the proxied page (Media Sniffing & Navigation)
@@ -633,9 +706,17 @@ export default function App() {
   useEffect(() => {
     window.addEventListener('click', closeContextMenu);
     window.addEventListener('scroll', closeContextMenu, true);
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     return () => {
       window.removeEventListener('click', closeContextMenu);
       window.removeEventListener('scroll', closeContextMenu, true);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -1019,26 +1100,31 @@ export default function App() {
 
   return (
     <div 
-      className="flex flex-col h-screen bg-[#F5F5F5] font-sans text-[#1A1A1A] overflow-hidden select-none"
+      className="flex flex-col h-screen bg-[#F5F5F5] dark:bg-zinc-950 font-sans text-[#1A1A1A] dark:text-zinc-100 overflow-hidden select-none"
       onContextMenu={handleContextMenu}
     >
       {/* Address Bar */}
       <motion.div
         animate={{ y: showNav ? 0 : -100 }}
         transition={{ duration: 0.2 }}
-        className="bg-surface/95 backdrop-blur-lg px-4 py-3 flex flex-col gap-2 z-30 border-b border-outline-variant/20 shadow-sm sticky top-0"
+        className="bg-surface/95 dark:bg-zinc-900/95 backdrop-blur-lg px-4 py-3 flex flex-col gap-2 z-30 border-b border-outline-variant/20 dark:border-zinc-800 shadow-sm sticky top-0"
       >
         <div className="flex items-center gap-3">
           <button onClick={() => { if (activeTab.url === 'about:home') window.history.back(); else navigate('about:home'); }} className="p-2 hover:bg-primary/10 rounded-full transition-colors text-primary">
             {activeTab.url === 'about:home' ? <ChevronLeft size={24} /> : <Globe size={24} />}
           </button>
+          {!isOnline && (
+            <div className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+              OFFLINE
+            </div>
+          )}
           <div className="flex-1 relative group">
             <input 
               type="text"
               value={urlInput === 'about:home' ? '' : urlInput}
               onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && navigate(urlInput)}
-              className="w-full pl-5 pr-12 py-3 bg-surface-container-highest border-none rounded-2xl text-on-surface placeholder:text-on-surface/40 focus:bg-white focus:ring-2 focus:ring-primary/20 text-sm transition-all shadow-inner"
+              className="w-full pl-5 pr-12 py-3 bg-surface-container-highest dark:bg-zinc-800 border-none rounded-2xl text-on-surface dark:text-zinc-100 placeholder:text-on-surface/40 focus:bg-white dark:focus:bg-zinc-700 focus:ring-2 focus:ring-primary/20 text-sm transition-all shadow-inner"
               placeholder="Search or type URL"
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -1129,7 +1215,7 @@ export default function App() {
       <motion.div
         animate={{ y: showNav ? 0 : 100 }}
         transition={{ duration: 0.2 }}
-        className="md-bottom-nav sticky bottom-0 bg-surface/95 backdrop-blur-lg border-t border-outline-variant/20 pb-safe shadow-2xl"
+        className="md-bottom-nav sticky bottom-0 bg-surface/95 dark:bg-zinc-900/95 backdrop-blur-lg border-t border-outline-variant/20 dark:border-zinc-800 pb-safe shadow-2xl"
       >
         <button 
           onClick={() => setIsTabsOpen(true)} 
@@ -1577,6 +1663,10 @@ export default function App() {
                     <ToolButton label="Password" icon={Key} color="text-indigo-600" bg="bg-indigo-50" id="Password Gen" />
                     <ToolButton label="Converter" icon={Scale} color="text-orange-600" bg="bg-orange-50" id="Converter" />
                     <ToolButton label="Stopwatch" icon={Timer} color="text-cyan-600" bg="bg-cyan-50" id="Stopwatch" />
+                    <ToolButton label="Timer" icon={Clock} color="text-indigo-600" bg="bg-indigo-50" id="Timer" />
+                    <ToolButton label="Diff" icon={Braces} color="text-slate-600" bg="bg-slate-50" id="Diff Viewer" />
+                    <ToolButton label="Speech" icon={Music} color="text-emerald-600" bg="bg-emerald-50" id="TTS" />
+                    <ToolButton label="Lorem" icon={StickyNote} color="text-amber-600" bg="bg-amber-50" id="Lorem Ipsum" />
                     <ToolButton label="Morse" icon={Activity} color="text-amber-600" bg="bg-amber-50" id="Morse Code" />
                     <ToolButton label="BMI" icon={User} color="text-blue-600" bg="bg-blue-50" id="BMI Calc" />
                     <ToolButton label="Age" icon={Calendar} color="text-emerald-600" bg="bg-emerald-50" id="Age Calc" />
@@ -1698,25 +1788,76 @@ export default function App() {
                         <p className="text-3xl font-mono font-bold truncate">{calcValue}</p>
                       </div>
                       <div className="grid grid-cols-4 gap-3">
-                        {['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','C'].map(btn => (
+                        {['C','(',')','/','7','8','9','*','4','5','6','-','1','2','3','+','0','.','%','='].map(btn => (
                           <button 
                             key={btn}
                             onClick={() => {
                               if (btn === 'C') setCalcValue('0');
                               else if (btn === '=') {
-                                try { setCalcValue(eval(calcValue).toString()); } catch { setCalcValue('Error'); }
+                                try {
+                                  // Basic sanitization and evaluation
+                                  const expression = calcValue.replace(/%/g, '/100');
+                                  setCalcValue(eval(expression).toString());
+                                } catch { setCalcValue('Error'); }
                               } else {
                                 setCalcValue(prev => prev === '0' ? btn : prev + btn);
                               }
                             }}
                             className={cn(
                               "h-14 rounded-2xl font-bold transition-all active:scale-90",
-                              ['/','*','-','+','='].includes(btn) ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface"
+                              ['/','*','-','+','=','(',')','%'].includes(btn) ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface",
+                              btn === '=' ? "bg-orange-500 text-white" : ""
                             )}
                           >
                             {btn}
                           </button>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'Timer' && (
+                    <div className="md-card p-8 flex flex-col items-center gap-8">
+                      <div className="text-6xl font-mono font-bold text-indigo-600 tabular-nums">
+                        {formatTime(timerTime)}
+                      </div>
+                      <div className="flex flex-col gap-4 w-full">
+                        {!isTimerRunning && timerTime === 0 && (
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              value={timerInput}
+                              onChange={(e) => setTimerInput(e.target.value)}
+                              className="md-input flex-1 py-3 text-center text-xl font-bold"
+                              placeholder="Minutes"
+                            />
+                            <button
+                              onClick={() => setTimerTime(parseInt(timerInput) * 60000)}
+                              className="md-button-filled px-6"
+                            >
+                              Set
+                            </button>
+                          </div>
+                        )}
+                        <div className="flex gap-4">
+                          <button
+                            onClick={() => setIsTimerRunning(!isTimerRunning)}
+                            disabled={timerTime === 0}
+                            className={cn(
+                              "flex-1 py-4 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2",
+                              isTimerRunning ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                            )}
+                          >
+                            {isTimerRunning ? <Pause size={24} /> : <Play size={24} />}
+                            {isTimerRunning ? 'Pause' : 'Start'}
+                          </button>
+                          <button
+                            onClick={() => { setTimerTime(0); setIsTimerRunning(false); }}
+                            className="flex-1 py-4 bg-surface-container text-on-surface rounded-2xl font-bold transition-all active:scale-95"
+                          >
+                            Reset
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1740,6 +1881,10 @@ export default function App() {
                             <option value="ft">Feet</option>
                             <option value="c">Celsius</option>
                             <option value="f">Fahrenheit</option>
+                            <option value="kmh">KM/H</option>
+                            <option value="mph">MPH</option>
+                            <option value="sqm">Sq Meter</option>
+                            <option value="sqft">Sq Feet</option>
                           </select>
                           <select value={unitTo} onChange={(e) => setUnitTo(e.target.value)} className="md-input">
                             <option value="cm">CM</option>
@@ -1750,6 +1895,10 @@ export default function App() {
                             <option value="ft">Feet</option>
                             <option value="c">Celsius</option>
                             <option value="f">Fahrenheit</option>
+                            <option value="kmh">KM/H</option>
+                            <option value="mph">MPH</option>
+                            <option value="sqm">Sq Meter</option>
+                            <option value="sqft">Sq Feet</option>
                           </select>
                         </div>
                         <div className="bg-primary/10 rounded-2xl p-8 text-center">
@@ -1774,15 +1923,33 @@ export default function App() {
                           )}
                         >
                           {isStopwatchRunning ? <Pause size={24} /> : <Play size={24} />}
-                          {isStopwatchRunning ? 'Stop' : 'Start'}
+                          {isStopwatchRunning ? (stopwatchTime > 0 ? 'Resume' : 'Start') : 'Pause'}
                         </button>
                         <button 
-                          onClick={() => { setStopwatchTime(0); setIsStopwatchRunning(false); }}
+                          onClick={() => {
+                            if (isStopwatchRunning) {
+                              setLaps([stopwatchTime, ...laps]);
+                            } else {
+                              setStopwatchTime(0);
+                              setIsStopwatchRunning(false);
+                              setLaps([]);
+                            }
+                          }}
                           className="flex-1 py-4 bg-surface-container text-on-surface rounded-2xl font-bold transition-all active:scale-95"
                         >
-                          Reset
+                          {isStopwatchRunning ? 'Lap' : 'Reset'}
                         </button>
                       </div>
+                      {laps.length > 0 && (
+                        <div className="w-full max-h-40 overflow-y-auto space-y-2">
+                          {laps.map((lap, i) => (
+                            <div key={i} className="flex justify-between items-center p-3 bg-surface-container rounded-xl text-sm font-bold">
+                              <span className="text-outline">Lap {laps.length - i}</span>
+                              <span className="font-mono">{formatTime(lap)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1849,6 +2016,103 @@ export default function App() {
                             {jsonOutput}
                           </pre>
                           <button 
+                            onClick={() => navigator.clipboard.writeText(jsonOutput)}
+                            className="absolute top-2 right-2 p-2 bg-white/80 rounded-lg shadow-sm"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTool === 'Diff Viewer' && (
+                    <div className="md-card p-6 space-y-6">
+                      <div className="grid grid-cols-1 gap-4">
+                        <textarea
+                          value={textInput}
+                          onChange={(e) => setTextInput(e.target.value)}
+                          className="md-input w-full h-32 font-mono text-xs"
+                          placeholder="Original text..."
+                        />
+                        <textarea
+                          value={textInput2}
+                          onChange={(e) => setTextInput2(e.target.value)}
+                          className="md-input w-full h-32 font-mono text-xs"
+                          placeholder="Changed text..."
+                        />
+                      </div>
+                      <div className="bg-slate-50 p-4 rounded-xl overflow-auto max-h-60 font-mono text-[10px] whitespace-pre-wrap">
+                        {textInput.split('\n').map((line, i) => {
+                          const line2 = textInput2.split('\n')[i];
+                          if (line === line2) return <div key={i} className="text-slate-500">{line}</div>;
+                          return (
+                            <div key={i}>
+                              <div className="bg-red-50 text-red-600">- {line}</div>
+                              <div className="bg-green-50 text-green-600">+ {line2}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'TTS' && (
+                    <div className="md-card p-6 space-y-6">
+                      <textarea
+                        value={textInput}
+                        onChange={(e) => setTextInput(e.target.value)}
+                        className="md-input w-full h-40"
+                        placeholder="Enter text to speak..."
+                      />
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => {
+                            const utterance = new SpeechSynthesisUtterance(textInput);
+                            window.speechSynthesis.speak(utterance);
+                          }}
+                          className="md-button-filled flex-1 py-3 flex items-center justify-center gap-2"
+                        >
+                          <Play size={18} /> Speak
+                        </button>
+                        <button
+                          onClick={() => window.speechSynthesis.cancel()}
+                          className="md-button-tonal flex-1 py-3 flex items-center justify-center gap-2"
+                        >
+                          <Pause size={18} /> Stop
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTool === 'Lorem Ipsum' && (
+                    <div className="md-card p-6 space-y-6">
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="number"
+                          value={calcValue === '0' ? '3' : calcValue}
+                          onChange={(e) => setCalcValue(e.target.value)}
+                          className="md-input w-24"
+                        />
+                        <span className="text-sm font-bold text-on-surface">Paragraphs</span>
+                        <button
+                          onClick={() => {
+                            const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. ";
+                            setJsonOutput(Array(parseInt(calcValue || '3')).fill(lorem).join('\n\n'));
+                          }}
+                          className="md-button-filled flex-1"
+                        >
+                          Generate
+                        </button>
+                      </div>
+                      {jsonOutput && (
+                        <div className="relative">
+                          <textarea
+                            readOnly
+                            value={jsonOutput}
+                            className="md-input w-full h-60 text-sm leading-relaxed"
+                          />
+                          <button
                             onClick={() => navigator.clipboard.writeText(jsonOutput)}
                             className="absolute top-2 right-2 p-2 bg-white/80 rounded-lg shadow-sm"
                           >
@@ -2830,6 +3094,24 @@ export default function App() {
                 <div className="md-card overflow-hidden">
                   <div className="p-4 flex items-center justify-between border-b border-outline-variant/30">
                     <div>
+                      <p className="text-sm font-bold text-on-surface">Dark Mode</p>
+                      <p className="text-[10px] text-outline font-bold">Use dark theme</p>
+                    </div>
+                    <button
+                      onClick={() => setSettings({ ...settings, darkMode: !settings.darkMode })}
+                      className={cn(
+                        "w-12 h-6 rounded-full transition-all relative",
+                        settings.darkMode ? "bg-primary" : "bg-outline-variant"
+                      )}
+                    >
+                      <motion.div
+                        animate={{ x: settings.darkMode ? 24 : 4 }}
+                        className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-md"
+                      />
+                    </button>
+                  </div>
+                  <div className="p-4 flex items-center justify-between border-b border-outline-variant/30">
+                    <div>
                       <p className="text-sm font-bold text-on-surface">Compact Mode</p>
                       <p className="text-[10px] text-outline font-bold">Reduce sizes and spacing</p>
                     </div>
@@ -2919,7 +3201,7 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  <div className="p-4">
+                  <div className="p-4 border-b border-outline-variant/30">
                     <label className="block text-[10px] font-bold text-outline mb-1 uppercase tracking-wider">Homepage</label>
                     <input 
                       type="text" 
@@ -2927,6 +3209,17 @@ export default function App() {
                       onChange={(e) => setSettings({ ...settings, homepageUrl: e.target.value })}
                       className="md-input w-full py-2 text-xs"
                     />
+                  </div>
+                  <div className="p-4">
+                    <label className="block text-[10px] font-bold text-outline mb-1 uppercase tracking-wider">Proxy Server URL</label>
+                    <input
+                      type="text"
+                      value={settings.proxyBaseUrl}
+                      onChange={(e) => setSettings({ ...settings, proxyBaseUrl: e.target.value })}
+                      className="md-input w-full py-2 text-xs"
+                      placeholder="https://your-omni-proxy.vercel.app"
+                    />
+                    <p className="text-[8px] text-outline mt-1 font-bold">Point to your deployed backend for web browsing in APK</p>
                   </div>
                 </div>
               </section>
