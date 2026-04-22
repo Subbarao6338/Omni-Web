@@ -275,6 +275,36 @@ fun BrowserView(
 
                                 // Extract text for AI
                                 view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
+
+                                // Inject Media Sniffer
+                                view?.evaluateJavascript("""
+                                    (function() {
+                                        function sniff() {
+                                            const media = [];
+                                            const seen = new Set();
+                                            document.querySelectorAll('video, audio, source, a[href$=".mp4"], a[href$=".m3u8"], a[href$=".mp3"]').forEach(el => {
+                                                const src = el.src || el.getAttribute('src') || el.href;
+                                                if (src && src.startsWith('http') && !seen.has(src)) {
+                                                    seen.add(src);
+                                                    media.push({
+                                                        id: Math.random().toString(36).substr(2, 9),
+                                                        src: src,
+                                                        type: src.split('.').pop().split('?')[0] || 'media',
+                                                        title: document.title || 'Media File'
+                                                    });
+                                                }
+                                            });
+                                            if (media.length > 0) {
+                                                Android.postMedia(JSON.stringify(media));
+                                            }
+                                        }
+                                        if (!window.omniSnifferStarted) {
+                                            window.omniSnifferStarted = true;
+                                            setInterval(sniff, 5000);
+                                            sniff();
+                                        }
+                                    })();
+                                """.trimIndent(), null)
                             }
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
@@ -292,34 +322,7 @@ fun BrowserView(
                         webView = this
                     }
                 },
-                modifier = Modifier.fillMaxSize(),
-                update = { view ->
-                    view.evaluateJavascript("""
-                        (function() {
-                            function sniff() {
-                                const media = [];
-                                const seen = new Set();
-                                document.querySelectorAll('video, audio, source, a[href$=".mp4"], a[href$=".m3u8"], a[href$=".mp3"]').forEach(el => {
-                                    const src = el.src || el.getAttribute('src') || el.href;
-                                    if (src && src.startsWith('http') && !seen.has(src)) {
-                                        seen.add(src);
-                                        media.push({
-                                            id: Math.random().toString(36).substr(2, 9),
-                                            src: src,
-                                            type: src.split('.').pop().split('?')[0] || 'media',
-                                            title: document.title || 'Media File'
-                                        });
-                                    }
-                                });
-                                if (media.length > 0) {
-                                    Android.postMedia(JSON.stringify(media));
-                                }
-                            }
-                            setInterval(sniff, 5000);
-                            sniff();
-                        })();
-                    """.trimIndent(), null)
-                }
+                modifier = Modifier.fillMaxSize()
             )
 
         }
