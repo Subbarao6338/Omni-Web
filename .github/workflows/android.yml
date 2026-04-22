@@ -3,6 +3,8 @@ name: Android CI
 on:
   push:
     branches: [ "main" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -50,9 +52,15 @@ jobs:
         chmod +x gradlew
         ./gradlew assembleDebug
 
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
-      if: github.ref == 'refs/heads/main'
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
       with:
         tag_name: v${{ steps.package-version.outputs.VERSION }}
         name: Omni Web v${{ steps.package-version.outputs.VERSION }}
@@ -60,8 +68,10 @@ jobs:
           Automated build for version ${{ steps.package-version.outputs.VERSION }}.
 
           Note: If this is the first build, ensure you save the Base64 keystore from the 'Setup Keystore' step logs into your GitHub Secrets as ANDROID_DEBUG_KEYSTORE_B64 for persistent signing.
-        files: app/build/outputs/apk/debug/app-debug.apk
+        files: |
+          app/build/outputs/apk/debug/app-debug.apk
         prerelease: false
         make_latest: true
+        generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
