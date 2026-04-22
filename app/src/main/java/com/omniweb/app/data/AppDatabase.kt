@@ -6,8 +6,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class],
-    version = 1,
+    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -16,6 +16,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settingsDao(): SettingsDao
     abstract fun downloadDao(): DownloadDao
     abstract fun userScriptDao(): UserScriptDao
+    abstract fun shortcutDao(): ShortcutDao
 
     companion object {
         @Volatile

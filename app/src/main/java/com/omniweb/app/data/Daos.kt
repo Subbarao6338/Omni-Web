@@ -68,3 +68,15 @@ interface UserScriptDao {
     @Delete
     suspend fun deleteScript(script: UserScript)
 }
+
+@Dao
+interface ShortcutDao {
+    @Query("SELECT * FROM shortcuts ORDER BY timestamp ASC")
+    fun getAllShortcuts(): Flow<List<Shortcut>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertShortcut(shortcut: Shortcut)
+
+    @Delete
+    suspend fun deleteShortcut(shortcut: Shortcut)
+}
