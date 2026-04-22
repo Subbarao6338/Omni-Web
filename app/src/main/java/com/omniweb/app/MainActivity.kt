@@ -13,6 +13,7 @@ import com.omniweb.app.data.MediaItem
 import com.omniweb.app.data.TabInfo
 import com.omniweb.app.ui.BrowserView
 import com.omniweb.app.ui.HomeView
+import java.util.UUID
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,10 +27,12 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun OmniBrowserApp() {
-    var currentUrl by remember { mutableStateOf("about:home") }
-    var tabs by remember { mutableStateOf(listOf(TabInfo("1", "about:home", "Home"))) }
-    var activeTabId by remember { mutableStateOf("1") }
+    val tabs = remember { mutableStateListOf(TabInfo(UUID.randomUUID().toString(), "about:home", "Home")) }
+    var activeTabId by remember { mutableStateOf(tabs[0].id) }
+    val backStack = remember { mutableStateListOf("home") }
     var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
+
+    val activeTab = tabs.find { it.id == activeTabId } ?: tabs[0]
 
     MaterialTheme(
         colorScheme = lightColorScheme(
@@ -40,30 +43,93 @@ fun OmniBrowserApp() {
         )
     ) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            if (currentUrl == "about:home") {
-                HomeView(
-                    onNavigate = { url ->
-                        currentUrl = url
-                        tabs.find { it.id == activeTabId }?.url = url
-                    }
-                )
-            } else {
-                BrowserView(
-                    url = currentUrl,
-                    onUrlChange = {
-                        currentUrl = it
-                        tabs.find { it.id == activeTabId }?.url = it
-                    },
-                    onBackToHome = { currentUrl = "about:home" },
-                    mediaItems = detectedMedia,
-                    onMediaFound = { newMedia ->
-                        val currentSrcs = detectedMedia.map { it.src }.toSet()
-                        val uniqueNewMedia = newMedia.filter { it.src !in currentSrcs }
-                        if (uniqueNewMedia.isNotEmpty()) {
-                            detectedMedia = detectedMedia + uniqueNewMedia
+            val currentScreen = if (activeTab.url == "about:home") "home" else "browser"
+
+            when (currentScreen) {
+                "home" -> {
+                    HomeView(
+                        onNavigate = { url ->
+                            activeTab.url = url
+                            activeTab.title = "Loading..."
+                        },
+                        tabs = tabs,
+                        activeTabId = activeTabId,
+                        onTabSelected = { id -> activeTabId = id },
+                        onNewTab = {
+                            val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
+                            tabs.add(newTab)
+                            activeTabId = newTab.id
+                        },
+                        onCloseTab = { id ->
+                            val index = tabs.indexOfFirst { it.id == id }
+                            if (index != -1) {
+                                tabs.removeAt(index)
+                                if (tabs.isEmpty()) {
+                                    val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
+                                    tabs.add(newTab)
+                                    activeTabId = newTab.id
+                                } else if (activeTabId == id) {
+                                    activeTabId = tabs[maxOf(0, index - 1)].id
+                                }
+                            }
                         }
-                    }
-                )
+                    )
+                }
+                "browser" -> {
+                    BrowserView(
+                        url = activeTab.url,
+                        onUrlChange = { newUrl ->
+                            activeTab.url = newUrl
+                        },
+                        onBackToHome = {
+                            activeTab.url = "about:home"
+                            activeTab.title = "Home"
+                        },
+                        mediaItems = detectedMedia,
+                        onMediaFound = { newMedia ->
+                            val currentSrcs = detectedMedia.map { it.src }.toSet()
+                            val uniqueNewMedia = newMedia.filter { it.src !in currentSrcs }
+                            if (uniqueNewMedia.isNotEmpty()) {
+                                detectedMedia = detectedMedia + uniqueNewMedia
+                            }
+                        },
+                        tabs = tabs,
+                        activeTabId = activeTabId,
+                        onTabSelected = { id ->
+                            activeTabId = id
+                            val tab = tabs.find { it.id == id }
+                            if (tab?.url == "about:home") {
+                                if (backStack.last() == "browser") backStack.removeLast()
+                            } else {
+                                if (backStack.last() == "home") backStack.add("browser")
+                            }
+                        },
+                        onNewTab = {
+                            val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
+                            tabs.add(newTab)
+                            activeTabId = newTab.id
+                            if (backStack.last() == "browser") backStack.removeLast()
+                        },
+                        onCloseTab = { id ->
+                            val index = tabs.indexOfFirst { it.id == id }
+                            if (index != -1) {
+                                tabs.removeAt(index)
+                                if (tabs.isEmpty()) {
+                                    val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
+                                    tabs.add(newTab)
+                                    activeTabId = newTab.id
+                                    if (backStack.last() == "browser") backStack.removeLast()
+                                } else if (activeTabId == id) {
+                                    activeTabId = tabs[maxOf(0, index - 1)].id
+                                    val tab = tabs.find { it.id == activeTabId }
+                                    if (tab?.url == "about:home") {
+                                        if (backStack.last() == "browser") backStack.removeLast()
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
             }
         }
     }

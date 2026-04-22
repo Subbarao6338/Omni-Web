@@ -3,19 +3,19 @@ package com.omniweb.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,14 +33,24 @@ import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.Shortcut
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeView(onNavigate: (String) -> Unit) {
+fun HomeView(
+    onNavigate: (String) -> Unit,
+    tabs: List<com.omniweb.app.data.TabInfo>,
+    activeTabId: String,
+    onTabSelected: (String) -> Unit,
+    onNewTab: () -> Unit,
+    onCloseTab: (String) -> Unit
+) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val settings = settingsState ?: Settings()
+    val history by database.historyDao().getAllHistory().collectAsState(initial = emptyList())
 
     var query by remember { mutableStateOf("") }
+    var showTabs by remember { mutableStateOf(false) }
     val shortcuts = remember {
         mutableStateListOf(
             Shortcut("Google", "https://www.google.com"),
@@ -54,14 +64,26 @@ fun HomeView(onNavigate: (String) -> Unit) {
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
-            .verticalScroll(rememberScrollState())
-            .padding(top = 96.dp, start = 32.dp, end = 32.dp, bottom = 120.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Scaffold(
+        bottomBar = {
+            BottomAppBar(containerColor = Color.White.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                    NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
+                    NavButton(Icons.Default.Download, "Files") { /* showDownloads = true */ }
+                    NavButton(Icons.Default.Settings, "Settings") { /* showSettings = true */ }
+                }
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(Color(0xFFF5F5F5))
+                .verticalScroll(rememberScrollState())
+                .padding(top = 64.dp, start = 32.dp, end = 32.dp, bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Box(
             modifier = Modifier
                 .size(96.dp)
@@ -74,8 +96,8 @@ fun HomeView(onNavigate: (String) -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(40.dp))
-        Text(text = "Omni Browser", fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
-        Spacer(modifier = Modifier.height(40.dp))
+        Text(text = "Omni Browser", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(48.dp))
 
         val focusManager = LocalFocusManager.current
         TextField(
@@ -106,13 +128,38 @@ fun HomeView(onNavigate: (String) -> Unit) {
             )
         )
 
-        Spacer(modifier = Modifier.height(64.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
+        if (history.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Recent History", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(history.take(4)) { entry ->
+                        Card(
+                            modifier = Modifier.width(140.dp).clickable { onNavigate(entry.url) },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(entry.url, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(48.dp))
+        }
+
+        Text("Shortcuts", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.Start).padding(bottom = 16.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.height(240.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
-            verticalArrangement = Arrangement.spacedBy(40.dp),
+            modifier = Modifier.height(260.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = false
         ) {
             items(shortcuts) { shortcut ->
@@ -120,17 +167,70 @@ fun HomeView(onNavigate: (String) -> Unit) {
             }
             item { AddShortcutItem() }
         }
+        }
+    }
+
+    if (showTabs) {
+        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = Color.White) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    IconButton(onClick = {
+                        onNewTab()
+                        showTabs = false
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = "New Tab")
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    items(tabs) { tab ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
+                                .clickable {
+                                    onTabSelected(tab.id)
+                                    showTabs = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Language, contentDescription = null, tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(tab.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(tab.url, fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            IconButton(onClick = { onCloseTab(tab.id) }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
     }
 }
 
 @Composable
 fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(24.dp)).background(Color(0xFFE5E7EB)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Language, contentDescription = null, tint = Color.Gray)
+        Card(
+            modifier = Modifier.size(64.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = shortcut.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.DarkGray)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = shortcut.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.DarkGray)
     }
 }
 
