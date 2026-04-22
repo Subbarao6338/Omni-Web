@@ -76,6 +76,7 @@ function getTargetUrl(req: express.Request): string | null {
 app.all(["/api/v1/content", "/api/browse", "/browse"], async (req, res) => {
   let targetUrl = getTargetUrl(req);
   const adBlock = (req.query.adblock === 'true' || req.body?.adblock === 'true');
+  const sessionId = (req.query.sid || req.body?.sid) as string;
 
   if (!targetUrl || targetUrl === 'undefined' || targetUrl === 'null' || targetUrl.trim() === '') {
     console.error(`[Proxy] Missing URL. Method: ${req.method}, Query:`, req.query, `Body:`, req.body, `Raw URL:`, req.url);
