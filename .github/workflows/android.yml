@@ -24,14 +24,30 @@ jobs:
         node-version: 22
         cache: 'npm'
 
-    - name: Install dependencies
-      run: npm install
+    - name: Get Version from package.json
+      id: package-version
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Build web
-      run: npm run build
-
-    - name: Sync Capacitor
-      run: npx cap sync android
+    - name: Setup Keystore
+      run: |
+        if [ -n "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" ]; then
+          echo "Using existing keystore from secrets"
+          echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" | base64 -d > android/app/debug.keystore
+        else
+          echo "Generating new keystore as no secret was found"
+          keytool -genkey -v -keystore android/app/debug.keystore -alias androiddebugkey -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          echo "!! CAUTION: No ANDROID_DEBUG_KEYSTORE_B64 secret found.             !!"
+          echo "!! A new keystore has been generated for this build.               !!"
+          echo "!! To persist this key for future releases, encode it to Base64 and !!"
+          echo "!! save it as ANDROID_DEBUG_KEYSTORE_B64 in your GitHub Secrets.    !!"
+          echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+          echo "Base64 encoded keystore (copy this to secrets):"
+          base64 android/app/debug.keystore | tr -d '\n'
+          echo ""
+        fi
 
     - name: Build with Gradle
       run: |
@@ -43,13 +59,14 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: github.ref == 'refs/heads/main'
       with:
-        tag_name: latest
-        name: Latest Debug APK
+        tag_name: v${{ steps.package-version.outputs.VERSION }}
+        name: Omni Web v${{ steps.package-version.outputs.VERSION }}
         body: |
-          Automated debug build from main branch.
-          This release is automatically updated on every push to main.
+          Automated build for version ${{ steps.package-version.outputs.VERSION }}.
+
+          Note: If this is the first build, ensure you save the Base64 keystore from the 'Setup Keystore' step logs into your GitHub Secrets as ANDROID_DEBUG_KEYSTORE_B64 for persistent signing.
         files: android/app/build/outputs/apk/debug/app-debug.apk
-        prerelease: true
+        prerelease: false
         make_latest: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
