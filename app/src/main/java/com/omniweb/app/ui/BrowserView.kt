@@ -8,8 +8,11 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,6 +45,8 @@ import com.omniweb.app.util.PageUtils
 import com.omniweb.app.util.WebAppInterface
 import kotlinx.coroutines.launch
 
+import androidx.compose.ui.draw.clip
+
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -49,7 +55,12 @@ fun BrowserView(
     onUrlChange: (String) -> Unit,
     onBackToHome: () -> Unit,
     mediaItems: List<MediaItem>,
-    onMediaFound: (List<MediaItem>) -> Unit
+    onMediaFound: (List<MediaItem>) -> Unit,
+    tabs: List<com.omniweb.app.data.TabInfo>,
+    activeTabId: String,
+    onTabSelected: (String) -> Unit,
+    onNewTab: () -> Unit,
+    onCloseTab: (String) -> Unit
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
@@ -60,8 +71,10 @@ fun BrowserView(
 
     var webView: WebView? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
     var urlInput by remember { mutableStateOf(url) }
     var showTools by remember { mutableStateOf(false) }
+    var showTabs by remember { mutableStateOf(false) }
     var showSource by remember { mutableStateOf(false) }
     var showConsole by remember { mutableStateOf(false) }
     var showDownloads by remember { mutableStateOf(false) }
@@ -92,45 +105,59 @@ fun BrowserView(
     Scaffold(
         topBar = {
             Surface(color = Color.White.copy(alpha = 0.95f), shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                    TextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = {
-                            var target = urlInput
-                            if (!target.startsWith("http") && !target.startsWith("about:")) target = "https://$target"
-                            webView?.loadUrl(target)
-                        }),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFF3F4F6),
-                            unfocusedContainerColor = Color(0xFFF3F4F6),
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                    )
-                    IconButton(onClick = {
-                        scope.launch {
-                            database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
-                        }
-                    }) { Icon(Icons.Default.StarBorder, contentDescription = "Bookmark", tint = MaterialTheme.colorScheme.primary) }
-                    IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        TextField(
+                            value = urlInput,
+                            onValueChange = { urlInput = it },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            singleLine = true,
+                            leadingIcon = {
+                                val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
+                                Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else Color.Gray)
+                            },
+                            trailingIcon = {
+                                if (urlInput.isNotEmpty()) {
+                                    IconButton(onClick = { urlInput = "" }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                }
+                            },
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                var target = urlInput
+                                if (!target.startsWith("http") && !target.startsWith("about:")) target = "https://$target"
+                                webView?.loadUrl(target)
+                            }),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFFF3F4F6),
+                                unfocusedContainerColor = Color(0xFFF3F4F6),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                            ),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                        )
+                        IconButton(onClick = {
+                            scope.launch {
+                                database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
+                            }
+                        }) { Icon(Icons.Default.StarBorder, contentDescription = "Bookmark", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                    }
+                    if (isLoading) {
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(2.dp), color = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
         },
         bottomBar = {
-            BottomAppBar(containerColor = Color.White.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding()) {
+            BottomAppBar(containerColor = Color.White.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                    NavButton(Icons.Default.Layers, "Tabs") {}
-                    NavButton(Icons.Default.Download, "Files") { showDownloads = true }
-                    NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
+                    NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
                     NavButton(Icons.Default.VideoLibrary, "Media", badge = mediaItems.size) { showMediaGrabber = true }
                     NavButton(Icons.Default.AutoAwesome, "AI") { showTools = true }
+                    NavButton(Icons.Default.Download, "Files") { showDownloads = true }
+                    NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
                 }
             }
         }
@@ -155,6 +182,11 @@ fun BrowserView(
                         ), "Android")
 
                         webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                progress = newProgress / 100f
+                                if (newProgress == 100) isLoading = false
+                            }
+
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                                 consoleMessage?.let {
                                     consoleLogs.add(ConsoleLog(it.message(), it.messageLevel().name))
@@ -235,8 +267,50 @@ fun BrowserView(
                 }
             )
 
-            if (isLoading) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.TopCenter), color = MaterialTheme.colorScheme.primary)
+        }
+    }
+
+    if (showTabs) {
+        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = Color.White) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    IconButton(onClick = {
+                        onNewTab()
+                        showTabs = false
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = "New Tab")
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    items(tabs) { tab ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
+                                .clickable {
+                                    onTabSelected(tab.id)
+                                    showTabs = false
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Language, contentDescription = null, tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(tab.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(tab.url, fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                            IconButton(onClick = { onCloseTab(tab.id) }) {
+                                Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
