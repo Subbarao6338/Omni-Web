@@ -20,26 +20,20 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-        cache: 'npm'
-
-    - name: Get Version from package.json
+    - name: Get Version from build.gradle
       id: package-version
       run: |
-        VERSION=$(node -p "require('./package.json').version")
+        VERSION=$(grep 'versionName' app/build.gradle | cut -d '"' -f 2)
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
     - name: Setup Keystore
       run: |
         if [ -n "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" ]; then
           echo "Using existing keystore from secrets"
-          echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" | base64 -d > android/app/debug.keystore
+          echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_B64 }}" | base64 -d > app/debug.keystore
         else
           echo "Generating new keystore as no secret was found"
-          keytool -genkey -v -keystore android/app/debug.keystore -alias androiddebugkey -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          keytool -genkey -v -keystore app/debug.keystore -alias androiddebugkey -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
           echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
           echo "!! CAUTION: No ANDROID_DEBUG_KEYSTORE_B64 secret found.             !!"
           echo "!! A new keystore has been generated for this build.               !!"
@@ -47,13 +41,12 @@ jobs:
           echo "!! save it as ANDROID_DEBUG_KEYSTORE_B64 in your GitHub Secrets.    !!"
           echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
           echo "Base64 encoded keystore (copy this to secrets):"
-          base64 android/app/debug.keystore | tr -d '\n'
+          base64 app/debug.keystore | tr -d '\n'
           echo ""
         fi
 
     - name: Build with Gradle
       run: |
-        cd android
         chmod +x gradlew
         ./gradlew assembleDebug
 
@@ -67,7 +60,7 @@ jobs:
           Automated build for version ${{ steps.package-version.outputs.VERSION }}.
 
           Note: If this is the first build, ensure you save the Base64 keystore from the 'Setup Keystore' step logs into your GitHub Secrets as ANDROID_DEBUG_KEYSTORE_B64 for persistent signing.
-        files: android/app/build/outputs/apk/debug/app-debug.apk
+        files: app/build/outputs/apk/debug/app-debug.apk
         prerelease: false
         make_latest: true
       env:
