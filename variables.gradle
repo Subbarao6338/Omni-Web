@@ -16,4 +16,7 @@ ext {
     kotlinVersion = '1.9.24'
     composeBomVersion = '2024.04.01'
     composeCompilerVersion = '1.5.14'
+    roomVersion = '2.6.1'
+    navVersion = '2.8.5'
+    lifecycleVersion = '2.8.7'
 }
