@@ -49,3 +49,11 @@ data class UserScript(
     val matchPattern: String = "*", // Glob pattern for URLs
     val enabled: Boolean = true
 )
+
+@Entity(tableName = "shortcuts")
+data class Shortcut(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val url: String,
+    val timestamp: Long = System.currentTimeMillis()
+)

@@ -51,17 +51,20 @@ fun HomeView(
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
-    val shortcuts = remember {
-        mutableStateListOf(
-            Shortcut("Google", "https://www.google.com"),
-            Shortcut("YouTube", "https://www.youtube.com"),
-            Shortcut("GitHub", "https://www.github.com"),
-            Shortcut("Reddit", "https://www.reddit.com"),
-            Shortcut("Wikipedia", "https://www.wikipedia.org"),
-            Shortcut("Amazon", "https://www.amazon.com"),
-            Shortcut("X", "https://x.com"),
-            Shortcut("Instagram", "https://www.instagram.com")
+    val shortcutsState by database.shortcutDao().getAllShortcuts().collectAsState(initial = emptyList())
+    val shortcuts = if (shortcutsState.isEmpty()) {
+        listOf(
+            Shortcut(title = "Google", url = "https://www.google.com"),
+            Shortcut(title = "YouTube", url = "https://www.youtube.com"),
+            Shortcut(title = "GitHub", url = "https://www.github.com"),
+            Shortcut(title = "Reddit", url = "https://www.reddit.com"),
+            Shortcut(title = "Wikipedia", url = "https://www.wikipedia.org"),
+            Shortcut(title = "Amazon", url = "https://www.amazon.com"),
+            Shortcut(title = "X", url = "https://x.com"),
+            Shortcut(title = "Instagram", url = "https://www.instagram.com")
         )
+    } else {
+        shortcutsState
     }
 
     Scaffold(

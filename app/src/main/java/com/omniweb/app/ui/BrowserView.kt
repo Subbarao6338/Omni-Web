@@ -2,6 +2,11 @@ package com.omniweb.app.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.content.pm.ShortcutInfo
+import android.content.pm.ShortcutManager
+import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 import android.webkit.*
 import android.widget.Toast
@@ -12,6 +17,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +54,12 @@ import com.omniweb.app.util.WebAppInterface
 import kotlinx.coroutines.launch
 
 import androidx.compose.ui.draw.clip
+
+private val AD_DOMAINS = listOf(
+    "doubleclick.net", "googleadservices.com", "adnxs.com",
+    "googlesyndication.com", "quantserve.com", "scorecardresearch.com",
+    "zedo.com", "amazon-adsystem.com"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -87,6 +101,10 @@ fun BrowserView(
     var pageSource by remember { mutableStateOf("") }
     val consoleLogs = remember { mutableStateListOf<ConsoleLog>() }
 
+    var isFindMode by remember { mutableStateOf(false) }
+    var findQuery by remember { mutableStateOf("") }
+    var isDesktopMode by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
 
@@ -106,43 +124,79 @@ fun BrowserView(
         topBar = {
             Surface(color = Color.White.copy(alpha = 0.95f), shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
                 Column {
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                        TextField(
-                            value = urlInput,
-                            onValueChange = { urlInput = it },
-                            modifier = Modifier.weight(1f).height(48.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            singleLine = true,
-                            leadingIcon = {
-                                val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
-                                Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else Color.Gray)
-                            },
-                            trailingIcon = {
-                                if (urlInput.isNotEmpty()) {
-                                    IconButton(onClick = { urlInput = "" }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = {
-                                var target = urlInput
-                                if (!target.startsWith("http") && !target.startsWith("about:")) target = "https://$target"
-                                webView?.loadUrl(target)
-                            }),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color(0xFFF3F4F6),
-                                unfocusedContainerColor = Color(0xFFF3F4F6),
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                            ),
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                        )
-                        IconButton(onClick = {
-                            scope.launch {
-                                database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
+                    if (isFindMode) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextField(
+                                value = findQuery,
+                                onValueChange = {
+                                    findQuery = it
+                                    webView?.findAllAsync(it)
+                                },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                singleLine = true,
+                                placeholder = { Text("Find in page...") },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                trailingIcon = {
+                                    Row {
+                                        IconButton(onClick = { webView?.findNext(false) }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous") }
+                                        IconButton(onClick = { webView?.findNext(true) }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next") }
+                                    }
+                                },
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFFF3F4F6),
+                                    unfocusedContainerColor = Color(0xFFF3F4F6),
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                )
+                            )
+                            TextButton(onClick = {
+                                isFindMode = false
+                                findQuery = ""
+                                webView?.clearMatches()
+                            }) {
+                                Text("Done")
                             }
-                        }) { Icon(Icons.Default.StarBorder, contentDescription = "Bookmark", tint = MaterialTheme.colorScheme.primary) }
-                        IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        }
+                    } else {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            TextField(
+                                value = urlInput,
+                                onValueChange = { urlInput = it },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                singleLine = true,
+                                leadingIcon = {
+                                    val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
+                                    Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else Color.Gray)
+                                },
+                                trailingIcon = {
+                                    if (urlInput.isNotEmpty()) {
+                                        IconButton(onClick = { urlInput = "" }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = {
+                                    var target = urlInput
+                                    if (!target.startsWith("http") && !target.startsWith("about:")) target = "https://$target"
+                                    webView?.loadUrl(target)
+                                }),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0xFFF3F4F6),
+                                    unfocusedContainerColor = Color(0xFFF3F4F6),
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                ),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                            )
+                            IconButton(onClick = {
+                                scope.launch {
+                                    database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
+                                }
+                            }) { Icon(Icons.Default.StarBorder, contentDescription = "Bookmark", tint = MaterialTheme.colorScheme.primary) }
+                            IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                        }
                     }
                     if (isLoading) {
                         LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(2.dp), color = MaterialTheme.colorScheme.primary)
@@ -174,6 +228,7 @@ fun BrowserView(
                             loadWithOverviewMode = true
                             useWideViewPort = true
                             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            cacheMode = WebSettings.LOAD_DEFAULT
                         }
 
                         addJavascriptInterface(WebAppInterface(
@@ -225,7 +280,7 @@ fun BrowserView(
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 if (settings.adBlockEnabled) {
                                     val host = request?.url?.host ?: ""
-                                    if (host.contains("doubleclick.net") || host.contains("googleadservices.com") || host.contains("adnxs.com")) {
+                                    if (AD_DOMAINS.any { host.contains(it) }) {
                                         return WebResourceResponse("text/plain", "UTF-8", null)
                                     }
                                 }
@@ -283,29 +338,43 @@ fun BrowserView(
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     items(tabs) { tab ->
-                        Row(
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp)
+                                .height(100.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
                                 .clickable {
                                     onTabSelected(tab.id)
                                     showTabs = false
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color(0xFFF3F4F6)
+                            ),
+                            border = if (tab.id == activeTabId) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                         ) {
-                            Icon(Icons.Default.Language, contentDescription = null, tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(tab.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(tab.url, fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            IconButton(onClick = { onCloseTab(tab.id) }) {
-                                Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(20.dp))
+                            Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                                Column(modifier = Modifier.align(Alignment.TopStart)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(tab.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(tab.url, fontSize = 10.sp, color = Color.Gray, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                                IconButton(
+                                    onClick = { onCloseTab(tab.id) },
+                                    modifier = Modifier.align(Alignment.BottomEnd).size(24.dp)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
                     }
@@ -344,6 +413,35 @@ fun BrowserView(
                     }
                     ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
                         showConsole = true
+                    }
+                    ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile Site" else "Desktop Site", Color(0xFF6366F1)) {
+                        isDesktopMode = !isDesktopMode
+                        webView?.settings?.userAgentString = if (isDesktopMode) {
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        } else {
+                            null // Use default
+                        }
+                        webView?.reload()
+                        showTools = false
+                    }
+                    ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
+                        isFindMode = true
+                        showTools = false
+                    }
+                    ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val shortcutManager = context.getSystemService(ShortcutManager::class.java)
+                            if (shortcutManager!!.isRequestPinShortcutSupported) {
+                                val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
+                                    .setShortLabel(webView?.title ?: "Web Page")
+                                    .setIcon(Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
+                                    .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
+                                    .build()
+                                shortcutManager.requestPinShortcut(pinShortcutInfo, null)
+                                Toast.makeText(context, "Adding to home screen...", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        showTools = false
                     }
                     ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
                         webView?.let { PageUtils.saveAsPdf(context, it, it.title ?: "Page") }
