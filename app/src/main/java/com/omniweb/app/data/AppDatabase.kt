@@ -28,7 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "omni_browser_db"
-                ).build()
+                ).fallbackToDestructiveMigration().build()
                 INSTANCE = instance
                 instance
             }
