@@ -2,8 +2,8 @@ package com.omniweb.app.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import android.content.ClipData
@@ -45,24 +45,24 @@ fun ViewSourceView(source: String, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Box(
+        val lines = source.split("\n")
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .background(Color(0xFF1E1E1E))
+                .padding(16.dp)
         ) {
-            Text(
-                text = source,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                style = TextStyle(
-                    color = Color(0xFFD4D4D4),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp
+            items(lines) { line ->
+                Text(
+                    text = line,
+                    style = TextStyle(
+                        color = Color(0xFFD4D4D4),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp
+                    )
                 )
-            )
+            }
         }
     }
 }

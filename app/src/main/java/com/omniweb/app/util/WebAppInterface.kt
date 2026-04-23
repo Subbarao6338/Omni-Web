@@ -3,14 +3,19 @@ package com.omniweb.app.util
 import android.webkit.JavascriptInterface
 import com.omniweb.app.data.MediaItem
 import org.json.JSONArray
+import android.os.Handler
+import android.os.Looper
 
 // JavaScript Interface for communication
 class WebAppInterface(
     private val onMediaDetected: (List<MediaItem>) -> Unit,
     private val onTextExtracted: (String) -> Unit
 ) {
+    private val handler = Handler(Looper.getMainLooper())
+
     @JavascriptInterface
-    fun postMedia(json: String) {
+    fun postMedia(json: String?) {
+        if (json == null) return
         try {
             val array = JSONArray(json)
             val list = mutableListOf<MediaItem>()
@@ -23,14 +28,15 @@ class WebAppInterface(
                     title = obj.optString("title", "Media File")
                 ))
             }
-            onMediaDetected(list)
+            handler.post { onMediaDetected(list) }
         } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 
     @JavascriptInterface
-    fun postText(text: String) {
-        onTextExtracted(text)
+    fun postText(text: String?) {
+        if (text == null) return
+        handler.post { onTextExtracted(text) }
     }
 }

@@ -283,9 +283,13 @@ fun BrowserView(
 
                                     // Inject Userscripts - already updated from State
                                     userScripts.filter { it.enabled }.forEach { script ->
-                                        val pattern = script.matchPattern.replace("*", ".*")
-                                        if (it.matches(Regex(pattern))) {
-                                            view?.evaluateJavascript("(function() { ${script.script} })();", null)
+                                        try {
+                                            val pattern = script.matchPattern.replace("*", ".*")
+                                            if (it.matches(Regex(pattern))) {
+                                                view?.evaluateJavascript("(function() { ${script.script} })();", null)
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
                                         }
                                     }
                                 }
@@ -317,7 +321,7 @@ fun BrowserView(
                                         }
                                         if (!window.omniSnifferStarted) {
                                             window.omniSnifferStarted = true;
-                                            setInterval(sniff, 5000);
+                                            setInterval(sniff, 10000);
                                             sniff();
                                         }
                                     })();
@@ -337,6 +341,11 @@ fun BrowserView(
 
                         loadUrl(url)
                         webView = this
+                    }
+                },
+                update = { view ->
+                    if (view.url != url && !url.startsWith("about:")) {
+                        view.loadUrl(url)
                     }
                 },
                 modifier = Modifier.fillMaxSize()
