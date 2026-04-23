@@ -5,8 +5,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
     val scripts by database.userScriptDao().getAllScripts().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
+    var scriptToEdit by remember { mutableStateOf<UserScript?>(null) }
 
     Scaffold(
         topBar = {
@@ -50,9 +53,11 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                 items(scripts) { script ->
-                    ScriptItem(script, onDelete = {
-                        scope.launch { database.userScriptDao().deleteScript(script) }
-                    })
+                    ScriptItem(
+                        script = script,
+                        onDelete = { scope.launch { database.userScriptDao().deleteScript(script) } },
+                        onEdit = { scriptToEdit = script }
+                    )
                 }
             }
         }
@@ -69,30 +74,49 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
             }
         )
     }
+
+    if (scriptToEdit != null) {
+        AddScriptDialog(
+            script = scriptToEdit,
+            onDismiss = { scriptToEdit = null },
+            onConfirm = { name, code, pattern ->
+                scope.launch {
+                    database.userScriptDao().insertScript(scriptToEdit!!.copy(name = name, script = code, matchPattern = pattern))
+                }
+                scriptToEdit = null
+            }
+        )
+    }
 }
 
 @Composable
-fun ScriptItem(script: UserScript, onDelete: () -> Unit) {
+fun ScriptItem(script: UserScript, onDelete: () -> Unit, onEdit: () -> Unit) {
     ListItem(
         headlineContent = { Text(script.name, fontWeight = FontWeight.Bold) },
         supportingContent = { Text(script.matchPattern, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+            Row {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                }
             }
-        }
+        },
+        modifier = Modifier.clickable { onEdit() }
     )
 }
 
 @Composable
-fun AddScriptDialog(onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
-    var pattern by remember { mutableStateOf("*") }
+fun AddScriptDialog(script: UserScript? = null, onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
+    var name by remember { mutableStateOf(script?.name ?: "") }
+    var code by remember { mutableStateOf(script?.script ?: "") }
+    var pattern by remember { mutableStateOf(script?.matchPattern ?: "*") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add Script") },
+        title = { Text(if (script == null) "Add Script" else "Edit Script") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())

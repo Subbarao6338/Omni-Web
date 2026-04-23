@@ -110,14 +110,16 @@ class OmniDownloadManager(private val context: Context) {
             val request = YoutubeDLRequest(url)
             request.addOption("-o", tempFile.absolutePath)
 
-            YoutubeDL.getInstance().execute(request) { progress, _, _ ->
-                scope.launch {
-                   db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
-                       db.downloadDao().updateDownload(currentTask.copy(
-                           downloadedSize = progress.toLong(),
-                           totalSize = 100 // Progress is 0-100
-                       ))
-                   }
+            withContext(Dispatchers.IO) {
+                YoutubeDL.getInstance().execute(request) { progress, _, _ ->
+                    scope.launch {
+                       db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
+                           db.downloadDao().updateDownload(currentTask.copy(
+                               downloadedSize = progress.toLong(),
+                               totalSize = 100 // Progress is 0-100
+                           ))
+                       }
+                    }
                 }
             }
 

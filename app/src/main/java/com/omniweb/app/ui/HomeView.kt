@@ -169,7 +169,7 @@ fun HomeView(
             }
         }
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         if (history.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth()) {
