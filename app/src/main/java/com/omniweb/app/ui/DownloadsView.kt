@@ -2,6 +2,7 @@ package com.omniweb.app.ui
 
 import android.app.DownloadManager
 import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.layout.*
@@ -134,21 +135,34 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                     DownloadItem(
                         task = task,
                         onOpen = {
-                            val file = if (task.filePath != null) File(task.filePath) else null
-                            if (file != null && file.exists()) {
+                            if (task.filePath != null) {
                                 try {
-                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    val uri = if (task.filePath.startsWith("content://")) {
+                                        Uri.parse(task.filePath)
+                                    } else {
+                                        val file = File(task.filePath)
+                                        if (file.exists()) {
+                                            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                        } else {
+                                            null
+                                        }
                                     }
-                                    context.startActivity(intent)
+
+                                    if (uri != null) {
+                                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, context.contentResolver.getType(uri) ?: "*/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(intent)
+                                    } else {
+                                        Toast.makeText(context, "File not found or not accessible", Toast.LENGTH_SHORT).show()
+                                    }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                     Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             } else {
-                                Toast.makeText(context, "File not found or not accessible", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "File path is missing", Toast.LENGTH_SHORT).show()
                             }
                         },
                         onDelete = {

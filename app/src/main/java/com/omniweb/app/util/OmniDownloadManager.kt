@@ -4,7 +4,9 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.webkit.MimeTypeMap
 import android.widget.Toast
+import androidx.documentfile.provider.DocumentFile
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.DownloadTask
 import com.yausername.youtubedl_android.YoutubeDL
@@ -12,6 +14,7 @@ import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.firstOrNull
 import java.io.File
+import java.io.FileInputStream
 
 class OmniDownloadManager(private val context: Context) {
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -41,7 +44,18 @@ class OmniDownloadManager(private val context: Context) {
                     .setAllowedOverMetered(true)
                     .setAllowedOverRoaming(true)
 
-                if (settings?.downloadPath != null) {
+                var customUri: Uri? = null
+                if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
+                    val treeUri = Uri.parse(settings.downloadPath)
+                    val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
+                    val newFile = pickedDir?.createFile(getMimeType(fileName), fileName)
+                    if (newFile != null) {
+                        customUri = newFile.uri
+                        request.setDestinationUri(customUri)
+                    } else {
+                        request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                    }
+                } else if (settings?.downloadPath != null) {
                     val file = File(settings.downloadPath, fileName)
                     request.setDestinationUri(Uri.fromFile(file))
                 } else {
@@ -54,7 +68,7 @@ class OmniDownloadManager(private val context: Context) {
                     id = id,
                     title = fileName,
                     url = url,
-                    filePath = null,
+                    filePath = customUri?.toString(),
                     status = DownloadManager.STATUS_PENDING,
                     totalSize = 0,
                     downloadedSize = 0
@@ -70,21 +84,22 @@ class OmniDownloadManager(private val context: Context) {
         }
     }
 
+    private fun getMimeType(fileName: String): String {
+        val extension = MimeTypeMap.getFileExtensionFromUrl(fileName)
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
+    }
+
     private suspend fun startYtDlDownload(url: String, fileName: String) {
         val downloadId = System.currentTimeMillis() // Generate a temporary ID
         val settings = db.settingsDao().getSettings().firstOrNull()
-        val downloadFolder = if (settings?.downloadPath != null) {
-            File(settings.downloadPath).apply { if (!exists()) mkdirs() }
-        } else {
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)!!
-        }
-        val file = File(downloadFolder, fileName)
+
+        val tempFile = File(context.cacheDir, "yt_dl_temp_${System.currentTimeMillis()}")
 
         val task = DownloadTask(
             id = downloadId,
             title = fileName,
             url = url,
-            filePath = file.absolutePath,
+            filePath = null, // Will update after moving
             status = DownloadManager.STATUS_RUNNING,
             totalSize = 0,
             downloadedSize = 0
@@ -93,9 +108,9 @@ class OmniDownloadManager(private val context: Context) {
 
         try {
             val request = YoutubeDLRequest(url)
-            request.addOption("-o", file.absolutePath)
+            request.addOption("-o", tempFile.absolutePath)
 
-            YoutubeDL.getInstance().execute(request) { progress, etaInSeconds, line ->
+            YoutubeDL.getInstance().execute(request) { progress, _, _ ->
                 scope.launch {
                    db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
                        db.downloadDao().updateDownload(currentTask.copy(
@@ -106,11 +121,44 @@ class OmniDownloadManager(private val context: Context) {
                 }
             }
 
+            // Move to destination
+            var finalPath: String? = null
+            if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
+                val treeUri = Uri.parse(settings.downloadPath)
+                val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
+                val newFile = pickedDir?.createFile(getMimeType(fileName), fileName)
+                if (newFile != null) {
+                    context.contentResolver.openOutputStream(newFile.uri)?.use { output ->
+                        FileInputStream(tempFile).use { input ->
+                            input.copyTo(output)
+                        }
+                    }
+                    finalPath = newFile.uri.toString()
+                }
+            } else if (settings?.downloadPath != null) {
+                val downloadFolder = File(settings.downloadPath).apply { if (!exists()) mkdirs() }
+                val destFile = File(downloadFolder, fileName)
+                tempFile.renameTo(destFile)
+                finalPath = destFile.absolutePath
+            } else {
+                val downloadFolder = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)!!
+                val destFile = File(downloadFolder, fileName)
+                tempFile.renameTo(destFile)
+                finalPath = destFile.absolutePath
+            }
+
+            if (tempFile.exists()) tempFile.delete()
+
             db.downloadDao().getDownloadByIdSync(downloadId)?.let { finalTask ->
-                db.downloadDao().updateDownload(finalTask.copy(status = DownloadManager.STATUS_SUCCESSFUL, downloadedSize = 100))
+                db.downloadDao().updateDownload(finalTask.copy(
+                    status = DownloadManager.STATUS_SUCCESSFUL,
+                    downloadedSize = 100,
+                    filePath = finalPath
+                ))
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            if (tempFile.exists()) tempFile.delete()
             db.downloadDao().getDownloadByIdSync(downloadId)?.let { errorTask ->
                 db.downloadDao().updateDownload(errorTask.copy(status = DownloadManager.STATUS_FAILED))
             }

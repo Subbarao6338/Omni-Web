@@ -3,7 +3,10 @@ package com.omniweb.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +44,22 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val scope = rememberCoroutineScope()
     val settings = settingsState ?: Settings()
+
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            val path = it.toString()
+            scope.launch {
+                database.settingsDao().updateSettings(settings.copy(downloadPath = path))
+                Toast.makeText(context, "Download path updated", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -105,19 +124,22 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                     headlineContent = { Text("Download Path") },
                     supportingContent = { Text(settings.downloadPath ?: "Default (Downloads folder)") },
                     trailingContent = {
-                        IconButton(onClick = {
-                            // In a real app, we'd use a folder picker.
-                            // For now, let's just toggle between default and a custom one for demo
-                            val newPath = if (settings.downloadPath == null) {
-                                context.getExternalFilesDir(null)?.absolutePath + "/OmniDownloads"
-                            } else {
-                                null
+                        Row {
+                            if (settings.downloadPath != null) {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        database.settingsDao().updateSettings(settings.copy(downloadPath = null))
+                                        Toast.makeText(context, "Reset to default download path", Toast.LENGTH_SHORT).show()
+                                    }
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear Path")
+                                }
                             }
-                            scope.launch {
-                                database.settingsDao().updateSettings(settings.copy(downloadPath = newPath))
+                            IconButton(onClick = {
+                                folderPickerLauncher.launch(null)
+                            }) {
+                                Icon(Icons.Default.FolderOpen, contentDescription = "Change Folder")
                             }
-                        }) {
-                            Icon(Icons.Default.FolderOpen, contentDescription = "Change Folder")
                         }
                     }
                 )
