@@ -26,7 +26,8 @@ data class Settings(
     val adBlockEnabled: Boolean = true,
     val darkMode: Boolean = false,
     val lastTabUrl: String = "about:home",
-    val geminiApiKey: String = ""
+    val geminiApiKey: String = "",
+    val accentColor: String = "#3B82F6"
 )
 
 @Entity(tableName = "downloads")

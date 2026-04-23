@@ -4,17 +4,29 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.util.BookmarkExporter
@@ -31,87 +43,121 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text("Settings", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SettingsCategory("General", Icons.Default.Search)
-
-            ListItem(
-                headlineContent = { Text("Search Engine") },
-                supportingContent = { Text(if (settings.searchEngine.contains("google")) "Google" else "Custom") },
-                trailingContent = {
-                    Switch(
-                        checked = settings.searchEngine.contains("google"),
-                        onCheckedChange = { isGoogle ->
-                            scope.launch {
-                                database.settingsDao().updateSettings(
-                                    settings.copy(searchEngine = if (isGoogle) "https://www.google.com/search?q=" else "https://duckduckgo.com/?q=")
-                                )
+            SettingsSection("General", Icons.Default.Search) {
+                ListItem(
+                    headlineContent = { Text("Search Engine") },
+                    supportingContent = { Text(if (settings.searchEngine.contains("google")) "Google" else "DuckDuckGo") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.searchEngine.contains("google"),
+                            onCheckedChange = { isGoogle ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(
+                                        settings.copy(searchEngine = if (isGoogle) "https://www.google.com/search?q=" else "https://duckduckgo.com/?q=")
+                                    )
+                                }
                             }
+                        )
+                    }
+                )
+            }
+
+            SettingsSection("Appearance", Icons.Default.Palette) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Accent Color", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val colors = listOf("#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#6366F1")
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(colors) { colorHex ->
+                            val color = Color(android.graphics.Color.parseColor(colorHex))
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .border(
+                                        width = if (settings.accentColor == colorHex) 3.dp else 0.dp,
+                                        color = if (settings.accentColor == colorHex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                        shape = CircleShape
+                                    )
+                                    .clickable {
+                                        scope.launch {
+                                            database.settingsDao().updateSettings(settings.copy(accentColor = colorHex))
+                                        }
+                                    }
+                            )
                         }
-                    )
+                    }
                 }
-            )
 
-            SettingsCategory("Privacy & Security", Icons.Default.Shield)
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
 
-            ListItem(
-                headlineContent = { Text("Ad Blocking") },
-                supportingContent = { Text("Block ads and trackers") },
-                trailingContent = {
-                    Switch(
-                        checked = settings.adBlockEnabled,
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                database.settingsDao().updateSettings(settings.copy(adBlockEnabled = enabled))
+                ListItem(
+                    headlineContent = { Text("Dark Mode") },
+                    supportingContent = { Text("Always use dark theme") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.darkMode,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(darkMode = enabled))
+                                }
                             }
-                        }
-                    )
-                }
-            )
+                        )
+                    }
+                )
+            }
 
-            SettingsCategory("Appearance", Icons.Default.Palette)
-
-            ListItem(
-                headlineContent = { Text("Dark Mode") },
-                trailingContent = {
-                    Switch(
-                        checked = settings.darkMode,
-                        onCheckedChange = { enabled ->
-                            scope.launch {
-                                database.settingsDao().updateSettings(settings.copy(darkMode = enabled))
+            SettingsSection("Privacy & Security", Icons.Default.Shield) {
+                ListItem(
+                    headlineContent = { Text("Ad Blocking") },
+                    supportingContent = { Text("Block ads and trackers") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.adBlockEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(adBlockEnabled = enabled))
+                                }
                             }
-                        }
-                    )
-                }
-            )
+                        )
+                    }
+                )
+            }
 
-            SettingsCategory("AI Features", Icons.Default.AutoAwesome)
-
-            var keyInput by remember(settings.geminiApiKey) { mutableStateOf(settings.geminiApiKey) }
-
-            ListItem(
-                headlineContent = { Text("Gemini API Key") },
-                supportingContent = {
-                    TextField(
+            SettingsSection("AI Features", Icons.Default.AutoAwesome) {
+                var keyInput by remember(settings.geminiApiKey) { mutableStateOf(settings.geminiApiKey) }
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Gemini API Key", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
                         value = keyInput,
                         onValueChange = { keyInput = it },
-                        placeholder = { Text("Enter your API key") },
+                        placeholder = { Text("Paste your API key here") },
                         modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
                         trailingIcon = {
                             IconButton(onClick = {
                                 scope.launch {
@@ -119,45 +165,64 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                                     Toast.makeText(context, "API Key saved", Toast.LENGTH_SHORT).show()
                                 }
                             }) {
-                                Icon(Icons.Default.Save, contentDescription = "Save")
+                                Icon(Icons.Default.Save, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     )
                 }
-            )
+            }
 
-            SettingsCategory("Data Management", Icons.Default.ImportExport)
-
-            ListItem(
-                headlineContent = { Text("Export Bookmarks") },
-                supportingContent = { Text("Copy bookmarks JSON to clipboard") },
-                trailingContent = {
-                    IconButton(onClick = {
-                        scope.launch {
-                            database.bookmarkDao().getAllBookmarks().collect { bookmarks ->
-                                val json = BookmarkExporter.exportToJson(bookmarks)
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("Bookmarks", json)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Bookmarks exported to clipboard", Toast.LENGTH_SHORT).show()
+            SettingsSection("Data Management", Icons.Default.ImportExport) {
+                ListItem(
+                    headlineContent = { Text("Export Bookmarks") },
+                    supportingContent = { Text("Copy bookmarks JSON to clipboard") },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            scope.launch {
+                                database.bookmarkDao().getAllBookmarks().collect { bookmarks ->
+                                    val json = BookmarkExporter.exportToJson(bookmarks)
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("Bookmarks", json)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Bookmarks exported to clipboard", Toast.LENGTH_SHORT).show()
+                                }
                             }
+                        }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Export")
                         }
-                    }) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = "Export")
                     }
-                }
-            )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
 @Composable
-fun SettingsCategory(title: String, icon: ImageVector) {
-    Row(
-        modifier = Modifier.padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        Text(title, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+fun SettingsSection(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        OutlinedCard(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.outlinedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
+            content = content
+        )
     }
 }

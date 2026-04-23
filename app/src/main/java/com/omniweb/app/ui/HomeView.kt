@@ -51,6 +51,11 @@ fun HomeView(
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
+    var showDownloads by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
+
     val shortcutsState by database.shortcutDao().getAllShortcuts().collectAsState(initial = emptyList())
     val shortcuts = if (shortcutsState.isEmpty()) {
         listOf(
@@ -69,11 +74,15 @@ fun HomeView(
 
     Scaffold(
         bottomBar = {
-            BottomAppBar(containerColor = Color.White.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
+            BottomAppBar(
+                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                modifier = Modifier.navigationBarsPadding(),
+                contentPadding = PaddingValues(0.dp)
+            ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
-                    NavButton(Icons.Default.Download, "Files") { /* showDownloads = true */ }
-                    NavButton(Icons.Default.Settings, "Settings") { /* showSettings = true */ }
+                    NavButton(Icons.Default.Download, "Files") { showDownloads = true }
+                    NavButton(Icons.Default.Settings, "Settings") { showSettings = true }
                 }
             }
         }
@@ -82,7 +91,7 @@ fun HomeView(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(Color(0xFFF5F5F5))
+                .background(MaterialTheme.colorScheme.surface)
                 .verticalScroll(rememberScrollState())
                 .padding(top = 64.dp, start = 32.dp, end = 32.dp, bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -124,8 +133,8 @@ fun HomeView(
                 focusManager.clearFocus()
             }),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color(0xFFE5E7EB),
+                focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color.White,
+                unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF2C2C2C) else Color(0xFFE5E7EB),
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
             )
@@ -160,7 +169,7 @@ fun HomeView(
         Text("Shortcuts", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.Start).padding(bottom = 16.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.height(260.dp),
+            modifier = Modifier.heightIn(max = 1000.dp), // Allow it to expand
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = false
@@ -173,8 +182,24 @@ fun HomeView(
         }
     }
 
+    if (showDownloads) {
+        DownloadsView(database = database) { showDownloads = false }
+    }
+
+    if (showSettings) {
+        SettingsView(database = database) { showSettings = false }
+    }
+
+    if (showBookmarks) {
+        BookmarksView(database = database, onNavigate = { onNavigate(it); showBookmarks = false }, onBack = { showBookmarks = false })
+    }
+
+    if (showHistory) {
+        HistoryView(database = database, onNavigate = { onNavigate(it); showHistory = false }, onBack = { showHistory = false })
+    }
+
     if (showTabs) {
-        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = Color.White) {
+        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
