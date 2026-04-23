@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.util.BackupManager
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +82,43 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                                 }
                             }
                         )
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Restore tabs on start") },
+                    supportingContent = { Text("Continue where you left off") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.restoreTabsOnStart,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(restoreTabsOnStart = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+            }
+
+            SettingsSection("Downloads", Icons.Default.Download) {
+                ListItem(
+                    headlineContent = { Text("Download Path") },
+                    supportingContent = { Text(settings.downloadPath ?: "Default (Downloads folder)") },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            // In a real app, we'd use a folder picker.
+                            // For now, let's just toggle between default and a custom one for demo
+                            val newPath = if (settings.downloadPath == null) {
+                                context.getExternalFilesDir(null)?.absolutePath + "/OmniDownloads"
+                            } else {
+                                null
+                            }
+                            scope.launch {
+                                database.settingsDao().updateSettings(settings.copy(downloadPath = newPath))
+                            }
+                        }) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = "Change Folder")
+                        }
                     }
                 )
             }
@@ -145,6 +182,19 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                         )
                     }
                 )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Clear Browsing Data", color = MaterialTheme.colorScheme.error) },
+                    supportingContent = { Text("History, Cache, and Cookies") },
+                    modifier = Modifier.clickable {
+                        scope.launch {
+                            database.historyDao().clearHistory()
+                            android.webkit.WebStorage.getInstance().deleteAllData()
+                            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                            Toast.makeText(context, "Browsing data cleared", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
             }
 
             SettingsSection("Data Management", Icons.Default.ImportExport) {
@@ -154,7 +204,7 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                     trailingContent = {
                         IconButton(onClick = {
                             scope.launch {
-                                val bookmarks = database.bookmarkDao().getAllBookmarks().first()
+                            val bookmarks = database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()
                                 val json = BackupManager.exportData(bookmarks, settings)
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val clip = ClipData.newPlainText("OmniBackup", json)

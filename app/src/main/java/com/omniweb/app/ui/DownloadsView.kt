@@ -25,18 +25,28 @@ import com.omniweb.app.data.DownloadTask
 import kotlinx.coroutines.launch
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
     val downloads by database.downloadDao().getAllDownloads().collectAsState(initial = emptyList())
     var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("All") }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val filteredDownloads = if (searchQuery.isBlank()) {
-        downloads
-    } else {
-        downloads.filter { it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true) }
+    val categories = listOf("All", "Videos", "Audio", "Images", "Documents", "Other")
+
+    val filteredDownloads = downloads.filter { task ->
+        val matchesSearch = searchQuery.isBlank() || task.title.contains(searchQuery, ignoreCase = true) || task.url.contains(searchQuery, ignoreCase = true)
+        val matchesCategory = when (selectedCategory) {
+            "All" -> true
+            "Videos" -> listOf("mp4", "webm", "mkv", "mov").any { task.title.lowercase().endsWith(it) }
+            "Audio" -> listOf("mp3", "wav", "m4a", "ogg", "aac").any { task.title.lowercase().endsWith(it) }
+            "Images" -> listOf("jpg", "jpeg", "png", "webp", "gif").any { task.title.lowercase().endsWith(it) }
+            "Documents" -> listOf("pdf", "doc", "docx", "txt", "md").any { task.title.lowercase().endsWith(it) }
+            else -> !listOf("mp4", "webm", "mkv", "mov", "mp3", "wav", "m4a", "ogg", "aac", "jpg", "jpeg", "png", "webp", "gif", "pdf", "doc", "docx", "txt", "md").any { task.title.lowercase().endsWith(it) }
+        }
+        matchesSearch && matchesCategory
     }
 
     Scaffold(
@@ -67,7 +77,7 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                     onValueChange = { searchQuery = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                     placeholder = { Text("Search downloads...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
@@ -86,6 +96,19 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                         unfocusedIndicatorColor = Color.Transparent,
                     )
                 )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    categories.forEach { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { selectedCategory = category },
+                            label = { Text(category) },
+                            shape = RoundedCornerShape(20.dp)
+                        )
+                    }
+                }
             }
         }
     ) { padding ->

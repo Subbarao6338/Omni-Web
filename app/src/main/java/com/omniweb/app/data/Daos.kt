@@ -16,6 +16,24 @@ interface BookmarkDao {
 }
 
 @Dao
+interface TabDao {
+    @Query("SELECT * FROM tabs ORDER BY position ASC")
+    fun getAllTabs(): Flow<List<TabEntry>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTab(tab: TabEntry)
+
+    @Update
+    suspend fun updateTab(tab: TabEntry)
+
+    @Delete
+    suspend fun deleteTab(tab: TabEntry)
+
+    @Query("DELETE FROM tabs")
+    suspend fun clearAllTabs()
+}
+
+@Dao
 interface HistoryDao {
     @Query("SELECT * FROM history ORDER BY timestamp DESC")
     fun getAllHistory(): Flow<List<HistoryEntry>>

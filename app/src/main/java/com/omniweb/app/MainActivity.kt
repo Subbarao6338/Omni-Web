@@ -47,7 +47,7 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
 
     val tabs = viewModel.tabs
     val activeTabId by viewModel.activeTabId
-    val activeTab = tabs.find { it.id == activeTabId } ?: tabs.first()
+    val activeTab = tabs.find { it.id == activeTabId } ?: tabs.firstOrNull() ?: com.omniweb.app.data.TabInfo("default", "about:home", "Home")
 
     val accentColor = try {
         Color(android.graphics.Color.parseColor(settings.accentColor))

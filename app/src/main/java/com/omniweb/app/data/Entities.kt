@@ -27,7 +27,19 @@ data class Settings(
     val themeMode: String = "system", // "light", "dark", "system"
     val lastTabUrl: String = "about:home",
     val accentColor: String = "#3B82F6",
-    val darkMode: Boolean = false // Deprecated but kept for migration if needed
+    val darkMode: Boolean = false, // Deprecated but kept for migration if needed
+    val downloadPath: String? = null,
+    val restoreTabsOnStart: Boolean = true
+)
+
+@Entity(tableName = "tabs")
+data class TabEntry(
+    @PrimaryKey val id: String,
+    val url: String,
+    val title: String,
+    val position: Int,
+    val isIncognito: Boolean = false,
+    val lastActive: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "downloads")
