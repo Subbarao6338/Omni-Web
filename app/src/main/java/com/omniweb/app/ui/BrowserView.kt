@@ -94,6 +94,8 @@ fun BrowserView(
     var showDownloads by remember { mutableStateOf(false) }
     var showMediaGrabber by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    var showHistory by remember { mutableStateOf(false) }
 
     var aiSummary by remember { mutableStateOf("") }
     var isAiLoading by remember { mutableStateOf(false) }
@@ -122,7 +124,7 @@ fun BrowserView(
 
     Scaffold(
         topBar = {
-            Surface(color = Color.White.copy(alpha = 0.95f), shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
+            Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
                 Column {
                     if (isFindMode) {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -144,8 +146,8 @@ fun BrowserView(
                                     }
                                 },
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color(0xFFF3F4F6),
-                                    unfocusedContainerColor = Color(0xFFF3F4F6),
+                                    focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
+                                    unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 )
@@ -183,8 +185,8 @@ fun BrowserView(
                                     webView?.loadUrl(target)
                                 }),
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color(0xFFF3F4F6),
-                                    unfocusedContainerColor = Color(0xFFF3F4F6),
+                                    focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
+                                    unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 ),
@@ -205,11 +207,26 @@ fun BrowserView(
             }
         },
         bottomBar = {
-            BottomAppBar(containerColor = Color.White.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
+            BottomAppBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
                     NavButton(Icons.Default.VideoLibrary, "Media", badge = mediaItems.size) { showMediaGrabber = true }
-                    NavButton(Icons.Default.AutoAwesome, "AI") { showTools = true }
+                    NavButton(Icons.Default.AutoAwesome, "AI") {
+                        scope.launch {
+                            isAiLoading = true
+                            aiSummary = ""
+                            showTools = true
+                            try {
+                                val model = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = settings.geminiApiKey.ifEmpty { "YOUR_API_KEY" })
+                                val response = model.generateContent(content { text("Summarize this web page content concisely: $pageText") })
+                                aiSummary = response.text ?: "No summary available."
+                            } catch (e: Exception) {
+                                aiSummary = "To use AI features, please configure a Gemini API key in Settings. Error: ${e.message}"
+                            } finally {
+                                isAiLoading = false
+                            }
+                        }
+                    }
                     NavButton(Icons.Default.Download, "Files") { showDownloads = true }
                     NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
                 }
@@ -388,69 +405,100 @@ fun BrowserView(
     }
 
     if (showTools) {
-        ModalBottomSheet(onDismissRequest = { showTools = false }, sheetState = sheetState, containerColor = Color.White) {
+        ModalBottomSheet(onDismissRequest = { showTools = false }, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
                 Text("Page Tools", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(24.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                    ToolButton(Icons.Default.AutoAwesome, "AI Summary", Color(0xFF9333EA)) {
-                        scope.launch {
-                            isAiLoading = true
-                            aiSummary = ""
-                            try {
-                                val model = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = settings.geminiApiKey.ifEmpty { "YOUR_API_KEY" })
-                                val response = model.generateContent(content { text("Summarize this web page content concisely: $pageText") })
-                                aiSummary = response.text ?: "No summary available."
-                            } catch (e: Exception) {
-                                aiSummary = "To use AI features, please configure a Gemini API key in Settings. Error: ${e.message}"
-                            } finally {
-                                isAiLoading = false
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item {
+                        ToolButton(Icons.Default.AutoAwesome, "AI Summary", Color(0xFF9333EA)) {
+                            scope.launch {
+                                isAiLoading = true
+                                aiSummary = ""
+                                try {
+                                    val model = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = settings.geminiApiKey.ifEmpty { "YOUR_API_KEY" })
+                                    val response = model.generateContent(content { text("Summarize this web page content concisely: $pageText") })
+                                    aiSummary = response.text ?: "No summary available."
+                                } catch (e: Exception) {
+                                    aiSummary = "To use AI features, please configure a Gemini API key in Settings. Error: ${e.message}"
+                                } finally {
+                                    isAiLoading = false
+                                }
                             }
                         }
                     }
-                    ToolButton(Icons.Default.Code, "View Source", Color(0xFFEA580C)) {
-                        webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
-                            pageSource = source ?: "No source available"
-                            showSource = true
-                        }
-                    }
-                    ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
-                        showConsole = true
-                    }
-                    ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile Site" else "Desktop Site", Color(0xFF6366F1)) {
-                        isDesktopMode = !isDesktopMode
-                        webView?.settings?.userAgentString = if (isDesktopMode) {
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                        } else {
-                            null // Use default
-                        }
-                        webView?.reload()
-                        showTools = false
-                    }
-                    ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
-                        isFindMode = true
-                        showTools = false
-                    }
-                    ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            val shortcutManager = context.getSystemService(ShortcutManager::class.java)
-                            if (shortcutManager!!.isRequestPinShortcutSupported) {
-                                val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
-                                    .setShortLabel(webView?.title ?: "Web Page")
-                                    .setIcon(Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
-                                    .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
-                                    .build()
-                                shortcutManager.requestPinShortcut(pinShortcutInfo, null)
-                                Toast.makeText(context, "Adding to home screen...", Toast.LENGTH_SHORT).show()
+                    item {
+                        ToolButton(Icons.Default.Code, "View Source", Color(0xFFEA580C)) {
+                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                                pageSource = source ?: "No source available"
+                                showSource = true
                             }
                         }
-                        showTools = false
                     }
-                    ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                        webView?.let { PageUtils.saveAsPdf(context, it, it.title ?: "Page") }
+                    item {
+                        ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
+                            showConsole = true
+                        }
                     }
-                    ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) {
-                        showSettings = true
+                    item {
+                        ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile Site" else "Desktop Site", Color(0xFF6366F1)) {
+                            isDesktopMode = !isDesktopMode
+                            webView?.settings?.userAgentString = if (isDesktopMode) {
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            } else {
+                                null // Use default
+                            }
+                            webView?.reload()
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
+                            isFindMode = true
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                val shortcutManager = context.getSystemService(ShortcutManager::class.java)
+                                if (shortcutManager!!.isRequestPinShortcutSupported) {
+                                    val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
+                                        .setShortLabel(webView?.title ?: "Web Page")
+                                        .setIcon(Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
+                                        .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
+                                        .build()
+                                    shortcutManager.requestPinShortcut(pinShortcutInfo, null)
+                                    Toast.makeText(context, "Adding to home screen...", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
+                            webView?.let { PageUtils.saveAsPdf(context, it, it.title ?: "Page") }
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Star, "Bookmarks", Color(0xFFFFB000)) {
+                            showBookmarks = true
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.History, "History", Color(0xFF607D8B)) {
+                            showHistory = true
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) {
+                            showSettings = true
+                        }
                     }
                 }
 
@@ -489,6 +537,14 @@ fun BrowserView(
 
     if (showSettings) {
         SettingsView(database = database) { showSettings = false }
+    }
+
+    if (showBookmarks) {
+        BookmarksView(database = database, onNavigate = { webView?.loadUrl(it); showBookmarks = false }, onBack = { showBookmarks = false })
+    }
+
+    if (showHistory) {
+        HistoryView(database = database, onNavigate = { webView?.loadUrl(it); showHistory = false }, onBack = { showHistory = false })
     }
 }
 
