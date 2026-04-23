@@ -1,6 +1,7 @@
 package com.omniweb.app.ui
 
 import android.app.Application
+import android.webkit.WebView
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -15,6 +16,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     val tabs = mutableStateListOf(TabInfo(UUID.randomUUID().toString(), "about:home", "Home"))
     val activeTabId = mutableStateOf(tabs.first().id)
+    private val webViewCache = mutableMapOf<String, WebView>()
+
+    fun getOrCreateWebView(tabId: String, context: android.content.Context): WebView {
+        return webViewCache.getOrPut(tabId) {
+            WebView(context).apply {
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            }
+        }
+    }
 
     val settings = database.settingsDao().getSettings().stateIn(
         scope = viewModelScope,
@@ -35,12 +48,31 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val index = tabs.indexOfFirst { it.id == id }
         if (index != -1) {
             tabs.removeAt(index)
+            webViewCache.remove(id)?.apply {
+                stopLoading()
+                loadUrl("about:blank")
+                clearHistory()
+                removeAllViews()
+                destroy()
+            }
             if (tabs.isEmpty()) {
                 createTab()
             } else if (activeTabId.value == id) {
                 activeTabId.value = tabs[maxOf(0, index - 1)].id
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        webViewCache.values.forEach {
+            it.stopLoading()
+            it.loadUrl("about:blank")
+            it.clearHistory()
+            it.removeAllViews()
+            it.destroy()
+        }
+        webViewCache.clear()
     }
 
     fun selectTab(id: String) {

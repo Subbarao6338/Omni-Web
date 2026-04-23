@@ -12,9 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.omniweb.app.ui.BrowserView
-import com.omniweb.app.ui.HomeView
-import com.omniweb.app.ui.BrowserViewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.omniweb.app.ui.*
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,28 +67,74 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
         )
     }
 
+    val navController = rememberNavController()
+
     MaterialTheme(colorScheme = colorScheme) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            val currentScreen = if (activeTab.url == "about:home") "home" else "browser"
-
-            when (currentScreen) {
-                "home" -> {
+            NavHost(navController = navController, startDestination = "home") {
+                composable("home") {
                     HomeView(
                         onNavigate = { url ->
                             activeTab.url = url
                             activeTab.title = "Loading..."
+                            navController.navigate("browser")
                         },
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onOpenSettings = { navController.navigate("settings") },
+                        onOpenBookmarks = { navController.navigate("bookmarks") },
+                        onOpenHistory = { navController.navigate("history") },
+                        onOpenDownloads = { navController.navigate("downloads") }
                     )
                 }
-                "browser" -> {
+                composable("browser") {
                     BrowserView(
                         activeTab = activeTab,
                         onBackToHome = {
                             activeTab.url = "about:home"
                             activeTab.title = "Home"
+                            navController.popBackStack("home", inclusive = false)
                         },
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        onOpenSettings = { navController.navigate("settings") },
+                        onOpenBookmarks = { navController.navigate("bookmarks") },
+                        onOpenHistory = { navController.navigate("history") },
+                        onOpenDownloads = { navController.navigate("downloads") }
+                    )
+                }
+                composable("settings") {
+                    SettingsView(
+                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("bookmarks") {
+                    BookmarksView(
+                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        onNavigate = { url ->
+                            activeTab.url = url
+                            navController.navigate("browser") {
+                                popUpTo("home")
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("history") {
+                    HistoryView(
+                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        onNavigate = { url ->
+                            activeTab.url = url
+                            navController.navigate("browser") {
+                                popUpTo("home")
+                            }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("downloads") {
+                    DownloadsView(
+                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        onBack = { navController.popBackStack() }
                     )
                 }
             }
