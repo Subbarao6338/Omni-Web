@@ -10,6 +10,7 @@ import com.omniweb.app.data.DownloadTask
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.firstOrNull
 import java.io.File
 
 class OmniDownloadManager(private val context: Context) {
@@ -30,18 +31,25 @@ class OmniDownloadManager(private val context: Context) {
     }
 
     private fun enqueueStandardDownload(url: String, fileName: String) {
-        try {
-            val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle(fileName)
-                .setDescription("Downloading file...")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
+        scope.launch {
+            try {
+                val settings = db.settingsDao().getSettings().firstOrNull()
+                val request = DownloadManager.Request(Uri.parse(url))
+                    .setTitle(fileName)
+                    .setDescription("Downloading file...")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(true)
 
-            val id = downloadManager.enqueue(request)
+                if (settings?.downloadPath != null) {
+                    val file = File(settings.downloadPath, fileName)
+                    request.setDestinationUri(Uri.fromFile(file))
+                } else {
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                }
 
-            scope.launch {
+                val id = downloadManager.enqueue(request)
+
                 val task = DownloadTask(
                     id = id,
                     title = fileName,
@@ -53,18 +61,23 @@ class OmniDownloadManager(private val context: Context) {
                 )
                 db.downloadDao().insertDownload(task)
                 pollDownloadStatus(id)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            scope.launch(Dispatchers.Main) {
-                Toast.makeText(context, "Failed to start download: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to start download: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
     private suspend fun startYtDlDownload(url: String, fileName: String) {
         val downloadId = System.currentTimeMillis() // Generate a temporary ID
-        val downloadFolder = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val settings = db.settingsDao().getSettings().firstOrNull()
+        val downloadFolder = if (settings?.downloadPath != null) {
+            File(settings.downloadPath).apply { if (!exists()) mkdirs() }
+        } else {
+            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)!!
+        }
         val file = File(downloadFolder, fileName)
 
         val task = DownloadTask(

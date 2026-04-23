@@ -9,14 +9,74 @@ import androidx.lifecycle.viewModelScope
 import com.omniweb.app.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import java.util.UUID
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
 
-    val tabs = mutableStateListOf(TabInfo(UUID.randomUUID().toString(), "about:home", "Home"))
-    val activeTabId = mutableStateOf(tabs.first().id)
+    val tabs = mutableStateListOf<TabInfo>()
+    val activeTabId = mutableStateOf("")
     private val webViewCache = mutableMapOf<String, WebView>()
+
+    init {
+        // Start with a placeholder if empty to prevent crash in UI before init completes
+        if (tabs.isEmpty()) {
+            tabs.add(TabInfo("loading", "about:blank", "Loading..."))
+            activeTabId.value = "loading"
+        }
+
+        viewModelScope.launch {
+            val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
+            val savedTabs = database.tabDao().getAllTabs().firstOrNull() ?: emptyList()
+
+            tabs.clear()
+
+            if (currentSettings.restoreTabsOnStart && savedTabs.isNotEmpty()) {
+                savedTabs.forEach { entry ->
+                    tabs.add(TabInfo(entry.id, entry.url, entry.title, entry.isIncognito))
+                }
+                activeTabId.value = tabs.first().id
+            } else {
+                if (!currentSettings.restoreTabsOnStart) {
+                    database.tabDao().clearAllTabs()
+                }
+                createDefaultTab()
+            }
+        }
+    }
+
+    private fun createDefaultTab() {
+        val id = UUID.randomUUID().toString()
+        val newTab = TabInfo(id, "about:home", "Home")
+        tabs.add(newTab)
+        activeTabId.value = id
+        saveTabToDb(newTab)
+    }
+
+    private fun saveTabToDb(tab: TabInfo) {
+        viewModelScope.launch {
+            database.tabDao().insertTab(TabEntry(
+                id = tab.id,
+                url = tab.url,
+                title = tab.title,
+                position = tabs.indexOf(tab),
+                isIncognito = tab.isIncognito
+            ))
+        }
+    }
+
+    fun updateTabInDb(tab: TabInfo) {
+        viewModelScope.launch {
+            database.tabDao().updateTab(TabEntry(
+                id = tab.id,
+                url = tab.url,
+                title = tab.title,
+                position = tabs.indexOf(tab),
+                isIncognito = tab.isIncognito
+            ))
+        }
+    }
 
     fun getOrCreateWebView(tabId: String, context: android.content.Context): WebView {
         return webViewCache.getOrPut(tabId) {
@@ -42,12 +102,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val newTab = TabInfo(UUID.randomUUID().toString(), url, title, isIncognito)
         tabs.add(newTab)
         activeTabId.value = newTab.id
+        saveTabToDb(newTab)
     }
 
     fun closeTab(id: String) {
         val index = tabs.indexOfFirst { it.id == id }
         if (index != -1) {
-            tabs.removeAt(index)
+            val removedTab = tabs.removeAt(index)
+            viewModelScope.launch {
+                database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))
+            }
             webViewCache.remove(id)?.apply {
                 stopLoading()
                 loadUrl("about:blank")
@@ -85,11 +149,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             return
         }
         viewModelScope.launch {
-            val history = database.historyDao().getAllHistory().first().filter {
+            val history = (database.historyDao().getAllHistory().firstOrNull() ?: emptyList()).filter {
                 it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
             }.take(5).map { Suggestion(it.title, it.url, isHistory = true) }
 
-            val bookmarks = database.bookmarkDao().getAllBookmarks().first().filter {
+            val bookmarks = (database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()).filter {
                 it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
             }.take(5).map { Suggestion(it.title, it.url, isHistory = false) }
 

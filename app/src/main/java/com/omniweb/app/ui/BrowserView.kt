@@ -359,6 +359,7 @@ fun BrowserView(
                                 super.onReceivedTitle(view, title)
                                 if (title != null && !title.startsWith("http")) {
                                 tab.title = title
+                                    viewModel.updateTabInDb(tab)
                                 }
                             }
 
@@ -391,6 +392,7 @@ fun BrowserView(
                                     if (title != null && title.isNotEmpty()) {
                                      tab.title = title
                                     }
+                                    viewModel.updateTabInDb(tab)
 
                                 if (!tab.isIncognito) {
                                         scope.launch {
