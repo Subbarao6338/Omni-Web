@@ -24,10 +24,11 @@ data class Settings(
     @PrimaryKey val id: Int = 0, // Only one row
     val searchEngine: String = "https://www.google.com/search?q=",
     val adBlockEnabled: Boolean = true,
-    val darkMode: Boolean = false,
+    val themeMode: String = "system", // "light", "dark", "system"
     val lastTabUrl: String = "about:home",
     val geminiApiKey: String = "",
-    val accentColor: String = "#3B82F6"
+    val accentColor: String = "#3B82F6",
+    val darkMode: Boolean = false // Deprecated but kept for migration if needed
 )
 
 @Entity(tableName = "downloads")
