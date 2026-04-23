@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -80,6 +82,8 @@ fun BrowserView(
     val database = remember { AppDatabase.getDatabase(context) }
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val settings = settingsState ?: Settings()
+    val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsState(initial = emptyList())
+    val isBookmarked = bookmarks.any { it.url == url }
     val userScripts by database.userScriptDao().getAllScripts().collectAsState(initial = emptyList())
     val downloadManager = remember { OmniDownloadManager(context) }
 
@@ -146,8 +150,8 @@ fun BrowserView(
                                     }
                                 },
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
-                                    unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 )
@@ -171,7 +175,7 @@ fun BrowserView(
                                 singleLine = true,
                                 leadingIcon = {
                                     val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
-                                    Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else Color.Gray)
+                                    Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant)
                                 },
                                 trailingIcon = {
                                     if (urlInput.isNotEmpty()) {
@@ -185,8 +189,8 @@ fun BrowserView(
                                     webView?.loadUrl(target)
                                 }),
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
-                                    unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color(0xFFF3F4F6),
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
                                 ),
@@ -194,10 +198,30 @@ fun BrowserView(
                             )
                             IconButton(onClick = {
                                 scope.launch {
-                                    database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
+                                    if (isBookmarked) {
+                                        bookmarks.find { it.url == url }?.let {
+                                            database.bookmarkDao().deleteBookmark(it)
+                                        }
+                                    } else {
+                                        database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
+                                    }
                                 }
-                            }) { Icon(Icons.Default.StarBorder, contentDescription = "Bookmark", tint = MaterialTheme.colorScheme.primary) }
-                            IconButton(onClick = { webView?.reload() }) { Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            }) {
+                                Icon(
+                                    if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                    contentDescription = "Bookmark",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(onClick = {
+                                if (isLoading) webView?.stopLoading() else webView?.reload()
+                            }) {
+                                Icon(
+                                    if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
+                                    contentDescription = if (isLoading) "Stop" else "Refresh",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                     }
                     if (isLoading) {
@@ -211,6 +235,8 @@ fun BrowserView(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
                     NavButton(Icons.Default.VideoLibrary, "Media", badge = mediaItems.size) { showMediaGrabber = true }
+                    NavButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back") { webView?.goBack() }
+                    NavButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward") { webView?.goForward() }
                     NavButton(Icons.Default.AutoAwesome, "AI") {
                         scope.launch {
                             isAiLoading = true
@@ -355,7 +381,7 @@ fun BrowserView(
     }
 
     if (showTabs) {
-        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = Color.White) {
+        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -384,19 +410,19 @@ fun BrowserView(
                                     showTabs = false
                                 },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color(0xFFF3F4F6)
+                                containerColor = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
                             ),
                             border = if (tab.id == activeTabId) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                         ) {
                             Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
                                 Column(modifier = Modifier.align(Alignment.TopStart)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
+                                        Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(tab.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(tab.url, fontSize = 10.sp, color = Color.Gray, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                 }
                                 IconButton(
                                     onClick = { onCloseTab(tab.id) },
@@ -514,8 +540,30 @@ fun BrowserView(
                 if (isAiLoading) CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally).padding(24.dp))
                 if (aiSummary.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(24.dp))
-                    Surface(color = Color(0xFFF5F3FF), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                        Text(aiSummary, modifier = Modifier.padding(16.dp), fontSize = 14.sp)
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("AI Summary", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                IconButton(onClick = {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("AI Summary", aiSummary)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                }) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.secondary)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(aiSummary, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(48.dp))
@@ -561,14 +609,14 @@ fun BrowserView(
 fun NavButton(icon: ImageVector, label: String, badge: Int = 0, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }.padding(8.dp)) {
         Box {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = Color.Gray)
+            Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             if (badge > 0) {
                 Surface(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp).align(Alignment.TopEnd).offset(x = 4.dp, y = (-4).dp), shape = CircleShape) {
-                    Text(badge.toString(), color = Color.White, fontSize = 8.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                    Text(badge.toString(), color = MaterialTheme.colorScheme.onPrimary, fontSize = 8.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
                 }
             }
         }
-        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

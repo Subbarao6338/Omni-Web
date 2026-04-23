@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -30,7 +30,7 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                 title = { Text("Downloads") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -39,9 +39,9 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
         if (downloads.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No downloads yet", color = Color.Gray)
+                    Text("No downloads yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
@@ -60,7 +60,7 @@ fun DownloadItem(task: DownloadTask) {
         headlineContent = { Text(task.title, fontWeight = FontWeight.Bold) },
         supportingContent = {
             Column {
-                Text(task.url, maxLines = 1, fontSize = 12.sp, color = Color.Gray)
+                Text(task.url, maxLines = 1, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 LinearProgressIndicator(
                     progress = { if (task.totalSize > 0) task.downloadedSize.toFloat() / task.totalSize else 0f },

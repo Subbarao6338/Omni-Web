@@ -4,7 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.*
@@ -26,7 +26,7 @@ fun MediaGrabberView(mediaItems: List<MediaItem>, onDownload: (MediaItem) -> Uni
                 title = { Text("Detected Media") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -35,9 +35,9 @@ fun MediaGrabberView(mediaItems: List<MediaItem>, onDownload: (MediaItem) -> Uni
         if (mediaItems.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                    Icon(Icons.Default.VideoLibrary, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.outline)
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("No media detected on this page", color = Color.Gray)
+                    Text("No media detected on this page", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
@@ -55,7 +55,7 @@ fun MediaGrabberItem(item: MediaItem, onDownload: (MediaItem) -> Unit) {
     ListItem(
         headlineContent = { Text(item.title, fontWeight = FontWeight.Bold, maxLines = 1) },
         supportingContent = {
-            Text(item.src, fontSize = 12.sp, color = Color.Gray, maxLines = 1)
+            Text(item.src, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         },
         overlineContent = {
             Text(item.type.uppercase(), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp)

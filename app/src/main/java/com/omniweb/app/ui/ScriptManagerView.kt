@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,7 +32,7 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
                 title = { Text("Userscripts & Bookmarklets") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -45,7 +45,7 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
     ) { padding ->
         if (scripts.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No scripts added", color = Color.Gray)
+                Text("No scripts added", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -75,7 +75,7 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
 fun ScriptItem(script: UserScript, onDelete: () -> Unit) {
     ListItem(
         headlineContent = { Text(script.name, fontWeight = FontWeight.Bold) },
-        supportingContent = { Text(script.matchPattern, fontSize = 12.sp, color = Color.Gray) },
+        supportingContent = { Text(script.matchPattern, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingContent = {
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
