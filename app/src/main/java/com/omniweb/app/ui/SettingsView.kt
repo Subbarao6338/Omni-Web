@@ -30,7 +30,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
-import com.omniweb.app.util.BookmarkExporter
+import com.omniweb.app.util.BackupManager
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,48 +147,51 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                 )
             }
 
-            SettingsSection("AI Features", Icons.Default.AutoAwesome) {
-                var keyInput by remember(settings.geminiApiKey) { mutableStateOf(settings.geminiApiKey) }
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Gemini API Key", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = keyInput,
-                        onValueChange = { keyInput = it },
-                        placeholder = { Text("Paste your API key here") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        trailingIcon = {
-                            IconButton(onClick = {
-                                scope.launch {
-                                    database.settingsDao().updateSettings(settings.copy(geminiApiKey = keyInput))
-                                    Toast.makeText(context, "API Key saved", Toast.LENGTH_SHORT).show()
-                                }
-                            }) {
-                                Icon(Icons.Default.Save, contentDescription = "Save", tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    )
-                }
-            }
-
             SettingsSection("Data Management", Icons.Default.ImportExport) {
                 ListItem(
-                    headlineContent = { Text("Export Bookmarks") },
-                    supportingContent = { Text("Copy bookmarks JSON to clipboard") },
+                    headlineContent = { Text("Export Data") },
+                    supportingContent = { Text("Copy settings and bookmarks to clipboard") },
                     trailingContent = {
                         IconButton(onClick = {
                             scope.launch {
-                                database.bookmarkDao().getAllBookmarks().collect { bookmarks ->
-                                    val json = BookmarkExporter.exportToJson(bookmarks)
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    val clip = ClipData.newPlainText("Bookmarks", json)
-                                    clipboard.setPrimaryClip(clip)
-                                    Toast.makeText(context, "Bookmarks exported to clipboard", Toast.LENGTH_SHORT).show()
-                                }
+                                val bookmarks = database.bookmarkDao().getAllBookmarks().first()
+                                val json = BackupManager.exportData(bookmarks, settings)
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("OmniBackup", json)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Data exported to clipboard", Toast.LENGTH_SHORT).show()
                             }
                         }) {
                             Icon(Icons.Default.ContentCopy, contentDescription = "Export")
+                        }
+                    }
+                )
+                ListItem(
+                    headlineContent = { Text("Import Data") },
+                    supportingContent = { Text("Restore data from clipboard") },
+                    trailingContent = {
+                        IconButton(onClick = {
+                            try {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val json = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                                if (json != null) {
+                                    scope.launch {
+                                        val newBookmarks = BackupManager.importBookmarks(json)
+                                        val newSettings = BackupManager.importSettings(json, settings)
+
+                                        database.settingsDao().updateSettings(newSettings)
+                                        newBookmarks.forEach { database.bookmarkDao().insertBookmark(it) }
+
+                                        Toast.makeText(context, "Data imported successfully", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Clipboard is empty", Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Import failed: Invalid format", Toast.LENGTH_SHORT).show()
+                            }
+                        }) {
+                            Icon(Icons.Default.ContentPaste, contentDescription = "Import")
                         }
                     }
                 )

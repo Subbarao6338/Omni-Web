@@ -4,9 +4,13 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.Uri
 import android.os.Environment
+import android.widget.Toast
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.DownloadTask
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.*
+import java.io.File
 
 class OmniDownloadManager(private val context: Context) {
     private val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -14,28 +18,89 @@ class OmniDownloadManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun startDownload(url: String, fileName: String) {
-        val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle(fileName)
-            .setDescription("Downloading file...")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
+        val isVideoUrl = url.contains("youtube.com") || url.contains("youtu.be") || url.contains("instagram.com") || url.contains("x.com") || url.contains("facebook.com")
 
-        val id = downloadManager.enqueue(request)
+        if (isVideoUrl) {
+            scope.launch {
+                startYtDlDownload(url, fileName)
+            }
+        } else {
+            enqueueStandardDownload(url, fileName)
+        }
+    }
 
-        scope.launch {
-            val task = DownloadTask(
-                id = id,
-                title = fileName,
-                url = url,
-                filePath = null,
-                status = DownloadManager.STATUS_PENDING,
-                totalSize = 0,
-                downloadedSize = 0
-            )
-            db.downloadDao().insertDownload(task)
-            pollDownloadStatus(id)
+    private fun enqueueStandardDownload(url: String, fileName: String) {
+        try {
+            val request = DownloadManager.Request(Uri.parse(url))
+                .setTitle(fileName)
+                .setDescription("Downloading file...")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                .setAllowedOverMetered(true)
+                .setAllowedOverRoaming(true)
+
+            val id = downloadManager.enqueue(request)
+
+            scope.launch {
+                val task = DownloadTask(
+                    id = id,
+                    title = fileName,
+                    url = url,
+                    filePath = null,
+                    status = DownloadManager.STATUS_PENDING,
+                    totalSize = 0,
+                    downloadedSize = 0
+                )
+                db.downloadDao().insertDownload(task)
+                pollDownloadStatus(id)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            scope.launch(Dispatchers.Main) {
+                Toast.makeText(context, "Failed to start download: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun startYtDlDownload(url: String, fileName: String) {
+        val downloadId = System.currentTimeMillis() // Generate a temporary ID
+        val downloadFolder = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val file = File(downloadFolder, fileName)
+
+        val task = DownloadTask(
+            id = downloadId,
+            title = fileName,
+            url = url,
+            filePath = file.absolutePath,
+            status = DownloadManager.STATUS_RUNNING,
+            totalSize = 0,
+            downloadedSize = 0
+        )
+        db.downloadDao().insertDownload(task)
+
+        try {
+            val request = YoutubeDLRequest(url)
+            request.addOption("-o", file.absolutePath)
+
+            YoutubeDL.getInstance().execute(request) { progress, etaInSeconds, line ->
+                scope.launch {
+                   db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
+                       db.downloadDao().updateDownload(currentTask.copy(
+                           downloadedSize = progress.toLong(),
+                           totalSize = 100 // Progress is 0-100
+                       ))
+                   }
+                }
+            }
+
+            db.downloadDao().getDownloadByIdSync(downloadId)?.let { finalTask ->
+                db.downloadDao().updateDownload(finalTask.copy(status = DownloadManager.STATUS_SUCCESSFUL, downloadedSize = 100))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            db.downloadDao().getDownloadByIdSync(downloadId)?.let { errorTask ->
+                db.downloadDao().updateDownload(errorTask.copy(status = DownloadManager.STATUS_FAILED))
+            }
         }
     }
 

@@ -26,7 +26,6 @@ data class Settings(
     val adBlockEnabled: Boolean = true,
     val themeMode: String = "system", // "light", "dark", "system"
     val lastTabUrl: String = "about:home",
-    val geminiApiKey: String = "",
     val accentColor: String = "#3B82F6",
     val darkMode: Boolean = false // Deprecated but kept for migration if needed
 )

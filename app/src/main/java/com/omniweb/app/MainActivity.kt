@@ -16,11 +16,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.omniweb.app.ui.*
+import com.yausername.youtubedl_android.YoutubeDL
+import android.util.Log
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                YoutubeDL.getInstance().init(this@MainActivity)
+            } catch (e: Exception) {
+                Log.e("YoutubeDL", "failed to initialize youtubedl-android", e)
+            }
+        }
+
         enableEdgeToEdge()
         setContent {
             OmniBrowserApp()

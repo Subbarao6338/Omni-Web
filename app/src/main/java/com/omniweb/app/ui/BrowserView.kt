@@ -46,8 +46,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Bookmark
 import com.omniweb.app.data.HistoryEntry
@@ -117,15 +115,12 @@ fun BrowserView(
 
     var showTools by remember { mutableStateOf(false) }
     var showTabs by remember { mutableStateOf(false) }
-    var showAiPanel by remember { mutableStateOf(false) }
 
     var showSource by remember { mutableStateOf(false) }
     var showConsole by remember { mutableStateOf(false) }
     var showMediaGrabber by remember { mutableStateOf(false) }
 
     var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
-    var aiSummary by remember { mutableStateOf("") }
-    var isAiLoading by remember { mutableStateOf(false) }
     var pageText by remember { mutableStateOf("") }
     var pageSource by remember { mutableStateOf("") }
     val consoleLogs = remember { mutableStateListOf<ConsoleLog>() }
@@ -306,23 +301,6 @@ fun BrowserView(
                          if (webView?.canGoBack() == true) webView?.goBack() else onBackToHome()
                     }
                     NavButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward") { webView?.goForward() }
-                    NavButton(Icons.Default.AutoAwesome, "AI") {
-                        showAiPanel = true
-                        if (aiSummary.isEmpty() && !isAiLoading) {
-                            scope.launch {
-                                isAiLoading = true
-                                try {
-                                    val model = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = settings.geminiApiKey.ifEmpty { "YOUR_API_KEY" })
-                                    val response = model.generateContent(content { text("Summarize this web page content concisely: $pageText") })
-                                    aiSummary = response.text ?: "No summary available."
-                                } catch (e: Exception) {
-                                    aiSummary = "To use AI features, please configure a Gemini API key in Settings. Error: ${e.message}"
-                                } finally {
-                                    isAiLoading = false
-                                }
-                            }
-                        }
-                    }
                     NavButton(Icons.Default.Download, "Files") { onOpenDownloads() }
                     NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
                 }
@@ -439,33 +417,45 @@ fun BrowserView(
                                         function sniff() {
                                             const media = [];
                                             const seen = new Set();
-                                            document.querySelectorAll('video, audio, source, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"]').forEach(el => {
-                                                const src = el.src || el.getAttribute('src') || el.href;
+
+                                            // Generic media elements and common extensions
+                                            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"]';
+                                            document.querySelectorAll(selectors).forEach(el => {
+                                                const src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
                                                 if (src && src.startsWith('http') && !seen.has(src)) {
-                                                    seen.add(src);
-                                                    media.push({
-                                                        id: Math.random().toString(36).substr(2, 9),
-                                                        src: src,
-                                                        type: src.split('.').pop().split('?')[0] || 'media',
-                                                        title: document.title || 'Media File'
-                                                    });
-                                                }
-                                            });
-                                            if (location.host.includes('instagram.com') || location.host.includes('x.com') || location.host.includes('threads.net') || location.host.includes('pinterest.com')) {
-                                                document.querySelectorAll('img, video').forEach(el => {
-                                                    const src = el.src || el.currentSrc;
-                                                    if (src && src.startsWith('http') && !seen.has(src) && (src.includes('cdn') || src.includes('fbcdn') || src.includes('twimg') || src.includes('pinimg'))) {
+                                                    const ext = src.split('.').pop().split('?')[0].toLowerCase();
+                                                    const isVideo = ['mp4', 'm3u8', 'webm', 'mov'].includes(ext) || el.tagName.toLowerCase() === 'video';
+                                                    const isAudio = ['mp3', 'm4a', 'wav', 'ogg'].includes(ext) || el.tagName.toLowerCase() === 'audio';
+                                                    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) || el.tagName.toLowerCase() === 'img';
+
+                                                    if (isVideo || isAudio || isImage) {
                                                         seen.add(src);
                                                         media.push({
                                                             id: Math.random().toString(36).substr(2, 9),
                                                             src: src,
-                                                            type: el.tagName.toLowerCase() === 'video' ? 'mp4' : 'jpg',
-                                                            title: 'Social Media - ' + (document.title || 'Post')
+                                                            type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
+                                                            title: document.title || 'Media File'
                                                         });
                                                     }
-                                                });
+                                                }
+                                            });
+
+                                            // Special handling for social platforms
+                                            const host = location.host;
+                                            if (host.includes('instagram.com') || host.includes('x.com') || host.includes('facebook.com') || host.includes('tiktok.com') || host.includes('threads.net')) {
+                                                // yt-dlp will handle the page URL better than individual sniffed parts
+                                                if (!seen.has(location.href)) {
+                                                    seen.add(location.href);
+                                                    media.push({
+                                                        id: 'page-' + Date.now(),
+                                                        src: location.href,
+                                                        type: 'video',
+                                                        title: 'Social Video: ' + (document.title || 'Post')
+                                                    });
+                                                }
                                             }
-                                            if (location.host.includes('youtube.com')) {
+
+                                            if (host.includes('youtube.com')) {
                                                 const videoId = new URLSearchParams(window.location.search).get('v');
                                                 if (videoId) {
                                                     const ytUrl = 'https://www.youtube.com/watch?v=' + videoId;
@@ -474,12 +464,13 @@ fun BrowserView(
                                                          media.push({
                                                             id: 'yt-' + videoId,
                                                             src: ytUrl,
-                                                            type: 'youtube',
+                                                            type: 'video',
                                                             title: document.title
                                                          });
                                                     }
                                                 }
                                             }
+
                                             if (media.length > 0) {
                                                 Android.postMedia(JSON.stringify(media));
                                             }
@@ -625,8 +616,33 @@ fun BrowserView(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     item {
-                        ToolButton(Icons.Default.AutoAwesome, "AI Summary", Color(0xFF9333EA)) {
-                            showAiPanel = true
+                        ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
+                            webView?.let {
+                                val targetUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${Uri.encode(it.url)}"
+                                it.loadUrl(targetUrl)
+                            }
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
+                            webView?.let { PageUtils.saveAsMhtml(context, it, it.title ?: "Page") }
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
+                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                                val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
+                                    source.substring(1, source.length - 1)
+                                        .replace("\\\"", "\"")
+                                        .replace("\\n", "\n")
+                                        .replace("\\t", "\t")
+                                } else {
+                                    source ?: ""
+                                }
+                                PageUtils.saveAsMarkdown(context, cleanSource, webView?.title ?: "Page")
+                            }
                             showTools = false
                         }
                     }
@@ -716,63 +732,6 @@ fun BrowserView(
         }
     }
 
-    if (showAiPanel) {
-        ModalBottomSheet(onDismissRequest = { showAiPanel = false }, containerColor = MaterialTheme.colorScheme.surface) {
-            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("AI Summary", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    IconButton(onClick = {
-                        scope.launch {
-                            isAiLoading = true
-                            aiSummary = ""
-                            try {
-                                val model = GenerativeModel(modelName = "gemini-1.5-flash", apiKey = settings.geminiApiKey.ifEmpty { "YOUR_API_KEY" })
-                                val response = model.generateContent(content { text("Summarize this web page content concisely: $pageText") })
-                                aiSummary = response.text ?: "No summary available."
-                            } catch (e: Exception) {
-                                aiSummary = "Error: ${e.message}"
-                            } finally {
-                                isAiLoading = false
-                            }
-                        }
-                    }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (isAiLoading) {
-                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                } else if (aiSummary.isNotEmpty()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                             Text(aiSummary, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                             Spacer(modifier = Modifier.height(8.dp))
-                             IconButton(onClick = {
-                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                val clip = android.content.ClipData.newPlainText("AI Summary", aiSummary)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                            }, modifier = Modifier.align(Alignment.End)) {
-                                Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(20.dp))
-                            }
-                        }
-                    }
-                } else {
-                     Text("Summarization not started or no content available.")
-                }
-                Spacer(modifier = Modifier.height(48.dp))
-            }
-        }
-    }
-
     if (showSource) {
         ViewSourceView(source = pageSource) { showSource = false }
     }
@@ -783,15 +742,10 @@ fun BrowserView(
 
     if (showMediaGrabber) {
         MediaGrabberView(mediaItems = detectedMedia, onDownload = { item ->
-            if (item.type == "youtube") {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.y2mate.com/youtube/${item.src.split("v=")[1]}"))
-                context.startActivity(intent)
-            } else {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                    permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                }
-                downloadManager.startDownload(item.src, item.title)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
+            downloadManager.startDownload(item.src, item.title)
         }) { showMediaGrabber = false }
     }
 

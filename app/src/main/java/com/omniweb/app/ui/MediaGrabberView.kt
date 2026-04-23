@@ -30,8 +30,9 @@ fun MediaGrabberView(
 ) {
     var filterType by remember { mutableStateOf("all") }
     val filteredItems = if (filterType == "all") mediaItems else mediaItems.filter {
-        if (filterType == "video") it.type == "mp4" || it.type == "m3u8" || it.type == "youtube"
-        else it.type == "jpg" || it.type == "png" || it.type == "webp"
+        if (filterType == "video") it.type == "video"
+        else if (filterType == "audio") it.type == "audio"
+        else it.type == "image"
     }
 
     Scaffold(
@@ -64,6 +65,7 @@ fun MediaGrabberView(
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = filterType == "all", onClick = { filterType = "all" }, label = { Text("All") })
                 FilterChip(selected = filterType == "video", onClick = { filterType = "video" }, label = { Text("Videos") })
+                FilterChip(selected = filterType == "audio", onClick = { filterType = "audio" }, label = { Text("Audio") })
                 FilterChip(selected = filterType == "image", onClick = { filterType = "image" }, label = { Text("Images") })
             }
 
@@ -86,13 +88,13 @@ fun MediaGrabberView(
                                 Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                                     Icon(
                                         when (item.type) {
-                                            "mp4", "m3u8" -> Icons.Default.Movie
-                                            "youtube" -> Icons.Default.SmartDisplay
-                                            "jpg", "png", "webp" -> Icons.Default.Image
+                                            "video" -> Icons.Default.Movie
+                                            "audio" -> Icons.Default.MusicNote
+                                            "image" -> Icons.Default.Image
                                             else -> Icons.Default.InsertDriveFile
                                         },
                                         contentDescription = null,
-                                        tint = if (item.type == "youtube") Color.Red else MaterialTheme.colorScheme.primary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
