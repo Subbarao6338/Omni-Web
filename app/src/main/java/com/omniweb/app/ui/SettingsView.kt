@@ -87,6 +87,21 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
 
             SettingsSection("Appearance", Icons.Default.Palette) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Theme Mode", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeOption("Light", settings.themeMode == "light", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "light")) }
+                        }
+                        ThemeOption("Dark", settings.themeMode == "dark", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "dark")) }
+                        }
+                        ThemeOption("System", settings.themeMode == "system", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "system")) }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
                     Text("Accent Color", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     val colors = listOf("#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#6366F1")
@@ -112,23 +127,6 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
                         }
                     }
                 }
-
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-
-                ListItem(
-                    headlineContent = { Text("Dark Mode") },
-                    supportingContent = { Text("Always use dark theme") },
-                    trailingContent = {
-                        Switch(
-                            checked = settings.darkMode,
-                            onCheckedChange = { enabled ->
-                                scope.launch {
-                                    database.settingsDao().updateSettings(settings.copy(darkMode = enabled))
-                                }
-                            }
-                        )
-                    }
-                )
             }
 
             SettingsSection("Privacy & Security", Icons.Default.Shield) {
@@ -196,6 +194,21 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun ThemeOption(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
+            Text(label, fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
     }
 }

@@ -38,18 +38,17 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeView(
     onNavigate: (String) -> Unit,
-    tabs: List<com.omniweb.app.data.TabInfo>,
-    activeTabId: String,
-    onTabSelected: (String) -> Unit,
-    onNewTab: () -> Unit,
-    onCloseTab: (String) -> Unit
+    viewModel: BrowserViewModel
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
-    val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
+    val settingsState by viewModel.settings.collectAsState()
     val settings = settingsState ?: Settings()
     val history by database.historyDao().getAllHistory().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
+
+    val tabs = viewModel.tabs
+    val activeTabId by viewModel.activeTabId
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
@@ -119,7 +118,10 @@ fun HomeView(
         val focusManager = LocalFocusManager.current
         TextField(
             value = query,
-            onValueChange = { query = it },
+            onValueChange = {
+                query = it
+                viewModel.updateSuggestions(it)
+            },
             placeholder = { Text("Search or type URL", fontSize = 18.sp) },
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)),
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
@@ -144,6 +146,26 @@ fun HomeView(
                 unfocusedIndicatorColor = Color.Transparent,
             )
         )
+
+        val suggestions by viewModel.searchSuggestions
+        if (suggestions.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column {
+                    suggestions.forEach { suggestion ->
+                        ListItem(
+                            headlineContent = { Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
+                            leadingContent = { Icon(if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                            modifier = Modifier.clickable { onNavigate(suggestion.url) }
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(48.dp))
 
@@ -250,7 +272,7 @@ fun HomeView(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     IconButton(onClick = {
-                        onNewTab()
+                        viewModel.createTab()
                         showTabs = false
                     }) {
                         Icon(Icons.Default.Add, contentDescription = "New Tab")
@@ -266,7 +288,7 @@ fun HomeView(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (tab.id == activeTabId) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else Color.Transparent)
                                 .clickable {
-                                    onTabSelected(tab.id)
+                                    viewModel.selectTab(tab.id)
                                     showTabs = false
                                 }
                                 .padding(12.dp),
@@ -278,7 +300,7 @@ fun HomeView(
                                 Text(tab.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(tab.url, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            IconButton(onClick = { onCloseTab(tab.id) }) {
+                            IconButton(onClick = { viewModel.closeTab(tab.id) }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(20.dp))
                             }
                         }
@@ -287,34 +309,5 @@ fun HomeView(
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
-    }
-}
-
-@Composable
-fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        Card(
-            modifier = Modifier.size(64.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = shortcut.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
-    }
-}
-
-@Composable
-fun AddShortcutItem(onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = "Add", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }
