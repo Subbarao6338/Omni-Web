@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -74,7 +76,11 @@ private val AD_DOMAINS = setOf(
 fun BrowserView(
     activeTab: TabInfo,
     onBackToHome: () -> Unit,
-    viewModel: BrowserViewModel
+    viewModel: BrowserViewModel,
+    onOpenSettings: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenDownloads: () -> Unit
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
@@ -84,6 +90,25 @@ fun BrowserView(
     val isBookmarked = bookmarks.any { it.url == activeTab.url }
     val userScripts by database.userScriptDao().getAllScripts().collectAsState(initial = emptyList())
     val downloadManager = remember { OmniDownloadManager(context) }
+
+    val tabs = viewModel.tabs
+    val pagerState = rememberPagerState(
+        initialPage = tabs.indexOfFirst { it.id == activeTab.id }.coerceAtLeast(0),
+        pageCount = { tabs.size }
+    )
+
+    LaunchedEffect(activeTab.id) {
+        val index = tabs.indexOfFirst { it.id == activeTab.id }
+        if (index != -1 && pagerState.currentPage != index) {
+            pagerState.scrollToPage(index)
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerState.currentPage < tabs.size) {
+            viewModel.selectTab(tabs[pagerState.currentPage].id)
+        }
+    }
 
     var webView: WebView? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -96,11 +121,7 @@ fun BrowserView(
 
     var showSource by remember { mutableStateOf(false) }
     var showConsole by remember { mutableStateOf(false) }
-    var showDownloads by remember { mutableStateOf(false) }
     var showMediaGrabber by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showBookmarks by remember { mutableStateOf(false) }
-    var showHistory by remember { mutableStateOf(false) }
 
     var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
     var aiSummary by remember { mutableStateOf("") }
@@ -139,7 +160,7 @@ fun BrowserView(
 
     Scaffold(
         topBar = {
-            Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
+            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
                 Column {
                     if (isFindMode) {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -177,7 +198,7 @@ fun BrowserView(
                         }
                     } else {
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                            IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                             Box(modifier = Modifier.weight(1f)) {
                                 TextField(
                                     value = urlInput,
@@ -186,7 +207,7 @@ fun BrowserView(
                                         viewModel.updateSuggestions(it)
                                     },
                                     modifier = Modifier.fillMaxWidth().height(48.dp),
-                                    shape = RoundedCornerShape(16.dp),
+                                    shape = RoundedCornerShape(24.dp),
                                     singleLine = true,
                                     leadingIcon = {
                                         val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
@@ -302,16 +323,21 @@ fun BrowserView(
                             }
                         }
                     }
-                    NavButton(Icons.Default.Download, "Files") { showDownloads = true }
+                    NavButton(Icons.Default.Download, "Files") { onOpenDownloads() }
                     NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
                 }
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier.padding(padding).fillMaxSize(),
+        userScrollEnabled = false
+    ) { pageIndex ->
+        val tab = tabs[pageIndex]
             AndroidView(
                 factory = { context ->
-                    WebView(context).apply {
+                viewModel.getOrCreateWebView(tab.id, context).apply {
                         this.settings.apply {
                             javaScriptEnabled = true
                             domStorageEnabled = true
@@ -324,14 +350,12 @@ fun BrowserView(
                             setSupportZoom(true)
                             builtInZoomControls = true
                             displayZoomControls = false
-
-                            // Optimization
                             setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                             allowContentAccess = true
                             allowFileAccess = true
                         }
 
-                        if (activeTab.isIncognito) {
+                    if (tab.isIncognito) {
                             CookieManager.getInstance().setAcceptCookie(false)
                             this.settings.databaseEnabled = false
                             this.settings.domStorageEnabled = false
@@ -347,20 +371,22 @@ fun BrowserView(
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                            if (tab.id == activeTab.id) {
                                 progress = newProgress / 100f
                                 if (newProgress == 100) isLoading = false
+                            }
                             }
 
                             override fun onReceivedTitle(view: WebView?, title: String?) {
                                 super.onReceivedTitle(view, title)
                                 if (title != null && !title.startsWith("http")) {
-                                    activeTab.title = title
+                                tab.title = title
                                 }
                             }
 
                             override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
                                 super.onReceivedIcon(view, icon)
-                                pageFavicon = icon
+                            if (tab.id == activeTab.id) pageFavicon = icon
                             }
 
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
@@ -373,26 +399,27 @@ fun BrowserView(
 
                         webViewClient = object : WebViewClient() {
                             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            if (tab.id == activeTab.id) {
                                 isLoading = true
                                 url?.let { urlInput = it }
                             }
+                            }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
-                                isLoading = false
+                            if (tab.id == activeTab.id) isLoading = false
                                 url?.let {
-                                    activeTab.url = it
+                                tab.url = it
                                     val title = view?.title
                                     if (title != null && title.isNotEmpty()) {
-                                         activeTab.title = title
+                                     tab.title = title
                                     }
 
-                                    if (!activeTab.isIncognito) {
+                                if (!tab.isIncognito) {
                                         scope.launch {
                                             database.historyDao().insertHistory(HistoryEntry(title = view?.title ?: it, url = it))
                                         }
                                     }
 
-                                    // Inject Userscripts
                                     userScripts.filter { it.enabled }.forEach { script ->
                                         try {
                                             val pattern = script.matchPattern.replace("*", ".*")
@@ -405,17 +432,13 @@ fun BrowserView(
                                     }
                                 }
 
-                                // Extract text for AI
                                 view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
 
-                                // Enhanced Media Sniffer + Social Media Profiler
                                 view?.evaluateJavascript("""
                                     (function() {
                                         function sniff() {
                                             const media = [];
                                             const seen = new Set();
-
-                                            // General media
                                             document.querySelectorAll('video, audio, source, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"]').forEach(el => {
                                                 const src = el.src || el.getAttribute('src') || el.href;
                                                 if (src && src.startsWith('http') && !seen.has(src)) {
@@ -428,8 +451,6 @@ fun BrowserView(
                                                     });
                                                 }
                                             });
-
-                                            // Social media profiler
                                             if (location.host.includes('instagram.com') || location.host.includes('x.com') || location.host.includes('threads.net') || location.host.includes('pinterest.com')) {
                                                 document.querySelectorAll('img, video').forEach(el => {
                                                     const src = el.src || el.currentSrc;
@@ -444,8 +465,6 @@ fun BrowserView(
                                                     }
                                                 });
                                             }
-
-                                            // YouTube detection
                                             if (location.host.includes('youtube.com')) {
                                                 const videoId = new URLSearchParams(window.location.search).get('v');
                                                 if (videoId) {
@@ -461,19 +480,16 @@ fun BrowserView(
                                                     }
                                                 }
                                             }
-
                                             if (media.length > 0) {
                                                 Android.postMedia(JSON.stringify(media));
                                             }
                                         }
-
                                         if (!window.omniSnifferStarted) {
                                             window.omniSnifferStarted = true;
                                             const observer = new MutationObserver(sniff);
                                             observer.observe(document.body, { childList: true, subtree: true });
                                             setInterval(sniff, 5000);
                                             sniff();
-
                                             window.startOmniScroll = function() {
                                                 let distance = 100;
                                                 let timer = setInterval(() => {
@@ -499,13 +515,17 @@ fun BrowserView(
                             }
                         }
 
-                        loadUrl(activeTab.url)
-                        webView = this
+                    if (url == null || url == "about:blank") {
+                        loadUrl(tab.url)
+                    }
                     }
                 },
                 update = { view ->
-                    if (view.url != activeTab.url && !activeTab.url.startsWith("about:")) {
-                        view.loadUrl(activeTab.url)
+                if (tab.id == activeTab.id) {
+                    webView = view
+                }
+                if (view.url != tab.url && !tab.url.startsWith("about:")) {
+                    view.loadUrl(tab.url)
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -542,41 +562,48 @@ fun BrowserView(
                 ) {
                     items(viewModel.tabs) { tab ->
                         val isSelected = tab.id == viewModel.activeTabId.value
-                        Card(
+                        OutlinedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(120.dp)
-                                .clip(RoundedCornerShape(16.dp))
+                                .height(160.dp)
                                 .clickable {
                                     viewModel.selectTab(tab.id)
                                     showTabs = false
                                 },
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.outlinedCardColors(
+                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
                             ),
-                            elevation = CardDefaults.cardElevation(if (isSelected) 4.dp else 1.dp)
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            )
                         ) {
-                            Box(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                                Column(modifier = Modifier.align(Alignment.TopStart)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                         Icon(
                                             if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
                                             contentDescription = null,
-                                            modifier = Modifier.size(16.dp),
+                                            modifier = Modifier.size(14.dp),
                                             tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(tab.title, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(tab.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Text(tab.url, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    IconButton(
+                                        onClick = { viewModel.closeTab(tab.id) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(16.dp))
+                                    }
                                 }
-                                IconButton(
-                                    onClick = { viewModel.closeTab(tab.id) },
-                                    modifier = Modifier.align(Alignment.BottomEnd).size(28.dp).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), CircleShape)
-                                ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
                                 }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -661,19 +688,19 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.Star, "Bookmarks", Color(0xFFFFB000)) {
-                            showBookmarks = true
+                            onOpenBookmarks()
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.History, "History", Color(0xFF607D8B)) {
-                            showHistory = true
+                            onOpenHistory()
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) {
-                            showSettings = true
+                            onOpenSettings()
                             showTools = false
                         }
                     }
@@ -754,10 +781,6 @@ fun BrowserView(
         ConsoleView(logs = consoleLogs, onClear = { consoleLogs.clear() }) { showConsole = false }
     }
 
-    if (showDownloads) {
-        DownloadsView(database = database) { showDownloads = false }
-    }
-
     if (showMediaGrabber) {
         MediaGrabberView(mediaItems = detectedMedia, onDownload = { item ->
             if (item.type == "youtube") {
@@ -772,15 +795,4 @@ fun BrowserView(
         }) { showMediaGrabber = false }
     }
 
-    if (showSettings) {
-        SettingsView(database = database) { showSettings = false }
-    }
-
-    if (showBookmarks) {
-        BookmarksView(database = database, onNavigate = { webView?.loadUrl(it); showBookmarks = false }, onBack = { showBookmarks = false })
-    }
-
-    if (showHistory) {
-        HistoryView(database = database, onNavigate = { webView?.loadUrl(it); showHistory = false }, onBack = { showHistory = false })
-    }
 }

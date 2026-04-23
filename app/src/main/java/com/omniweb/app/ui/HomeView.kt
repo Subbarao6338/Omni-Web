@@ -38,7 +38,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeView(
     onNavigate: (String) -> Unit,
-    viewModel: BrowserViewModel
+    viewModel: BrowserViewModel,
+    onOpenSettings: () -> Unit,
+    onOpenBookmarks: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenDownloads: () -> Unit
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
@@ -52,10 +56,6 @@ fun HomeView(
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
-    var showDownloads by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showBookmarks by remember { mutableStateOf(false) }
-    var showHistory by remember { mutableStateOf(false) }
     var showAddShortcutDialog by remember { mutableStateOf(false) }
     var newShortcutTitle by remember { mutableStateOf("") }
     var newShortcutUrl by remember { mutableStateOf("") }
@@ -85,8 +85,10 @@ fun HomeView(
             ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     NavButton(Icons.Default.Layers, "Tabs", badge = tabs.size) { showTabs = true }
-                    NavButton(Icons.Default.Download, "Files") { showDownloads = true }
-                    NavButton(Icons.Default.Settings, "Settings") { showSettings = true }
+                    NavButton(Icons.Default.Star, "Bookmarks") { onOpenBookmarks() }
+                    NavButton(Icons.Default.History, "History") { onOpenHistory() }
+                    NavButton(Icons.Default.Download, "Files") { onOpenDownloads() }
+                    NavButton(Icons.Default.Settings, "Settings") { onOpenSettings() }
                 }
             }
         }
@@ -97,22 +99,21 @@ fun HomeView(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface)
                 .verticalScroll(rememberScrollState())
-                .padding(top = 64.dp, start = 32.dp, end = 32.dp, bottom = 32.dp),
+                .padding(top = 80.dp, start = 24.dp, end = 24.dp, bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
         Box(
             modifier = Modifier
-                .size(96.dp)
-                .clip(RoundedCornerShape(36.dp))
-                .background(MaterialTheme.colorScheme.primary)
-                .padding(20.dp),
+                .size(100.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Public, contentDescription = null, tint = Color.White, modifier = Modifier.fillMaxSize())
+            Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
         }
 
-        Spacer(modifier = Modifier.height(40.dp))
-        Text(text = "Omni Browser", fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1.5).sp, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(text = "Omni Browser", fontSize = 32.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.height(48.dp))
 
         val focusManager = LocalFocusManager.current
@@ -122,8 +123,9 @@ fun HomeView(
                 query = it
                 viewModel.updateSuggestions(it)
             },
-            placeholder = { Text("Search or type URL", fontSize = 18.sp) },
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(32.dp)),
+            placeholder = { Text("Search or type URL", fontSize = 16.sp) },
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+            shape = RoundedCornerShape(20.dp),
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -207,22 +209,6 @@ fun HomeView(
             item { AddShortcutItem(onClick = { showAddShortcutDialog = true }) }
         }
         }
-    }
-
-    if (showDownloads) {
-        DownloadsView(database = database) { showDownloads = false }
-    }
-
-    if (showSettings) {
-        SettingsView(database = database) { showSettings = false }
-    }
-
-    if (showBookmarks) {
-        BookmarksView(database = database, onNavigate = { onNavigate(it); showBookmarks = false }, onBack = { showBookmarks = false })
-    }
-
-    if (showHistory) {
-        HistoryView(database = database, onNavigate = { onNavigate(it); showHistory = false }, onBack = { showHistory = false })
     }
 
     if (showAddShortcutDialog) {
