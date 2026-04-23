@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.Shortcut
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +49,7 @@ fun HomeView(
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val settings = settingsState ?: Settings()
     val history by database.historyDao().getAllHistory().collectAsState(initial = emptyList())
+    val scope = rememberCoroutineScope()
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
@@ -55,6 +57,9 @@ fun HomeView(
     var showSettings by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
     var showHistory by remember { mutableStateOf(false) }
+    var showAddShortcutDialog by remember { mutableStateOf(false) }
+    var newShortcutTitle by remember { mutableStateOf("") }
+    var newShortcutUrl by remember { mutableStateOf("") }
 
     val shortcutsState by database.shortcutDao().getAllShortcuts().collectAsState(initial = emptyList())
     val shortcuts = if (shortcutsState.isEmpty()) {
@@ -150,14 +155,14 @@ fun HomeView(
                         Card(
                             modifier = Modifier.width(140.dp).clickable { onNavigate(entry.url) },
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(entry.url, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(entry.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -177,7 +182,7 @@ fun HomeView(
             items(shortcuts) { shortcut ->
                 ShortcutItem(shortcut, onClick = { onNavigate(shortcut.url) })
             }
-            item { AddShortcutItem() }
+            item { AddShortcutItem(onClick = { showAddShortcutDialog = true }) }
         }
         }
     }
@@ -196,6 +201,47 @@ fun HomeView(
 
     if (showHistory) {
         HistoryView(database = database, onNavigate = { onNavigate(it); showHistory = false }, onBack = { showHistory = false })
+    }
+
+    if (showAddShortcutDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddShortcutDialog = false },
+            title = { Text("Add Shortcut") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newShortcutTitle,
+                        onValueChange = { newShortcutTitle = it },
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newShortcutUrl,
+                        onValueChange = { newShortcutUrl = it },
+                        label = { Text("URL") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newShortcutTitle.isNotEmpty() && newShortcutUrl.isNotEmpty()) {
+                            val url = if (newShortcutUrl.startsWith("http")) newShortcutUrl else "https://$newShortcutUrl"
+                            scope.launch {
+                                database.shortcutDao().insertShortcut(com.omniweb.app.data.Shortcut(title = newShortcutTitle, url = url))
+                                newShortcutTitle = ""
+                                newShortcutUrl = ""
+                                showAddShortcutDialog = false
+                            }
+                        }
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddShortcutDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showTabs) {
@@ -226,11 +272,11 @@ fun HomeView(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Language, contentDescription = null, tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else Color.Gray)
+                            Icon(Icons.Default.Language, contentDescription = null, tint = if (tab.id == activeTabId) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(tab.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(tab.url, fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(tab.url, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                             IconButton(onClick = { onCloseTab(tab.id) }) {
                                 Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(20.dp))
@@ -250,7 +296,7 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit) {
         Card(
             modifier = Modifier.size(64.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -258,13 +304,13 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit) {
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = shortcut.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color.DarkGray)
+        Text(text = shortcut.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
-fun AddShortcutItem() {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+fun AddShortcutItem(onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
         Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
             Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
         }

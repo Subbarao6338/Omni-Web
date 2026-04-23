@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Language
@@ -34,7 +34,7 @@ fun HistoryView(database: AppDatabase, onNavigate: (String) -> Unit, onBack: () 
                 title = { Text("History", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -49,7 +49,7 @@ fun HistoryView(database: AppDatabase, onNavigate: (String) -> Unit, onBack: () 
     ) { padding ->
         if (history.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text("No history yet", color = Color.Gray)
+                Text("No history yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -62,7 +62,7 @@ fun HistoryView(database: AppDatabase, onNavigate: (String) -> Unit, onBack: () 
                             IconButton(onClick = {
                                 scope.launch { database.historyDao().deleteHistoryEntry(entry) }
                             }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Gray)
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         },
                         modifier = Modifier.clickable { onNavigate(entry.url) }
