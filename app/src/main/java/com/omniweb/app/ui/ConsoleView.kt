@@ -58,7 +58,7 @@ fun ConsoleView(logs: List<ConsoleLog>, onClear: () -> Unit, onBack: () -> Unit)
                         fontSize = 12.sp
                     )
                 )
-                Divider(color = Color.DarkGray, thickness = 0.5.dp)
+                HorizontalDivider(color = Color.DarkGray, thickness = 0.5.dp)
             }
         }
     }

@@ -39,11 +39,10 @@ fun OmniBrowserApp() {
     val settings = settingsState ?: Settings()
 
     val tabs = remember { mutableStateListOf(TabInfo(UUID.randomUUID().toString(), "about:home", "Home")) }
-    var activeTabId by remember { mutableStateOf(tabs[0].id) }
-    val backStack = remember { mutableStateListOf("home") }
+    var activeTabId by remember { mutableStateOf(tabs.firstOrNull()?.id ?: "") }
     var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
 
-    val activeTab = tabs.find { it.id == activeTabId } ?: tabs[0]
+    val activeTab = tabs.find { it.id == activeTabId } ?: tabs.firstOrNull() ?: TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
 
     val accentColor = try {
         Color(android.graphics.Color.parseColor(settings.accentColor))
@@ -125,18 +124,11 @@ fun OmniBrowserApp() {
                         activeTabId = activeTabId,
                         onTabSelected = { id ->
                             activeTabId = id
-                            val tab = tabs.find { it.id == id }
-                            if (tab?.url == "about:home") {
-                                if (backStack.last() == "browser") backStack.removeLast()
-                            } else {
-                                if (backStack.last() == "home") backStack.add("browser")
-                            }
                         },
                         onNewTab = {
                             val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
                             tabs.add(newTab)
                             activeTabId = newTab.id
-                            if (backStack.last() == "browser") backStack.removeLast()
                         },
                         onCloseTab = { id ->
                             val index = tabs.indexOfFirst { it.id == id }
@@ -146,13 +138,8 @@ fun OmniBrowserApp() {
                                     val newTab = TabInfo(UUID.randomUUID().toString(), "about:home", "Home")
                                     tabs.add(newTab)
                                     activeTabId = newTab.id
-                                    if (backStack.last() == "browser") backStack.removeLast()
                                 } else if (activeTabId == id) {
                                     activeTabId = tabs[maxOf(0, index - 1)].id
-                                    val tab = tabs.find { it.id == activeTabId }
-                                    if (tab?.url == "about:home") {
-                                        if (backStack.last() == "browser") backStack.removeLast()
-                                    }
                                 }
                             }
                         }
