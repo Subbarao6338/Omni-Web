@@ -44,6 +44,9 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads ORDER BY timestamp DESC")
     fun getAllDownloads(): Flow<List<DownloadTask>>
 
+    @Delete
+    suspend fun deleteDownload(task: DownloadTask)
+
     @Query("SELECT * FROM downloads WHERE id = :id")
     suspend fun getDownloadByIdSync(id: Long): DownloadTask?
 
@@ -52,9 +55,6 @@ interface DownloadDao {
 
     @Update
     suspend fun updateDownload(task: DownloadTask)
-
-    @Delete
-    suspend fun deleteDownload(task: DownloadTask)
 }
 
 @Dao
