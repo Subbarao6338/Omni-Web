@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.Shortcut
+import com.omniweb.app.util.UrlUtils
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -131,13 +132,12 @@ fun HomeView(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {
                 if (query.isNotEmpty()) {
-                    var target = query
-                    if (!target.contains(".") || target.contains(" ")) {
-                        target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
-                    } else if (!target.startsWith("http")) {
-                        target = "https://$target"
+                    val target = UrlUtils.resolveUrl(query, settings.searchEngine)
+                    if (target == "about:home") {
+                        query = ""
+                    } else {
+                        onNavigate(target)
                     }
-                    onNavigate(target)
                 }
                 focusManager.clearFocus()
             }),
@@ -162,7 +162,12 @@ fun HomeView(
                             headlineContent = { Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             supportingContent = { Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
                             leadingContent = { Icon(if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                            modifier = Modifier.clickable { onNavigate(suggestion.url) }
+                            modifier = Modifier.clickable {
+                                val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+                                if (target != "about:home") {
+                                    onNavigate(target)
+                                }
+                            }
                         )
                     }
                 }

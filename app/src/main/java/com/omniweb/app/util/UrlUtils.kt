@@ -1,0 +1,53 @@
+package com.omniweb.app.util
+
+import android.net.Uri
+import android.util.Patterns
+
+object UrlUtils {
+    /**
+     * Resolves a user input string into a valid URL or a search engine query.
+     */
+    fun resolveUrl(input: String, searchEngine: String): String {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty()) return "about:home"
+
+        // Handle internal about: and javascript: schemes
+        if (trimmed.startsWith("about:") || trimmed.startsWith("javascript:")) {
+            return trimmed
+        }
+
+        // Handle chrome:// schemes by mapping them to about: equivalents or keeping them
+        if (trimmed.startsWith("chrome://")) {
+            if (trimmed == "chrome://home" || trimmed == "chrome://home/") {
+                return "about:home"
+            }
+            return trimmed
+        }
+
+        // If it already has a protocol, return it
+        if (trimmed.contains("://")) {
+            return trimmed
+        }
+
+        // Check if it's a valid URL
+        val isUrl = Patterns.WEB_URL.matcher(trimmed).matches()
+
+        // A string is considered a URL if:
+        // 1. It matches the WEB_URL pattern AND
+        // 2. It contains a dot AND
+        // 3. It does not contain spaces
+        if (isUrl && trimmed.contains(".") && !trimmed.contains(" ")) {
+            return "https://$trimmed"
+        }
+
+        // Otherwise, treat as a search query
+        return "$searchEngine${Uri.encode(trimmed)}"
+    }
+
+    /**
+     * Checks if a string is a javascript: bookmarklet.
+     */
+    fun isBookmarklet(url: String): Boolean {
+        return url.trim().startsWith("javascript:", ignoreCase = true)
+    }
+}
