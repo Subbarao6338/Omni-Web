@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
+fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}) {
     val context = LocalContext.current
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val scope = rememberCoroutineScope()
@@ -190,6 +190,15 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit) {
             }
 
             SettingsSection("Privacy & Security", Icons.Default.Shield) {
+                ListItem(
+                    headlineContent = { Text("Userscripts") },
+                    supportingContent = { Text("Manage custom JS injections") },
+                    trailingContent = {
+                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable { onOpenScripts() }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
                     headlineContent = { Text("Ad Blocking") },
                     supportingContent = { Text("Block ads and trackers") },

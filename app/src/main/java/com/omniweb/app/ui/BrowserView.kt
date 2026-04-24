@@ -16,6 +16,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -65,7 +67,9 @@ private val AD_DOMAINS = setOf(
     "zedo.com", "amazon-adsystem.com", "adservice.google.com",
     "google-analytics.com", "analytics.google.com", "ads.linkedin.com",
     "static.ads-twitter.com", "ads-twitter.com", "fbcdn.net", "facebook.com",
-    "ad.doubleclick.net", "pagead2.googlesyndication.com", "pubads.g.doubleclick.net"
+    "ad.doubleclick.net", "pagead2.googlesyndication.com", "pubads.g.doubleclick.net",
+    "ads.google.com", "analytics.twitter.com", "analytics.facebook.com", "ads-api.twitter.com",
+    "pixel.facebook.com", "connect.facebook.net", "googletagmanager.com", "googletagservices.com"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,6 +132,8 @@ fun BrowserView(
     var isFindMode by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
     var isDesktopMode by remember { mutableStateOf(false) }
+    var isReaderMode by remember { mutableStateOf(false) }
+    var readerContent by remember { mutableStateOf("") }
 
     var pageFavicon by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -215,12 +221,13 @@ fun BrowserView(
                                     },
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                     keyboardActions = KeyboardActions(onGo = {
-                                        var target = urlInput
+                                        var target = urlInput.trim()
                                         if (!target.startsWith("http") && !target.startsWith("about:")) {
-                                            if (!target.contains(".") || target.contains(" ")) {
-                                                target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
-                                            } else {
+                                            val isUrl = android.util.Patterns.WEB_URL.matcher(target).matches()
+                                            if (isUrl && target.contains(".")) {
                                                 target = "https://$target"
+                                            } else {
+                                                target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
                                             }
                                         }
                                         webView?.loadUrl(target)
@@ -331,6 +338,8 @@ fun BrowserView(
                             setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                             allowContentAccess = true
                             allowFileAccess = true
+                            setRenderPriority(WebSettings.RenderPriority.HIGH)
+                            enableSmoothTransition()
                         }
 
                     if (tab.isIncognito) {
@@ -386,6 +395,20 @@ fun BrowserView(
 
                             override fun onPageFinished(view: WebView?, url: String?) {
                             if (tab.id == activeTab.id) isLoading = false
+                            if (settings.adBlockEnabled) {
+                                view?.evaluateJavascript("""
+                                    (function() {
+                                        const selectors = [
+                                            "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
+                                            "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
+                                            "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']"
+                                        ];
+                                        const style = document.createElement('style');
+                                        style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
+                                        document.head.appendChild(style);
+                                    })();
+                                """.trimIndent(), null)
+                            }
                                 url?.let {
                                 tab.url = it
                                     val title = view?.title
@@ -498,12 +521,14 @@ fun BrowserView(
                             }
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                                if (settings.adBlockEnabled) {
-                                    val host = request?.url?.host ?: ""
-                                    if (AD_DOMAINS.any { host.contains(it) }) {
-                                        return WebResourceResponse("text/plain", "UTF-8", null)
-                                    }
+                                val host = request?.url?.host ?: ""
+                                if (settings.adBlockEnabled && AD_DOMAINS.any { host.contains(it) }) {
+                                    return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
+
+                                // Privacy: Do Not Track
+                                request?.requestHeaders?.put("DNT", "1")
+
                                 return super.shouldInterceptRequest(view, request)
                             }
                         }
@@ -728,6 +753,23 @@ fun BrowserView(
                             showTools = false
                         }
                     }
+                    item {
+                        ToolButton(Icons.Default.MenuBook, "Reader Mode", Color(0xFFEA580C)) {
+                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                                val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
+                                    source.substring(1, source.length - 1)
+                                        .replace("\\\"", "\"")
+                                        .replace("\\n", "\n")
+                                        .replace("\\t", "\t")
+                                } else {
+                                    source ?: ""
+                                }
+                                readerContent = PageUtils.extractArticleContent(cleanSource)
+                                isReaderMode = true
+                            }
+                            showTools = false
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(48.dp))
             }
@@ -751,4 +793,56 @@ fun BrowserView(
         }) { showMediaGrabber = false }
     }
 
+    if (isReaderMode) {
+        ReaderModeView(
+            title = webView?.title ?: "Reader Mode",
+            content = readerContent,
+            onClose = { isReaderMode = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Reader Mode", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                lineHeight = 34.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            val cleanContent = content.replace(Regex("<[^>]*>"), "")
+            Text(
+                text = cleanContent,
+                fontSize = 18.sp,
+                lineHeight = 28.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+            )
+        }
+    }
 }

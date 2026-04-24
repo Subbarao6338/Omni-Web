@@ -11,6 +11,11 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
 import java.util.UUID
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
@@ -157,7 +162,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
             }.take(5).map { Suggestion(it.title, it.url, isHistory = false) }
 
-            _searchSuggestions.value = (bookmarks + history).distinctBy { it.url }
+            val liveSuggestions = fetchLiveSuggestions(query)
+
+            _searchSuggestions.value = (bookmarks + history + liveSuggestions).distinctBy { it.url }
+        }
+    }
+
+    private suspend fun fetchLiveSuggestions(query: String): List<Suggestion> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://duckduckgo.com/ac/?q=${android.net.Uri.encode(query)}")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            val response = connection.inputStream.bufferedReader().readText()
+            val jsonArray = JSONArray(response)
+            val suggestions = mutableListOf<Suggestion>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val phrase = obj.getString("phrase")
+                suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+            }
+            suggestions
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 }

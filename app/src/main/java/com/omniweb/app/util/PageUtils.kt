@@ -54,4 +54,19 @@ object PageUtils {
         md = md.replace(Regex("<[^>]*>", RegexOption.IGNORE_CASE), "") // Strip remaining tags
         return md.trim()
     }
+
+    fun extractArticleContent(html: String): String {
+        // Simple logic to extract main content by finding the block with most <p> tags
+        // or just stripping clutter. In a real app, this would be more complex.
+        val bodyMatch = Regex("<body.*?>(.*?)</body>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(html)
+        var content = bodyMatch?.groupValues?.get(1) ?: html
+
+        // Remove script, style, nav, footer, header
+        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe")
+        tagsToRemove.forEach { tag ->
+            content = content.replace(Regex("<$tag.*?>.*?</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        }
+
+        return content
+    }
 }

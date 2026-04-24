@@ -116,6 +116,13 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                 composable("settings") {
                     SettingsView(
                         database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        onBack = { navController.popBackStack() },
+                        onOpenScripts = { navController.navigate("scripts") }
+                    )
+                }
+                composable("scripts") {
+                    ScriptManagerView(
+                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
                         onBack = { navController.popBackStack() }
                     )
                 }
