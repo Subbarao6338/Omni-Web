@@ -60,7 +60,9 @@ data class UserScript(
     val name: String,
     val script: String,
     val matchPattern: String = "*", // Glob pattern for URLs
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val type: String = "userscript", // "userscript" or "bookmarklet"
+    val runAt: String = "end" // "start" or "end"
 )
 
 @Entity(tableName = "shortcuts")
