@@ -84,12 +84,28 @@ object PageUtils {
         val bodyMatch = Regex("<body.*?>(.*?)</body>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(html)
         var content = bodyMatch?.groupValues?.get(1) ?: html
 
-        // Remove script, style, nav, footer, header
-        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe")
+        // Remove unwanted tags
+        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe", "noscript", "svg", "form", "button")
         tagsToRemove.forEach { tag ->
             content = content.replace(Regex("<$tag.*?>.*?</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
         }
 
-        return content
+        // Heuristic: Find elements with a lot of <p> tags and prioritize them
+        // For now, we'll just try to find the <article> tag or the largest <div>
+        val articleMatch = Regex("<article.*?>(.*?)</article>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(content)
+        if (articleMatch != null) {
+            content = articleMatch.groupValues[1]
+        } else {
+            val mainMatch = Regex("<main.*?>(.*?)</main>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(content)
+            if (mainMatch != null) {
+                content = mainMatch.groupValues[1]
+            }
+        }
+
+        // Clean up remaining tags but keep structure
+        content = content.replace(Regex("<div.*?>", RegexOption.IGNORE_CASE), "<div>")
+        content = content.replace(Regex("<span.*?>", RegexOption.IGNORE_CASE), "<span>")
+
+        return content.trim()
     }
 }

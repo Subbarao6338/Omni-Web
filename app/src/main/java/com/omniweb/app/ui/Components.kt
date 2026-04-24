@@ -1,7 +1,9 @@
 package com.omniweb.app.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,9 +50,16 @@ fun ToolButton(icon: ImageVector, label: String, color: Color, onClick: () -> Un
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick
+        )
+    ) {
         ElevatedCard(
             modifier = Modifier.size(64.dp),
             shape = RoundedCornerShape(18.dp),

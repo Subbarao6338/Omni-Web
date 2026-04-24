@@ -209,7 +209,15 @@ fun HomeView(
             userScrollEnabled = false
         ) {
             items(shortcuts) { shortcut ->
-                ShortcutItem(shortcut, onClick = { onNavigate(shortcut.url) })
+                ShortcutItem(
+                    shortcut,
+                    onClick = { onNavigate(shortcut.url) },
+                    onLongClick = {
+                        scope.launch {
+                            database.shortcutDao().deleteShortcut(shortcut)
+                        }
+                    }
+                )
             }
             item { AddShortcutItem(onClick = { showAddShortcutDialog = true }) }
         }
