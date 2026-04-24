@@ -56,6 +56,7 @@ import com.omniweb.app.data.Settings
 import com.omniweb.app.data.TabInfo
 import com.omniweb.app.util.OmniDownloadManager
 import com.omniweb.app.util.PageUtils
+import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
 import kotlinx.coroutines.launch
 
@@ -144,6 +145,11 @@ fun BrowserView(
 
     var pageFavicon by remember { mutableStateOf<Bitmap?>(null) }
 
+    var showAddBookmarkletDialog by remember { mutableStateOf<String?>(null) }
+
+    var showContextMenu by remember { mutableStateOf(false) }
+    var contextMenuResult by remember { mutableStateOf<WebView.HitTestResult?>(null) }
+
     val scope = rememberCoroutineScope()
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -228,19 +234,12 @@ fun BrowserView(
                                     },
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                     keyboardActions = KeyboardActions(onGo = {
-                                        var target = urlInput.trim()
-                                        if (target.isNotEmpty()) {
-                                            if (target.startsWith("javascript:")) {
-                                                webView?.loadUrl(target)
+                                        val input = urlInput.trim()
+                                        if (input.isNotEmpty()) {
+                                            val target = UrlUtils.resolveUrl(input, settings.searchEngine)
+                                            if (target == "about:home") {
+                                                onBackToHome()
                                             } else {
-                                                if (!target.startsWith("http") && !target.startsWith("about:")) {
-                                                    val isUrl = android.util.Patterns.WEB_URL.matcher(target).matches()
-                                                    if (isUrl && target.contains(".") && !target.contains(" ")) {
-                                                        target = "https://$target"
-                                                    } else {
-                                                        target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
-                                                    }
-                                                }
                                                 webView?.loadUrl(target)
                                             }
                                         }
@@ -268,8 +267,13 @@ fun BrowserView(
                                                     headlineContent = { Text(suggestion.title, maxLines = 1) },
                                                     supportingContent = { Text(suggestion.url, maxLines = 1, fontSize = 12.sp) },
                                                     modifier = Modifier.clickable {
-                                                        urlInput = suggestion.url
-                                                        webView?.loadUrl(suggestion.url)
+                                                        val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+                                                        if (target == "about:home") {
+                                                            onBackToHome()
+                                                        } else {
+                                                            urlInput = target
+                                                            webView?.loadUrl(target)
+                                                        }
                                                         viewModel.updateSuggestions("")
                                                     }
                                                 )
@@ -398,7 +402,27 @@ fun BrowserView(
                             }
                         }
 
+                        setOnLongClickListener {
+                            val result = hitTestResult
+                            if (result.type != WebView.HitTestResult.UNKNOWN_TYPE) {
+                                contextMenuResult = result
+                                showContextMenu = true
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
                         webViewClient = object : WebViewClient() {
+                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                val url = request?.url?.toString() ?: return false
+                                if (UrlUtils.isBookmarklet(url)) {
+                                    showAddBookmarkletDialog = url
+                                    return true
+                                }
+                                return false
+                            }
+
                             override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
                                 if (tab.id == activeTab.id) {
                                     Toast.makeText(context, "WebView crashed, reloading...", Toast.LENGTH_SHORT).show()
@@ -703,6 +727,50 @@ fun BrowserView(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     item {
+                        ToolButton(Icons.Default.Add, "New Tab", Color(0xFF10B981)) {
+                            viewModel.createTab()
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.VisibilityOff, "New Incognito", Color(0xFF6366F1)) {
+                            viewModel.createTab(isIncognito = true)
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
+                            webView?.url?.let {
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, it)
+                                }
+                                context.startActivity(Intent.createChooser(intent, "Share Link"))
+                            }
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.ContentCopy, "Copy URL", Color(0xFF8B5CF6)) {
+                            webView?.url?.let {
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
+                                Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                            }
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
+                            webView?.let {
+                                val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+                                val printAdapter = it.createPrintDocumentAdapter("Document")
+                                printManager.print("Omni Browser Document", printAdapter, null)
+                            }
+                            showTools = false
+                        }
+                    }
+                    item {
                         ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
                             webView?.let {
                                 val targetUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${Uri.encode(it.url)}"
@@ -904,6 +972,130 @@ fun BrowserView(
             content = readerContent,
             onClose = { isReaderMode = false }
         )
+    }
+
+    if (showAddBookmarkletDialog != null) {
+        val script = showAddBookmarkletDialog!!
+        AlertDialog(
+            onDismissRequest = { showAddBookmarkletDialog = null },
+            title = { Text("Add Bookmarklet?") },
+            text = { Text("This looks like a bookmarklet. Would you like to add it to your script manager?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        database.userScriptDao().insertScript(
+                            com.omniweb.app.data.UserScript(
+                                name = "Imported Bookmarklet",
+                                script = script.substringAfter("javascript:"),
+                                type = "bookmarklet",
+                                enabled = true
+                            )
+                        )
+                        Toast.makeText(context, "Added to bookmarklets", Toast.LENGTH_SHORT).show()
+                    }
+                    showAddBookmarkletDialog = null
+                }) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddBookmarkletDialog = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showContextMenu && contextMenuResult != null) {
+        val result = contextMenuResult!!
+        ModalBottomSheet(onDismissRequest = { showContextMenu = false }) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
+                val extra = result.extra
+                when (result.type) {
+                    WebView.HitTestResult.SRC_ANCHOR_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                        Text("Link Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+                        ListItem(
+                            headlineContent = { Text("Open in New Tab") },
+                            leadingContent = { Icon(Icons.Default.OpenInNew, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                extra?.let { viewModel.createTab(it) }
+                                showContextMenu = false
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Copy Link Address") },
+                            leadingContent = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                extra?.let {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
+                                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                }
+                                showContextMenu = false
+                            }
+                        )
+                        if (extra != null && UrlUtils.isBookmarklet(extra)) {
+                            ListItem(
+                                headlineContent = { Text("Add to Bookmarklets") },
+                                leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null) },
+                                modifier = Modifier.clickable {
+                                    scope.launch {
+                                        database.userScriptDao().insertScript(
+                                            com.omniweb.app.data.UserScript(
+                                                name = "Saved Bookmarklet",
+                                                script = extra.substringAfter("javascript:"),
+                                                type = "bookmarklet",
+                                                enabled = true
+                                            )
+                                        )
+                                        Toast.makeText(context, "Added to bookmarklets", Toast.LENGTH_SHORT).show()
+                                    }
+                                    showContextMenu = false
+                                }
+                            )
+                        }
+                    }
+                    WebView.HitTestResult.IMAGE_TYPE -> {
+                        Text("Image Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+                        ListItem(
+                            headlineContent = { Text("Download Image") },
+                            leadingContent = { Icon(Icons.Default.Download, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                extra?.let { downloadManager.startDownload(it, "Image") }
+                                showContextMenu = false
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Open Image in New Tab") },
+                            leadingContent = { Icon(Icons.Default.Image, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                extra?.let { viewModel.createTab(it) }
+                                showContextMenu = false
+                            }
+                        )
+                    }
+                    WebView.HitTestResult.PHONE_TYPE -> {
+                         ListItem(
+                            headlineContent = { Text("Call ${extra}") },
+                            leadingContent = { Icon(Icons.Default.Phone, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$extra"))
+                                context.startActivity(intent)
+                                showContextMenu = false
+                            }
+                        )
+                    }
+                    WebView.HitTestResult.EMAIL_TYPE -> {
+                         ListItem(
+                            headlineContent = { Text("Email ${extra}") },
+                            leadingContent = { Icon(Icons.Default.Email, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$extra"))
+                                context.startActivity(intent)
+                                showContextMenu = false
+                            }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
     }
 }
 
