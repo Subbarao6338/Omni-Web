@@ -59,6 +59,8 @@ import com.omniweb.app.util.PageUtils
 import com.omniweb.app.util.WebAppInterface
 import kotlinx.coroutines.launch
 
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import androidx.compose.ui.draw.clip
 
 private val AD_DOMAINS = setOf(
@@ -69,7 +71,10 @@ private val AD_DOMAINS = setOf(
     "static.ads-twitter.com", "ads-twitter.com", "fbcdn.net", "facebook.com",
     "ad.doubleclick.net", "pagead2.googlesyndication.com", "pubads.g.doubleclick.net",
     "ads.google.com", "analytics.twitter.com", "analytics.facebook.com", "ads-api.twitter.com",
-    "pixel.facebook.com", "connect.facebook.net", "googletagmanager.com", "googletagservices.com"
+    "pixel.facebook.com", "connect.facebook.net", "googletagmanager.com", "googletagservices.com",
+    "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com", "advertising.com",
+    "adtech.de", "adtechus.com", "advertising.com", "yieldmanager.com", "pubmatic.com",
+    "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com", "atdmt.com"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,6 +128,7 @@ fun BrowserView(
     var showSource by remember { mutableStateOf(false) }
     var showConsole by remember { mutableStateOf(false) }
     var showMediaGrabber by remember { mutableStateOf(false) }
+    var showBookmarklets by remember { mutableStateOf(false) }
 
     var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
     var pageText by remember { mutableStateOf("") }
@@ -132,6 +138,7 @@ fun BrowserView(
     var isFindMode by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
     var isDesktopMode by remember { mutableStateOf(false) }
+    var isForceDark by remember { mutableStateOf(false) }
     var isReaderMode by remember { mutableStateOf(false) }
     var readerContent by remember { mutableStateOf("") }
 
@@ -222,15 +229,21 @@ fun BrowserView(
                                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                     keyboardActions = KeyboardActions(onGo = {
                                         var target = urlInput.trim()
-                                        if (!target.startsWith("http") && !target.startsWith("about:")) {
-                                            val isUrl = android.util.Patterns.WEB_URL.matcher(target).matches()
-                                            if (isUrl && target.contains(".")) {
-                                                target = "https://$target"
+                                        if (target.isNotEmpty()) {
+                                            if (target.startsWith("javascript:")) {
+                                                webView?.loadUrl(target)
                                             } else {
-                                                target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
+                                                if (!target.startsWith("http") && !target.startsWith("about:")) {
+                                                    val isUrl = android.util.Patterns.WEB_URL.matcher(target).matches()
+                                                    if (isUrl && target.contains(".") && !target.contains(" ")) {
+                                                        target = "https://$target"
+                                                    } else {
+                                                        target = "${settings.searchEngine}${android.net.Uri.encode(target)}"
+                                                    }
+                                                }
+                                                webView?.loadUrl(target)
                                             }
                                         }
-                                        webView?.loadUrl(target)
                                         viewModel.updateSuggestions("")
                                     }),
                                     colors = TextFieldDefaults.colors(
@@ -386,10 +399,37 @@ fun BrowserView(
                         }
 
                         webViewClient = object : WebViewClient() {
+                            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                                if (tab.id == activeTab.id) {
+                                    Toast.makeText(context, "WebView crashed, reloading...", Toast.LENGTH_SHORT).show()
+                                    view?.reload()
+                                }
+                                return true
+                            }
+
                             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
                             if (tab.id == activeTab.id) {
                                 isLoading = true
                                 url?.let { urlInput = it }
+                            }
+                            url?.let { currentUrl ->
+                                userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "start" }.forEach { script ->
+                                    try {
+                                        val patterns = script.matchPattern.split(",").map { it.trim() }
+                                        val isMatch = patterns.any { pattern ->
+                                            val regex = pattern.replace(".", "\\.")
+                                                .replace("?", ".")
+                                                .replace("*", ".*")
+                                                .let { "^$it$" }
+                                            currentUrl.matches(Regex(regex))
+                                        }
+                                        if (isMatch) {
+                                            view?.evaluateJavascript("(function() { ${script.script} })();", null)
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
                             }
                             }
 
@@ -401,7 +441,9 @@ fun BrowserView(
                                         const selectors = [
                                             "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
                                             "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
-                                            "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']"
+                                            "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
+                                            "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
+                                            "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']"
                                         ];
                                         const style = document.createElement('style');
                                         style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
@@ -423,10 +465,17 @@ fun BrowserView(
                                         }
                                     }
 
-                                    userScripts.filter { it.enabled }.forEach { script ->
+                                    userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "end" }.forEach { script ->
                                         try {
-                                            val pattern = script.matchPattern.replace("*", ".*")
-                                            if (it.matches(Regex(pattern))) {
+                                            val patterns = script.matchPattern.split(",").map { it.trim() }
+                                            val isMatch = patterns.any { pattern ->
+                                                val regex = pattern.replace(".", "\\.")
+                                                    .replace("?", ".")
+                                                    .replace("*", ".*")
+                                                    .let { "^$it$" }
+                                                it.matches(Regex(regex))
+                                            }
+                                            if (isMatch) {
                                                 view?.evaluateJavascript("(function() { ${script.script} })();", null)
                                             }
                                         } catch (e: Exception) {
@@ -545,6 +594,11 @@ fun BrowserView(
                 if (view.url != tab.url && !tab.url.startsWith("about:")) {
                     view.loadUrl(tab.url)
                     }
+                if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
+                } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                    WebSettingsCompat.setForceDark(view.settings, if (isForceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -557,7 +611,13 @@ fun BrowserView(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Row {
-                         IconButton(onClick = {
+                        IconButton(onClick = {
+                            viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) }
+                            showTabs = false
+                        }) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Close All Tabs", tint = MaterialTheme.colorScheme.error)
+                        }
+                        IconButton(onClick = {
                             viewModel.createTab(isIncognito = true)
                             showTabs = false
                         }) {
@@ -652,6 +712,12 @@ fun BrowserView(
                         }
                     }
                     item {
+                        ToolButton(Icons.Default.Javascript, "Bookmarklets", Color(0xFFFACC15)) {
+                            showBookmarklets = true
+                            showTools = false
+                        }
+                    }
+                    item {
                         ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
                             webView?.let { PageUtils.saveAsMhtml(context, it, it.title ?: "Page") }
                             showTools = false
@@ -724,6 +790,12 @@ fun BrowserView(
                         }
                     }
                     item {
+                        ToolButton(Icons.Default.CameraAlt, "Screenshot", Color(0xFF06B6D4)) {
+                            webView?.let { PageUtils.takeScreenshot(context, it, it.title ?: "Page") }
+                            showTools = false
+                        }
+                    }
+                    item {
                         ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
                             webView?.let { PageUtils.saveAsPdf(context, it, it.title ?: "Page") }
                             showTools = false
@@ -744,6 +816,12 @@ fun BrowserView(
                     item {
                         ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) {
                             onOpenSettings()
+                            showTools = false
+                        }
+                    }
+                    item {
+                        ToolButton(if (isForceDark) Icons.Default.LightMode else Icons.Default.DarkMode, if (isForceDark) "Force Light" else "Force Dark", Color(0xFF1E293B)) {
+                            isForceDark = !isForceDark
                             showTools = false
                         }
                     }
@@ -791,6 +869,33 @@ fun BrowserView(
             }
             downloadManager.startDownload(item.src, item.title)
         }) { showMediaGrabber = false }
+    }
+
+    if (showBookmarklets) {
+        val bookmarklets = userScripts.filter { it.type == "bookmarklet" && it.enabled }
+        ModalBottomSheet(onDismissRequest = { showBookmarklets = false }, containerColor = MaterialTheme.colorScheme.surface) {
+            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
+                Text("Bookmarklets", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                if (bookmarklets.isEmpty()) {
+                    Text("No bookmarklets found. Add them in Settings > Script Manager.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    LazyColumn {
+                        items(bookmarklets) { bookmarklet ->
+                            ListItem(
+                                headlineContent = { Text(bookmarklet.name) },
+                                modifier = Modifier.clickable {
+                                    webView?.evaluateJavascript("(function() { ${bookmarklet.script} })();", null)
+                                    showBookmarklets = false
+                                },
+                                leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null, tint = Color(0xFFFACC15)) }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
     }
 
     if (isReaderMode) {

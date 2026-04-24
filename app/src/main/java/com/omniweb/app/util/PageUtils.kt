@@ -2,13 +2,36 @@ package com.omniweb.app.util
 
 import android.content.Context
 import android.os.Environment
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
 import android.widget.Toast
 import java.io.File
+import java.io.FileOutputStream
 
 object PageUtils {
+    fun takeScreenshot(context: Context, webView: WebView, title: String) {
+        try {
+            val bitmap = Bitmap.createBitmap(webView.width, webView.height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            webView.draw(canvas)
+
+            val fileName = "Screenshot_${title.replace(Regex("[^a-zA-Z0-9]"), "_")}_${System.currentTimeMillis()}.png"
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+            val file = File(dir, fileName)
+
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            Toast.makeText(context, "Screenshot saved: ${file.name}", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Failed to take screenshot: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun saveAsPdf(context: Context, webView: WebView, title: String) {
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         val printAdapter = webView.createPrintDocumentAdapter(title)
