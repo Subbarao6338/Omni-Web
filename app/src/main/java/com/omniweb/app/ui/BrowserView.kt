@@ -36,8 +36,10 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -75,7 +77,13 @@ private val AD_DOMAINS = setOf(
     "pixel.facebook.com", "connect.facebook.net", "googletagmanager.com", "googletagservices.com",
     "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com", "advertising.com",
     "adtech.de", "adtechus.com", "advertising.com", "yieldmanager.com", "pubmatic.com",
-    "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com", "atdmt.com"
+    "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com", "atdmt.com",
+    "hotjar.com", "mouseflow.com", "crazyegg.com", "optimizely.com", "mixpanel.com",
+    "segment.com", "clarity.ms", "doubleclick.com", "ad-delivery.net", "adnxs-simple.com",
+    "adform.net", "adgrx.com", "adhigh.net", "adinall.com", "adition.com", "admanmedia.com",
+    "admicro.vn", "admixer.net", "adnxs.com", "adotmob.com", "adperium.com", "adriver.ru",
+    "adroll.com", "adrtx.com", "ads-pixie.com", "ads-twitter.com", "ads-union.com",
+    "ads-zero.com", "adsafeprotected.com", "adsrvr.org", "adswizz.com", "adsymptotic.com"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,6 +150,8 @@ fun BrowserView(
     var isForceDark by remember { mutableStateOf(false) }
     var isReaderMode by remember { mutableStateOf(false) }
     var readerContent by remember { mutableStateOf("") }
+
+    var showPrivacyReport by remember { mutableStateOf(false) }
 
     var pageFavicon by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -224,8 +234,21 @@ fun BrowserView(
                                     shape = RoundedCornerShape(24.dp),
                                     singleLine = true,
                                     leadingIcon = {
-                                        val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
-                                        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                        if (pageFavicon != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = pageFavicon!!.asImageBitmap(),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)).clickable { showPrivacyReport = true }
+                                            )
+                                        } else {
+                                            val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
+                                            Icon(
+                                                icon,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(16.dp).clickable { showPrivacyReport = true },
+                                                tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     },
                                     trailingIcon = {
                                         if (urlInput.isNotEmpty()) {
@@ -320,6 +343,7 @@ fun BrowserView(
             BottomAppBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                     NavButton(Icons.Default.Layers, "Tabs", badge = viewModel.tabs.size) { showTabs = true }
+                    NavButton(Icons.Default.Add, "New") { viewModel.createTab() }
                     NavButton(Icons.Default.VideoLibrary, "Media", badge = detectedMedia.size) { showMediaGrabber = true }
                     NavButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back") {
                          if (webView?.canGoBack() == true) webView?.goBack() else onBackToHome()
@@ -517,14 +541,16 @@ fun BrowserView(
                                             const seen = new Set();
 
                                             // Generic media elements and common extensions
-                                            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"]';
+                                            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
                                             document.querySelectorAll(selectors).forEach(el => {
-                                                const src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
+                                                let src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
+                                                if (src && src.startsWith('//')) src = 'https:' + src;
                                                 if (src && src.startsWith('http') && !seen.has(src)) {
-                                                    const ext = src.split('.').pop().split('?')[0].toLowerCase();
-                                                    const isVideo = ['mp4', 'm3u8', 'webm', 'mov'].includes(ext) || el.tagName.toLowerCase() === 'video';
-                                                    const isAudio = ['mp3', 'm4a', 'wav', 'ogg'].includes(ext) || el.tagName.toLowerCase() === 'audio';
-                                                    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) || el.tagName.toLowerCase() === 'img';
+                                                    const urlObj = new URL(src);
+                                                    const ext = urlObj.pathname.split('.').pop().toLowerCase();
+                                                    const isVideo = ['mp4', 'm3u8', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
+                                                    const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
+                                                    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
 
                                                     if (isVideo || isAudio || isImage) {
                                                         seen.add(src);
@@ -540,7 +566,8 @@ fun BrowserView(
 
                                             // Special handling for social platforms
                                             const host = location.host;
-                                            if (host.includes('instagram.com') || host.includes('x.com') || host.includes('facebook.com') || host.includes('tiktok.com') || host.includes('threads.net')) {
+                                            const socialDomains = ['instagram.com', 'x.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'threads.net', 'vimeo.com', 'dailymotion.com', 'pinterest.com'];
+                                            if (socialDomains.some(d => host.includes(d))) {
                                                 // yt-dlp will handle the page URL better than individual sniffed parts
                                                 if (!seen.has(location.href)) {
                                                     seen.add(location.href);
@@ -548,7 +575,7 @@ fun BrowserView(
                                                         id: 'page-' + Date.now(),
                                                         src: location.href,
                                                         type: 'video',
-                                                        title: 'Social Video: ' + (document.title || 'Post')
+                                                        title: (host.split('.')[0]) + ' Video: ' + (document.title || 'Post')
                                                     });
                                                 }
                                             }
@@ -596,6 +623,10 @@ fun BrowserView(
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val host = request?.url?.host ?: ""
                                 if (settings.adBlockEnabled && AD_DOMAINS.any { host.contains(it) }) {
+                                    synchronized(viewModel.blockedTrackersByTab) {
+                                        val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
+                                        blockedSet.add(host)
+                                    }
                                     return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
 
@@ -974,6 +1005,40 @@ fun BrowserView(
         )
     }
 
+    if (showPrivacyReport) {
+        val blockedTrackers = synchronized(viewModel.blockedTrackersByTab) {
+            viewModel.blockedTrackersByTab[activeTab.id]?.toSet() ?: emptySet()
+        }
+        AlertDialog(
+            onDismissRequest = { showPrivacyReport = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFF10B981))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Privacy Report")
+                }
+            },
+            text = {
+                Column {
+                    Text("${blockedTrackers.size} trackers blocked on this page", fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    if (blockedTrackers.isEmpty()) {
+                        Text("No trackers detected.")
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                            items(blockedTrackers.toList()) { host ->
+                                Text(host, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyReport = false }) { Text("Close") }
+            }
+        )
+    }
+
     if (showAddBookmarkletDialog != null) {
         val script = showAddBookmarkletDialog!!
         AlertDialog(
@@ -1102,6 +1167,17 @@ fun BrowserView(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
+    var fontSize by remember { mutableFloatStateOf(18f) }
+    var theme by remember { mutableStateOf("light") } // "light", "dark"
+
+    val isDark = when (theme) {
+        "dark" -> true
+        else -> false
+    }
+
+    val backgroundColor = if (isDark) Color(0xFF121212) else Color(0xFFFFFFFF)
+    val textColor = if (isDark) Color(0xFFE0E0E0) else Color(0xFF1A1A1A)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1111,12 +1187,26 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 },
+                actions = {
+                    IconButton(onClick = { theme = if (theme == "light") "dark" else "light" }) {
+                        Icon(if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Toggle Theme")
+                    }
+                    IconButton(onClick = { fontSize = (fontSize + 2f).coerceAtMost(32f) }) {
+                        Icon(Icons.Default.TextIncrease, contentDescription = "Increase Font")
+                    }
+                    IconButton(onClick = { fontSize = (fontSize - 2f).coerceAtLeast(12f) }) {
+                        Icon(Icons.Default.TextDecrease, contentDescription = "Decrease Font")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = backgroundColor,
+                    titleContentColor = textColor,
+                    actionIconContentColor = textColor,
+                    navigationIconContentColor = textColor
                 )
             )
-        }
+        },
+        containerColor = backgroundColor
     ) { padding ->
         Column(
             modifier = Modifier
@@ -1127,18 +1217,18 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
         ) {
             Text(
                 text = title,
-                fontSize = 28.sp,
+                fontSize = (fontSize * 1.5).sp,
                 fontWeight = FontWeight.Black,
-                lineHeight = 34.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                lineHeight = (fontSize * 1.8).sp,
+                color = textColor
             )
             Spacer(modifier = Modifier.height(24.dp))
             val cleanContent = content.replace(Regex("<[^>]*>"), "")
             Text(
                 text = cleanContent,
-                fontSize = 18.sp,
-                lineHeight = 28.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize * 1.6).sp,
+                color = textColor.copy(alpha = 0.9f)
             )
         }
     }
