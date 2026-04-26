@@ -39,7 +39,9 @@ data class TabEntry(
     val title: String,
     val position: Int,
     val isIncognito: Boolean = false,
-    val lastActive: Long = System.currentTimeMillis()
+    val lastActive: Long = System.currentTimeMillis(),
+    val scrollX: Int = 0,
+    val scrollY: Int = 0
 )
 
 @Entity(tableName = "downloads")
