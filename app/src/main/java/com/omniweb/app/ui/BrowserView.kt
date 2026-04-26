@@ -66,24 +66,35 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import androidx.compose.ui.draw.clip
 
-private val AD_DOMAINS = setOf(
-    "doubleclick.net", "googleadservices.com", "adnxs.com",
-    "googlesyndication.com", "quantserve.com", "scorecardresearch.com",
-    "zedo.com", "amazon-adsystem.com", "adservice.google.com",
-    "google-analytics.com", "analytics.google.com", "ads.linkedin.com",
-    "static.ads-twitter.com", "ads-twitter.com", "fbcdn.net", "facebook.com",
-    "ad.doubleclick.net", "pagead2.googlesyndication.com", "pubads.g.doubleclick.net",
-    "ads.google.com", "analytics.twitter.com", "analytics.facebook.com", "ads-api.twitter.com",
-    "pixel.facebook.com", "connect.facebook.net", "googletagmanager.com", "googletagservices.com",
-    "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com", "advertising.com",
-    "adtech.de", "adtechus.com", "advertising.com", "yieldmanager.com", "pubmatic.com",
-    "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com", "atdmt.com",
-    "hotjar.com", "mouseflow.com", "crazyegg.com", "optimizely.com", "mixpanel.com",
-    "segment.com", "clarity.ms", "doubleclick.com", "ad-delivery.net", "adnxs-simple.com",
-    "adform.net", "adgrx.com", "adhigh.net", "adinall.com", "adition.com", "admanmedia.com",
-    "admicro.vn", "admixer.net", "adnxs.com", "adotmob.com", "adperium.com", "adriver.ru",
-    "adroll.com", "adrtx.com", "ads-pixie.com", "ads-twitter.com", "ads-union.com",
-    "ads-zero.com", "adsafeprotected.com", "adsrvr.org", "adswizz.com", "adsymptotic.com"
+private val ADS_DOMAINS = setOf(
+    "doubleclick.net", "googleadservices.com", "adnxs.com", "googlesyndication.com",
+    "zedo.com", "amazon-adsystem.com", "adservice.google.com", "ad.doubleclick.net",
+    "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
+    "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
+    "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
+    "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com",
+    "atdmt.com", "ad-delivery.net", "adnxs-simple.com", "adform.net", "adgrx.com",
+    "adhigh.net", "adinall.com", "adition.com", "admanmedia.com", "admicro.vn",
+    "admixer.net", "adotmob.com", "adperium.com", "adriver.ru", "adrtx.com",
+    "ads-pixie.com", "ads-union.com", "ads-zero.com", "adsafeprotected.com",
+    "adsrvr.org", "adswizz.com", "adsymptotic.com", "bidswitch.net", "bluekai.com",
+    "gumgum.com", "indexww.com", "lijit.com", "media.net", "mopub.com", "popads.net",
+    "revcontent.com", "rubiconproject.com", "sharethrough.com", "sovrn.com"
+)
+
+private val ANALYTICS_DOMAINS = setOf(
+    "google-analytics.com", "analytics.google.com", "googletagmanager.com",
+    "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
+    "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com",
+    "scorecardresearch.com", "chartbeat.com", "clicky.com", "newrelic.com",
+    "amplitude.com", "statcounter.com"
+)
+
+private val SOCIAL_DOMAINS = setOf(
+    "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
+    "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com",
+    "ads-api.twitter.com", "pixel.facebook.com", "connect.facebook.net",
+    "snapads.com", "pinterest.com", "tiktok.com"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -221,6 +232,14 @@ fun BrowserView(
                             }
                         }
                     } else {
+                        if (isLoading) {
+                            LinearProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.fillMaxWidth().height(2.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.Transparent
+                            )
+                        }
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                             Box(modifier = Modifier.weight(1f)) {
@@ -332,9 +351,6 @@ fun BrowserView(
                                 )
                             }
                         }
-                    }
-                    if (isLoading) {
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(2.dp), color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -482,7 +498,7 @@ fun BrowserView(
                             }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
-                            if (tab.id == activeTab.id) isLoading = false
+                                if (tab.id == activeTab.id) isLoading = false
                             if (settings.adBlockEnabled) {
                                 view?.evaluateJavascript("""
                                     (function() {
@@ -575,10 +591,23 @@ fun BrowserView(
                                                         id: 'page-' + Date.now(),
                                                         src: location.href,
                                                         type: 'video',
-                                                        title: (host.split('.')[0]) + ' Video: ' + (document.title || 'Post')
+                                                        title: (document.title || (host.split('.')[0] + ' Video'))
                                                     });
                                                 }
                                             }
+
+                                            // Check for HLS/M3U8 streams in network-like behavior (heuristic)
+                                            performance.getEntriesByType('resource').forEach(resource => {
+                                                if (resource.name.includes('.m3u8') && !seen.has(resource.name)) {
+                                                    seen.add(resource.name);
+                                                    media.push({
+                                                        id: 'hls-' + Math.random().toString(36).substr(2, 5),
+                                                        src: resource.name,
+                                                        type: 'video',
+                                                        title: 'HLS Stream: ' + (document.title || 'Video')
+                                                    });
+                                                }
+                                            });
 
                                             if (host.includes('youtube.com')) {
                                                 const videoId = new URLSearchParams(window.location.search).get('v');
@@ -622,12 +651,24 @@ fun BrowserView(
 
                             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                                 val host = request?.url?.host ?: ""
-                                if (settings.adBlockEnabled && AD_DOMAINS.any { host.contains(it) }) {
-                                    synchronized(viewModel.blockedTrackersByTab) {
-                                        val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
-                                        blockedSet.add(host)
+                                if (settings.adBlockEnabled) {
+                                    val isAd = ADS_DOMAINS.any { host.contains(it) }
+                                    val isAnalytics = ANALYTICS_DOMAINS.any { host.contains(it) }
+                                    val isSocial = SOCIAL_DOMAINS.any { host.contains(it) }
+
+                                    if (isAd || isAnalytics || isSocial) {
+                                        synchronized(viewModel.blockedTrackersByTab) {
+                                            val category = when {
+                                                isAd -> "[Ad]"
+                                                isAnalytics -> "[Analytics]"
+                                                isSocial -> "[Social]"
+                                                else -> "[Other]"
+                                            }
+                                            val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
+                                            blockedSet.add("$category $host")
+                                        }
+                                        return WebResourceResponse("text/plain", "UTF-8", null)
                                     }
-                                    return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
 
                                 // Privacy: Do Not Track
@@ -643,17 +684,23 @@ fun BrowserView(
                     }
                 },
                 update = { view ->
-                if (tab.id == activeTab.id) {
-                    webView = view
-                }
-                if (view.url != tab.url && !tab.url.startsWith("about:")) {
-                    view.loadUrl(tab.url)
+                    if (tab.id == activeTab.id) {
+                        webView = view
                     }
-                if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
-                } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                    WebSettingsCompat.setForceDark(view.settings, if (isForceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
-                }
+                    if (view.url != tab.url && !tab.url.startsWith("about:")) {
+                        view.loadUrl(tab.url)
+                    }
+
+                    // Performance: Adjust cache based on connectivity
+                    val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                    val activeNetwork = connectivityManager.activeNetworkInfo
+                    view.settings.cacheMode = if (activeNetwork?.isConnected == true) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+
+                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
+                    } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                        WebSettingsCompat.setForceDark(view.settings, if (isForceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                    }
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -733,7 +780,15 @@ fun BrowserView(
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Box(modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
+                                    if (tab.id == activeTab.id && pageFavicon != null) {
+                                         androidx.compose.foundation.Image(
+                                            bitmap = pageFavicon!!.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(48.dp)
+                                        )
+                                    } else {
+                                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
+                                    }
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1007,8 +1062,14 @@ fun BrowserView(
 
     if (showPrivacyReport) {
         val blockedTrackers = synchronized(viewModel.blockedTrackersByTab) {
-            viewModel.blockedTrackersByTab[activeTab.id]?.toSet() ?: emptySet()
+            viewModel.blockedTrackersByTab[activeTab.id]?.toList() ?: emptyList()
         }
+
+        val ads = blockedTrackers.filter { it.startsWith("[Ad]") }
+        val analytics = blockedTrackers.filter { it.startsWith("[Analytics]") }
+        val social = blockedTrackers.filter { it.startsWith("[Social]") }
+        val others = blockedTrackers.filter { !it.startsWith("[Ad]") && !it.startsWith("[Analytics]") && !it.startsWith("[Social]") }
+
         AlertDialog(
             onDismissRequest = { showPrivacyReport = false },
             title = {
@@ -1020,14 +1081,28 @@ fun BrowserView(
             },
             text = {
                 Column {
-                    Text("${blockedTrackers.size} trackers blocked on this page", fontWeight = FontWeight.Bold)
+                    Text("${blockedTrackers.size} trackers blocked on this page", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(16.dp))
+
                     if (blockedTrackers.isEmpty()) {
-                        Text("No trackers detected.")
+                        Text("No trackers detected. This site respects your privacy!")
                     } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                            items(blockedTrackers.toList()) { host ->
-                                Text(host, fontSize = 12.sp, modifier = Modifier.padding(vertical = 4.dp))
+                        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                            if (ads.isNotEmpty()) {
+                                item { Text("Ads (${ads.size})", fontWeight = FontWeight.Bold, color = Color(0xFFEF4444), modifier = Modifier.padding(vertical = 4.dp)) }
+                                items(ads) { Text(it.removePrefix("[Ad] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
+                            }
+                            if (analytics.isNotEmpty()) {
+                                item { Text("Analytics (${analytics.size})", fontWeight = FontWeight.Bold, color = Color(0xFF3B82F6), modifier = Modifier.padding(vertical = 4.dp)) }
+                                items(analytics) { Text(it.removePrefix("[Analytics] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
+                            }
+                            if (social.isNotEmpty()) {
+                                item { Text("Social (${social.size})", fontWeight = FontWeight.Bold, color = Color(0xFF8B5CF6), modifier = Modifier.padding(vertical = 4.dp)) }
+                                items(social) { Text(it.removePrefix("[Social] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
+                            }
+                            if (others.isNotEmpty()) {
+                                item { Text("Other (${others.size})", fontWeight = FontWeight.Bold, color = Color(0xFF6B7280), modifier = Modifier.padding(vertical = 4.dp)) }
+                                items(others) { Text(it, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
                             }
                         }
                     }

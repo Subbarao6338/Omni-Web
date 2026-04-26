@@ -79,32 +79,51 @@ object PageUtils {
     }
 
     fun extractArticleContent(html: String): String {
-        // Simple logic to extract main content by finding the block with most <p> tags
-        // or just stripping clutter. In a real app, this would be more complex.
         val bodyMatch = Regex("<body.*?>(.*?)</body>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(html)
         var content = bodyMatch?.groupValues?.get(1) ?: html
 
-        // Remove unwanted tags
-        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe", "noscript", "svg", "form", "button")
+        // Remove non-content elements aggressively
+        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe", "noscript", "svg", "form", "button", "canvas", "video", "audio")
         tagsToRemove.forEach { tag ->
             content = content.replace(Regex("<$tag.*?>.*?</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
         }
 
-        // Heuristic: Find elements with a lot of <p> tags and prioritize them
-        // For now, we'll just try to find the <article> tag or the largest <div>
-        val articleMatch = Regex("<article.*?>(.*?)</article>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(content)
-        if (articleMatch != null) {
-            content = articleMatch.groupValues[1]
-        } else {
-            val mainMatch = Regex("<main.*?>(.*?)</main>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(content)
-            if (mainMatch != null) {
-                content = mainMatch.groupValues[1]
+        // Priority tags
+        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article")
+        for (tag in priorityTags) {
+            val pattern = if (tag.contains("#") || tag.contains(".") || tag.contains("[")) {
+                // Simplified matching for id/class/role
+                val part = tag.split("#", ".", "[").first()
+                val attr = if (tag.contains("#")) "id=\"${tag.split("#").last()}\""
+                           else if (tag.contains(".")) "class=\"${tag.split(".").last()}\""
+                           else tag.split("[").last().replace("]", "")
+                Regex("<$part[^>]*$attr[^>]*>(.*?)</$part>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            } else {
+                Regex("<$tag.*?>(.*?)</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            }
+
+            val match = pattern.find(content)
+            if (match != null && match.groupValues[1].length > 200) {
+                content = match.groupValues[1]
+                break
             }
         }
 
-        // Clean up remaining tags but keep structure
+        // Scoring heuristic: Find block with most <p> tags if no article/main found
+        if (content.length > 5000) {
+             val pBlocks = Regex("<div.*?>(.*?<p.*?>.*?</p>.*?)</div>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
+             val bestBlock = pBlocks.maxByOrNull { block ->
+                 Regex("<p.*?>").findAll(block.groupValues[1]).count()
+             }
+             if (bestBlock != null && bestBlock.groupValues[1].length > 200) {
+                 content = bestBlock.groupValues[1]
+             }
+        }
+
+        // Formatting cleanup
+        content = content.replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "<p>")
+        content = content.replace(Regex("<h([1-6]).*?>", RegexOption.IGNORE_CASE), "<h$1>")
         content = content.replace(Regex("<div.*?>", RegexOption.IGNORE_CASE), "<div>")
-        content = content.replace(Regex("<span.*?>", RegexOption.IGNORE_CASE), "<span>")
 
         return content.trim()
     }

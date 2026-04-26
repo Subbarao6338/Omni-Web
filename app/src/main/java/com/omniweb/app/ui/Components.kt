@@ -55,30 +55,41 @@ fun ToolButton(icon: ImageVector, label: String, color: Color, onClick: () -> Un
 fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Unit = {}) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        )
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .padding(4.dp)
     ) {
         ElevatedCard(
-            modifier = Modifier.size(64.dp),
-            shape = RoundedCornerShape(18.dp),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
+            modifier = Modifier.size(60.dp),
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp, pressedElevation = 4.dp),
             colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             )
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = shortcut.title.take(1).uppercase(),
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Black,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
         }
-        Spacer(modifier = Modifier.height(10.dp))
-        Text(text = shortcut.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurface)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = shortcut.title,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

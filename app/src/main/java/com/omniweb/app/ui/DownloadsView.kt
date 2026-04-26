@@ -213,8 +213,10 @@ fun DownloadItem(task: DownloadTask, onOpen: () -> Unit, onDelete: () -> Unit) {
                     if (task.totalSize > 0) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text("${task.downloadedSize / 1024} KB / ${task.totalSize / 1024} KB", fontSize = 11.sp)
-                            if (!isComplete && !isFailed) {
-                                Text("${task.downloadSpeed / 1024} KB/s - ${task.estimatedTimeRemaining}s left", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (!isComplete && !isFailed && task.status == DownloadManager.STATUS_RUNNING) {
+                                val speedText = if (task.downloadSpeed > 1024 * 1024) "${String.format("%.1f", task.downloadSpeed / (1024f * 1024f))} MB/s" else "${task.downloadSpeed / 1024} KB/s"
+                                val etaText = if (task.estimatedTimeRemaining > 60) "${task.estimatedTimeRemaining / 60}m ${task.estimatedTimeRemaining % 60}s" else "${task.estimatedTimeRemaining}s"
+                                Text("$speedText - $etaText left", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

@@ -29,7 +29,8 @@ data class Settings(
     val accentColor: String = "#3B82F6",
     val darkMode: Boolean = false, // Deprecated but kept for migration if needed
     val downloadPath: String? = null,
-    val restoreTabsOnStart: Boolean = true
+    val restoreTabsOnStart: Boolean = true,
+    val clearDataOnExit: Boolean = false
 )
 
 @Entity(tableName = "tabs")
