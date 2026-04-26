@@ -211,7 +211,12 @@ fun DownloadItem(task: DownloadTask, onOpen: () -> Unit, onDelete: () -> Unit) {
                         color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                     )
                     if (task.totalSize > 0) {
-                        Text("${task.downloadedSize / 1024} KB / ${task.totalSize / 1024} KB", fontSize = 11.sp)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("${task.downloadedSize / 1024} KB / ${task.totalSize / 1024} KB", fontSize = 11.sp)
+                            if (!isComplete && !isFailed) {
+                                Text("${task.downloadSpeed / 1024} KB/s - ${task.estimatedTimeRemaining}s left", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     }
                 }
             }

@@ -48,10 +48,14 @@ class OmniDownloadManager(private val context: Context) {
                 if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
                     val treeUri = Uri.parse(settings.downloadPath)
                     val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
-                    val newFile = pickedDir?.createFile(getMimeType(fileName), fileName)
-                    if (newFile != null) {
-                        customUri = newFile.uri
-                        request.setDestinationUri(customUri)
+                    if (pickedDir != null && pickedDir.exists() && pickedDir.canWrite()) {
+                        val newFile = pickedDir.createFile(getMimeType(fileName), fileName)
+                        if (newFile != null) {
+                            customUri = newFile.uri
+                            request.setDestinationUri(customUri)
+                        } else {
+                            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                        }
                     } else {
                         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
                     }
@@ -128,7 +132,10 @@ class OmniDownloadManager(private val context: Context) {
             if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
                 val treeUri = Uri.parse(settings.downloadPath)
                 val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
-                val newFile = pickedDir?.createFile(getMimeType(fileName), fileName)
+                if (pickedDir == null || !pickedDir.exists() || !pickedDir.canWrite()) {
+                    throw Exception("Selected download folder is not accessible or writable")
+                }
+                val newFile = pickedDir.createFile(getMimeType(fileName), fileName)
                 if (newFile != null) {
                     context.contentResolver.openOutputStream(newFile.uri)?.use { output ->
                         FileInputStream(tempFile).use { input ->
@@ -136,6 +143,8 @@ class OmniDownloadManager(private val context: Context) {
                         }
                     }
                     finalPath = newFile.uri.toString()
+                } else {
+                    throw Exception("Failed to create file in selected folder")
                 }
             } else if (settings?.downloadPath != null) {
                 val downloadFolder = File(settings.downloadPath).apply { if (!exists()) mkdirs() }
@@ -170,6 +179,9 @@ class OmniDownloadManager(private val context: Context) {
     private fun pollDownloadStatus(downloadId: Long) {
         scope.launch {
             var isDownloading = true
+            var lastDownloaded: Long = 0
+            var lastTime: Long = System.currentTimeMillis()
+
             while (isDownloading) {
                 val query = DownloadManager.Query().setFilterById(downloadId)
                 val cursor = downloadManager.query(query)
@@ -178,11 +190,21 @@ class OmniDownloadManager(private val context: Context) {
                     val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
                     val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
 
+                    val currentTime = System.currentTimeMillis()
+                    val timeDiff = (currentTime - lastTime) / 1000f
+                    val speed = if (timeDiff > 0) ((downloaded - lastDownloaded) / timeDiff).toLong() else 0L
+                    val remaining = if (speed > 0 && total > 0) (total - downloaded) / speed else 0L
+
+                    lastDownloaded = downloaded
+                    lastTime = currentTime
+
                     db.downloadDao().getDownloadByIdSync(downloadId)?.let { task ->
                         db.downloadDao().updateDownload(task.copy(
                             status = status,
                             downloadedSize = downloaded,
-                            totalSize = total
+                            totalSize = total,
+                            downloadSpeed = speed,
+                            estimatedTimeRemaining = remaining
                         ))
                     }
 
