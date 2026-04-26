@@ -51,7 +51,9 @@ data class DownloadTask(
     val status: Int,
     val totalSize: Long,
     val downloadedSize: Long,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val downloadSpeed: Long = 0,
+    val estimatedTimeRemaining: Long = 0
 )
 
 @Entity(tableName = "userscripts")
