@@ -8,11 +8,15 @@ class TabInfo(
     val id: String,
     initialUrl: String,
     initialTitle: String,
-    val isIncognito: Boolean = false
+    val isIncognito: Boolean = false,
+    initialScrollX: Int = 0,
+    initialScrollY: Int = 0
 ) {
     var url by mutableStateOf(initialUrl)
     var title by mutableStateOf(initialTitle)
     var faviconUrl by mutableStateOf<String?>(null)
+    var scrollX by mutableStateOf(initialScrollX)
+    var scrollY by mutableStateOf(initialScrollY)
 }
 
 data class MediaItem(val id: String, val type: String, val src: String, val title: String)

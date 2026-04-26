@@ -43,7 +43,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
             if (currentSettings.restoreTabsOnStart && savedTabs.isNotEmpty()) {
                 savedTabs.forEach { entry ->
-                    tabs.add(TabInfo(entry.id, entry.url, entry.title, entry.isIncognito))
+                    tabs.add(TabInfo(entry.id, entry.url, entry.title, entry.isIncognito, entry.scrollX, entry.scrollY))
                 }
                 activeTabId.value = tabs.first().id
             } else {
@@ -84,7 +84,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 url = tab.url,
                 title = tab.title,
                 position = tabs.indexOf(tab),
-                isIncognito = tab.isIncognito
+                isIncognito = tab.isIncognito,
+                scrollX = tab.scrollX,
+                scrollY = tab.scrollY
             ))
         }
     }
@@ -96,7 +98,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 url = tab.url,
                 title = tab.title,
                 position = tabs.indexOf(tab),
-                isIncognito = tab.isIncognito
+                isIncognito = tab.isIncognito,
+                scrollX = tab.scrollX,
+                scrollY = tab.scrollY
             ))
         }
     }
