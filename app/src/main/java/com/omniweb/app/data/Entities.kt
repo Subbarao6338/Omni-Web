@@ -30,7 +30,10 @@ data class Settings(
     val darkMode: Boolean = false, // Deprecated but kept for migration if needed
     val downloadPath: String? = null,
     val restoreTabsOnStart: Boolean = true,
-    val clearDataOnExit: Boolean = false
+    val clearDataOnExit: Boolean = false,
+    val javaScriptEnabled: Boolean = true,
+    val blockThirdPartyCookies: Boolean = true,
+    val customUserAgent: String? = null
 )
 
 @Entity(tableName = "tabs")

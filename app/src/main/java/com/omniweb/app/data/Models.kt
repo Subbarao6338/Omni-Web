@@ -1,8 +1,7 @@
 package com.omniweb.app.data
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
+import android.graphics.Bitmap
+import androidx.compose.runtime.*
 
 class TabInfo(
     val id: String,
@@ -15,8 +14,14 @@ class TabInfo(
     var url by mutableStateOf(initialUrl)
     var title by mutableStateOf(initialTitle)
     var faviconUrl by mutableStateOf<String?>(null)
+    var faviconBitmap by mutableStateOf<Bitmap?>(null)
     var scrollX by mutableStateOf(initialScrollX)
     var scrollY by mutableStateOf(initialScrollY)
+    var isLoading by mutableStateOf(false)
+    var progress by mutableFloatStateOf(0f)
+    val detectedMedia = mutableStateListOf<MediaItem>()
 }
 
 data class MediaItem(val id: String, val type: String, val src: String, val title: String)
+
+data class ConsoleLog(val message: String, val level: String)

@@ -236,7 +236,7 @@ fun HomeView(
         }
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.heightIn(max = 1000.dp), // Allow it to expand
+            modifier = Modifier.heightIn(max = 2000.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
             userScrollEnabled = false

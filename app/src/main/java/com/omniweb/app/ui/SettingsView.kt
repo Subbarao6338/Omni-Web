@@ -211,15 +211,6 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
 
             SettingsSection("Privacy & Security", Icons.Default.Shield) {
                 ListItem(
-                    headlineContent = { Text("Userscripts") },
-                    supportingContent = { Text("Manage custom JS injections") },
-                    trailingContent = {
-                        Icon(Icons.Default.ChevronRight, contentDescription = null)
-                    },
-                    modifier = Modifier.clickable { onOpenScripts() }
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-                ListItem(
                     headlineContent = { Text("Ad Blocking") },
                     supportingContent = { Text("Block ads and trackers") },
                     trailingContent = {
@@ -228,6 +219,36 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                             onCheckedChange = { enabled ->
                                 scope.launch {
                                     database.settingsDao().updateSettings(settings.copy(adBlockEnabled = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("JavaScript") },
+                    supportingContent = { Text("Enable execution of scripts on websites") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.javaScriptEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(javaScriptEnabled = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Block Third-Party Cookies") },
+                    supportingContent = { Text("Improved privacy by preventing cross-site tracking") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.blockThirdPartyCookies,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(blockThirdPartyCookies = enabled))
                                 }
                             }
                         )
@@ -246,6 +267,34 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                         }
                     }
                 )
+            }
+
+            SettingsSection("Advanced", Icons.Default.Build) {
+                ListItem(
+                    headlineContent = { Text("Userscripts") },
+                    supportingContent = { Text("Manage custom JS injections") },
+                    trailingContent = {
+                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                    },
+                    modifier = Modifier.clickable { onOpenScripts() }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Custom User Agent", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.customUserAgent ?: "",
+                        onValueChange = {
+                            scope.launch {
+                                database.settingsDao().updateSettings(settings.copy(customUserAgent = it.ifBlank { null }))
+                            }
+                        },
+                        placeholder = { Text("Leave empty for default") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                }
             }
 
             SettingsSection("Data Management", Icons.Default.ImportExport) {

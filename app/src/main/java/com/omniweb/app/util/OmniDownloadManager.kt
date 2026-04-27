@@ -113,6 +113,8 @@ class OmniDownloadManager(private val context: Context) {
         try {
             val request = YoutubeDLRequest(url)
             request.addOption("-o", tempFile.absolutePath)
+            request.addOption("--no-check-certificate")
+            request.addOption("--socket-timeout", "5")
 
             withContext(Dispatchers.IO) {
                 YoutubeDL.getInstance().execute(request) { progress, _, _ ->
