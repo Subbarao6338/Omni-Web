@@ -46,7 +46,16 @@ interface HistoryDao {
 
     @Delete
     suspend fun deleteHistoryEntry(entry: HistoryEntry)
+
+    @Query("SELECT title, url, COUNT(url) as visitCount FROM history GROUP BY url ORDER BY visitCount DESC LIMIT :limit")
+    fun getMostVisited(limit: Int = 8): Flow<List<MostVisitedEntry>>
 }
+
+data class MostVisitedEntry(
+    val title: String,
+    val url: String,
+    val visitCount: Int
+)
 
 @Dao
 interface SettingsDao {

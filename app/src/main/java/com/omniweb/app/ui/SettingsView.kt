@@ -37,7 +37,7 @@ import com.omniweb.app.util.BackupManager
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}) {
     val context = LocalContext.current
@@ -87,17 +87,37 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SettingsSection("General", Icons.Default.Search) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Search Engine", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val engines = listOf(
+                        "Google" to "https://www.google.com/search?q=",
+                        "DuckDuckGo" to "https://duckduckgo.com/?q=",
+                        "Bing" to "https://www.bing.com/search?q=",
+                        "Yahoo" to "https://search.yahoo.com/search?p="
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        engines.forEach { (name, url) ->
+                            FilterChip(
+                                selected = settings.searchEngine == url,
+                                onClick = {
+                                    scope.launch { database.settingsDao().updateSettings(settings.copy(searchEngine = url)) }
+                                },
+                                label = { Text(name) }
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
-                    headlineContent = { Text("Search Engine") },
-                    supportingContent = { Text(if (settings.searchEngine.contains("google")) "Google" else "DuckDuckGo") },
+                    headlineContent = { Text("Clear data on exit") },
+                    supportingContent = { Text("Automatically clear history and cache when app is closed") },
                     trailingContent = {
                         Switch(
-                            checked = settings.searchEngine.contains("google"),
-                            onCheckedChange = { isGoogle ->
+                            checked = settings.clearDataOnExit,
+                            onCheckedChange = { enabled ->
                                 scope.launch {
-                                    database.settingsDao().updateSettings(
-                                        settings.copy(searchEngine = if (isGoogle) "https://www.google.com/search?q=" else "https://duckduckgo.com/?q=")
-                                    )
+                                    database.settingsDao().updateSettings(settings.copy(clearDataOnExit = enabled))
                                 }
                             }
                         )

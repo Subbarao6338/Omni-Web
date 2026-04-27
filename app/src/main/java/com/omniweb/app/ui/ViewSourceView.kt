@@ -54,8 +54,32 @@ fun ViewSourceView(source: String, onBack: () -> Unit) {
                 .padding(16.dp)
         ) {
             items(lines) { line ->
+                val annotatedString = androidx.compose.ui.text.buildAnnotatedString {
+                    val trimmed = line.trim()
+                    when {
+                        trimmed.startsWith("<!--") -> {
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF6A9955)))
+                            append(line)
+                        }
+                        trimmed.startsWith("<") -> {
+                            val tagEnd = line.indexOfAny(charArrayOf(' ', '>'))
+                            if (tagEnd != -1) {
+                                pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF569CD6))) // Blue for tags
+                                append(line.substring(0, tagEnd))
+                                pop()
+                                append(line.substring(tagEnd))
+                            } else {
+                                pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF569CD6)))
+                                append(line)
+                            }
+                        }
+                        else -> {
+                            append(line)
+                        }
+                    }
+                }
                 Text(
-                    text = line,
+                    text = annotatedString,
                     style = TextStyle(
                         color = Color(0xFFD4D4D4),
                         fontFamily = FontFamily.Monospace,

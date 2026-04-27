@@ -183,39 +183,44 @@ class OmniDownloadManager(private val context: Context) {
             var lastTime: Long = System.currentTimeMillis()
 
             while (isDownloading) {
-                val query = DownloadManager.Query().setFilterById(downloadId)
-                val cursor = downloadManager.query(query)
-                if (cursor.moveToFirst()) {
-                    val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
-                    val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-                    val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                try {
+                    val query = DownloadManager.Query().setFilterById(downloadId)
+                    val cursor = downloadManager.query(query)
+                    if (cursor != null && cursor.moveToFirst()) {
+                        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                        val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                        val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
 
-                    val currentTime = System.currentTimeMillis()
-                    val timeDiff = (currentTime - lastTime) / 1000f
-                    val speed = if (timeDiff > 0) ((downloaded - lastDownloaded) / timeDiff).toLong() else 0L
-                    val remaining = if (speed > 0 && total > 0) (total - downloaded) / speed else 0L
+                        val currentTime = System.currentTimeMillis()
+                        val timeDiff = (currentTime - lastTime) / 1000f
+                        val speed = if (timeDiff > 0 && downloaded > lastDownloaded) ((downloaded - lastDownloaded) / timeDiff).toLong() else 0L
+                        val remaining = if (speed > 0 && total > 0) (total - downloaded) / speed else 0L
 
-                    lastDownloaded = downloaded
-                    lastTime = currentTime
+                        lastDownloaded = downloaded
+                        lastTime = currentTime
 
-                    db.downloadDao().getDownloadByIdSync(downloadId)?.let { task ->
-                        db.downloadDao().updateDownload(task.copy(
-                            status = status,
-                            downloadedSize = downloaded,
-                            totalSize = total,
-                            downloadSpeed = speed,
-                            estimatedTimeRemaining = remaining
-                        ))
-                    }
+                        db.downloadDao().getDownloadByIdSync(downloadId)?.let { task ->
+                            db.downloadDao().updateDownload(task.copy(
+                                status = status,
+                                downloadedSize = downloaded,
+                                totalSize = total,
+                                downloadSpeed = speed,
+                                estimatedTimeRemaining = remaining
+                            ))
+                        }
 
-                    if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                        if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                            isDownloading = false
+                        }
+                    } else {
                         isDownloading = false
                     }
-                } else {
+                    cursor?.close()
+                } catch (e: Exception) {
+                    e.printStackTrace()
                     isDownloading = false
                 }
-                cursor.close()
-                delay(1000)
+                if (isDownloading) delay(1000)
             }
         }
     }

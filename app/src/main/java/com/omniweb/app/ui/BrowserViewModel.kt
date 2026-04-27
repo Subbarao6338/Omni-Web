@@ -143,11 +143,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 stopLoading()
                 webChromeClient = null
                 webViewClient = WebViewClient()
-                loadUrl("about:blank")
                 clearHistory()
                 removeAllViews()
                 destroy()
             }
+            blockedTrackersByTab.remove(id)
             if (tabs.isEmpty()) {
                 createTab()
             } else if (activeTabId.value == id) {
@@ -162,12 +162,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             it.stopLoading()
             it.webChromeClient = null
             it.webViewClient = WebViewClient()
-            it.loadUrl("about:blank")
             it.clearHistory()
             it.removeAllViews()
             it.destroy()
         }
         webViewCache.clear()
+        blockedTrackersByTab.clear()
     }
 
     fun selectTab(id: String) {

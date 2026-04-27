@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +52,7 @@ fun HomeView(
     val settingsState by viewModel.settings.collectAsState()
     val settings = settingsState ?: Settings()
     val history by database.historyDao().getAllHistory().collectAsState(initial = emptyList())
+    val mostVisited by database.historyDao().getMostVisited().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
 
     val tabs = viewModel.tabs
@@ -176,7 +179,35 @@ fun HomeView(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (history.isNotEmpty()) {
+        if (mostVisited.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text("Most Visited", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(mostVisited) { entry ->
+                        Card(
+                            modifier = Modifier.width(120.dp).clickable { onNavigate(entry.url) },
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Surface(
+                                    modifier = Modifier.size(40.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(entry.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(40.dp))
+        } else if (history.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text("Recent History", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -197,10 +228,12 @@ fun HomeView(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
         }
 
-        Text("Shortcuts", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.Start).padding(bottom = 16.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+             Text("Shortcuts", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
+        }
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = Modifier.heightIn(max = 1000.dp), // Allow it to expand
