@@ -209,7 +209,14 @@ fun HomeView(
             Spacer(modifier = Modifier.height(40.dp))
         } else if (history.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Recent History", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Recent History", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
+                    IconButton(onClick = {
+                        scope.launch { database.historyDao().clearHistory() }
+                    }, modifier = Modifier.offset(y = (-8).dp)) {
+                        Icon(Icons.Default.ClearAll, contentDescription = "Clear History", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    }
+                }
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(history.take(4)) { entry ->
                         Card(

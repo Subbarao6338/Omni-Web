@@ -82,6 +82,9 @@ interface DownloadDao {
 
     @Update
     suspend fun updateDownload(task: DownloadTask)
+
+    @Query("DELETE FROM downloads WHERE status = 8")
+    suspend fun deleteFinishedDownloads()
 }
 
 @Dao

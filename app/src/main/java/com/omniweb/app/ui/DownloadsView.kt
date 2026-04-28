@@ -61,6 +61,16 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                         }
                     },
                     actions = {
+                        if (downloads.any { it.status == 8 }) {
+                            TextButton(onClick = {
+                                scope.launch {
+                                    database.downloadDao().deleteFinishedDownloads()
+                                    Toast.makeText(context, "Finished downloads cleared", Toast.LENGTH_SHORT).show()
+                                }
+                            }) {
+                                Text("Clear Finished", fontSize = 12.sp)
+                            }
+                        }
                         if (downloads.isNotEmpty()) {
                             IconButton(onClick = {
                                 scope.launch {

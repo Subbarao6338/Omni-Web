@@ -48,6 +48,7 @@ fun BrowserAddressBar(
     findQuery: String,
     onFindQueryChange: (String) -> Unit,
     onFindNext: (Boolean) -> Unit,
+    findMatchStatus: String = "",
     onCloseFind: () -> Unit,
     onHomeClick: () -> Unit,
     suggestions: List<Suggestion>,
@@ -67,7 +68,10 @@ fun BrowserAddressBar(
                         placeholder = { Text("Find in page...") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
-                            Row {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (findMatchStatus.isNotEmpty()) {
+                                    Text(findMatchStatus, fontSize = 12.sp, modifier = Modifier.padding(end = 4.dp))
+                                }
                                 IconButton(onClick = { onFindNext(false) }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous") }
                                 IconButton(onClick = { onFindNext(true) }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next") }
                             }
@@ -125,6 +129,19 @@ fun BrowserAddressBar(
                             ),
                             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
                         )
+
+                        if (isLoading) {
+                            LinearProgressIndicator(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .height(2.dp)
+                                    .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.Transparent
+                            )
+                        }
 
                         if (suggestions.isNotEmpty()) {
                             Card(
@@ -242,7 +259,7 @@ fun TabSwitcherSheet(
                             color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                         )
                     ) {
-                        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                     Icon(
