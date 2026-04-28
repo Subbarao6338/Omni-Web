@@ -92,33 +92,43 @@ object PageUtils {
         val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article")
         for (tag in priorityTags) {
             val pattern = if (tag.contains("#") || tag.contains(".") || tag.contains("[")) {
-                // Simplified matching for id/class/role
                 val part = tag.split("#", ".", "[").first()
-                val attr = if (tag.contains("#")) "id=\"${tag.split("#").last()}\""
-                           else if (tag.contains(".")) "class=\"${tag.split(".").last()}\""
-                           else tag.split("[").last().replace("]", "")
-                Regex("<$part[^>]*$attr[^>]*>(.*?)</$part>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                val attrValue = if (tag.contains("#")) tag.split("#").last()
+                               else if (tag.contains(".")) tag.split(".").last()
+                               else tag.split("[").last().split("=").last().replace("]", "").replace("\"", "").replace("'", "")
+
+                Regex("<$part[^>]*?(?:id|class|role)\\s*=\\s*['\"]\\s*[^'\"]*?$attrValue[^'\"]*?\\s*['\"][^>]*?>(.*?)</$part>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             } else {
                 Regex("<$tag.*?>(.*?)</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             }
 
             val match = pattern.find(content)
-            if (match != null && match.groupValues[1].length > 200) {
+            if (match != null && match.groupValues[1].length > 400) {
                 content = match.groupValues[1]
                 break
             }
         }
 
-        // Scoring heuristic: Find block with most <p> tags if no article/main found
-        if (content.length > 5000) {
-             val pBlocks = Regex("<div.*?>(.*?<p.*?>.*?</p>.*?)</div>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
-             val bestBlock = pBlocks.maxByOrNull { block ->
-                 Regex("<p.*?>").findAll(block.groupValues[1]).count()
-             }
-             if (bestBlock != null && bestBlock.groupValues[1].length > 200) {
-                 content = bestBlock.groupValues[1]
-             }
+        // Density-based scoring system for paragraphs and structural elements
+        val blocks = Regex("<(div|section).*?>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
+        var bestScore = 0
+        var bestContent = content
+
+        blocks.forEach { match ->
+            val inner = match.groupValues[2]
+            val pCount = Regex("<p.*?>").findAll(inner).count()
+            val imgCount = Regex("<img.*?>").findAll(inner).count()
+            val linkCount = Regex("<a.*?>").findAll(inner).count()
+
+            // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
+            val score = (pCount * 20) + (inner.length / 100) - (linkCount * 10) + (imgCount * 5)
+
+            if (score > bestScore && inner.length > 200) {
+                bestScore = score
+                bestContent = inner
+            }
         }
+        content = bestContent
 
         // Formatting cleanup
         content = content.replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "<p>")

@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -50,6 +51,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Bookmark
 import com.omniweb.app.data.HistoryEntry
@@ -60,6 +64,7 @@ import com.omniweb.app.util.OmniDownloadManager
 import com.omniweb.app.util.PageUtils
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 import androidx.webkit.WebSettingsCompat
@@ -79,7 +84,9 @@ private val ADS_DOMAINS = setOf(
     "ads-pixie.com", "ads-union.com", "ads-zero.com", "adsafeprotected.com",
     "adsrvr.org", "adswizz.com", "adsymptotic.com", "bidswitch.net", "bluekai.com",
     "gumgum.com", "indexww.com", "lijit.com", "media.net", "mopub.com", "popads.net",
-    "revcontent.com", "rubiconproject.com", "sharethrough.com", "sovrn.com"
+    "revcontent.com", "rubiconproject.com", "sharethrough.com", "sovrn.com",
+    "adcolony.com", "applovin.com", "chartboost.com", "fyber.com", "ironsrc.com",
+    "unityads.unity3d.com", "vungle.com", "flurry.com", "inmobi.com", "tapjoy.com"
 )
 
 private val ANALYTICS_DOMAINS = setOf(
@@ -87,14 +94,16 @@ private val ANALYTICS_DOMAINS = setOf(
     "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
     "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com",
     "scorecardresearch.com", "chartbeat.com", "clicky.com", "newrelic.com",
-    "amplitude.com", "statcounter.com"
+    "amplitude.com", "statcounter.com", "inspectlet.com", "fullstory.com",
+    "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com"
 )
 
 private val SOCIAL_DOMAINS = setOf(
     "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
     "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com",
     "ads-api.twitter.com", "pixel.facebook.com", "connect.facebook.net",
-    "snapads.com", "pinterest.com", "tiktok.com"
+    "snapads.com", "pinterest.com", "tiktok.com", "twimg.com", "t.co",
+    "instagram.com", "lnkd.in", "redditstatic.com", "redditmedia.com"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,9 +146,6 @@ fun BrowserView(
         }
     }
 
-    var webView: WebView? by remember { mutableStateOf(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var progress by remember { mutableFloatStateOf(0f) }
     var urlInput by remember { mutableStateOf(activeTab.url) }
 
     var showTools by remember { mutableStateOf(false) }
@@ -150,7 +156,6 @@ fun BrowserView(
     var showMediaGrabber by remember { mutableStateOf(false) }
     var showBookmarklets by remember { mutableStateOf(false) }
 
-    var detectedMedia by remember { mutableStateOf(listOf<MediaItem>()) }
     var pageText by remember { mutableStateOf("") }
     var pageSource by remember { mutableStateOf("") }
     val consoleLogs = remember { mutableStateListOf<ConsoleLog>() }
@@ -164,7 +169,6 @@ fun BrowserView(
 
     var showPrivacyReport by remember { mutableStateOf(false) }
 
-    var pageFavicon by remember { mutableStateOf<Bitmap?>(null) }
 
     var showAddBookmarkletDialog by remember { mutableStateOf<String?>(null) }
 
@@ -186,8 +190,9 @@ fun BrowserView(
     }
 
     BackHandler {
-        if (webView?.canGoBack() == true) {
-            webView?.goBack()
+        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+        if (currentWebView.canGoBack()) {
+            currentWebView.goBack()
         } else {
             onBackToHome()
         }
@@ -195,193 +200,113 @@ fun BrowserView(
 
     Scaffold(
         topBar = {
-            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
-                Column {
-                    if (isFindMode) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextField(
-                                value = findQuery,
-                                onValueChange = {
-                                    findQuery = it
-                                    webView?.findAllAsync(it)
-                                },
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                singleLine = true,
-                                placeholder = { Text("Find in page...") },
-                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                                trailingIcon = {
-                                    Row {
-                                        IconButton(onClick = { webView?.findNext(false) }) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Previous") }
-                                        IconButton(onClick = { webView?.findNext(true) }) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Next") }
-                                    }
-                                },
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent,
-                                )
-                            )
-                            TextButton(onClick = {
-                                isFindMode = false
-                                findQuery = ""
-                                webView?.clearMatches()
-                            }) {
-                                Text("Done")
-                            }
-                        }
-                    } else {
-                        if (isLoading) {
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth().height(2.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.Transparent
-                            )
-                        }
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            IconButton(onClick = onBackToHome) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                            Box(modifier = Modifier.weight(1f)) {
-                                TextField(
-                                    value = urlInput,
-                                    onValueChange = {
-                                        urlInput = it
-                                        viewModel.updateSuggestions(it)
-                                    },
-                                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                                    shape = RoundedCornerShape(24.dp),
-                                    singleLine = true,
-                                    leadingIcon = {
-                                        if (pageFavicon != null) {
-                                            androidx.compose.foundation.Image(
-                                                bitmap = pageFavicon!!.asImageBitmap(),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)).clickable { showPrivacyReport = true }
-                                            )
-                                        } else {
-                                            val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
-                                            Icon(
-                                                icon,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp).clickable { showPrivacyReport = true },
-                                                tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    },
-                                    trailingIcon = {
-                                        if (urlInput.isNotEmpty()) {
-                                            IconButton(onClick = { urlInput = "" }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
-                                        }
-                                    },
-                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                                    keyboardActions = KeyboardActions(onGo = {
-                                        val input = urlInput.trim()
-                                        if (input.isNotEmpty()) {
-                                            val target = UrlUtils.resolveUrl(input, settings.searchEngine)
-                                            if (target == "about:home") {
-                                                onBackToHome()
-                                            } else {
-                                                webView?.loadUrl(target)
-                                            }
-                                        }
-                                        viewModel.updateSuggestions("")
-                                    }),
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                        focusedIndicatorColor = Color.Transparent,
-                                        unfocusedIndicatorColor = Color.Transparent,
-                                    ),
-                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                                )
-
-                                val suggestions by viewModel.searchSuggestions
-                                if (suggestions.isNotEmpty() && urlInput != activeTab.url) {
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth().padding(top = 52.dp),
-                                        shape = RoundedCornerShape(16.dp),
-                                        elevation = CardDefaults.cardElevation(8.dp)
-                                    ) {
-                                        Column {
-                                            suggestions.forEach { suggestion ->
-                                                ListItem(
-                                                    headlineContent = { Text(suggestion.title, maxLines = 1) },
-                                                    supportingContent = { Text(suggestion.url, maxLines = 1, fontSize = 12.sp) },
-                                                    modifier = Modifier.clickable {
-                                                        val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
-                                                        if (target == "about:home") {
-                                                            onBackToHome()
-                                                        } else {
-                                                            urlInput = target
-                                                            webView?.loadUrl(target)
-                                                        }
-                                                        viewModel.updateSuggestions("")
-                                                    }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            IconButton(onClick = {
-                                scope.launch {
-                                    if (isBookmarked) {
-                                        bookmarks.find { it.url == activeTab.url }?.let {
-                                            database.bookmarkDao().deleteBookmark(it)
-                                        }
-                                    } else {
-                                        database.bookmarkDao().insertBookmark(Bookmark(title = webView?.title ?: urlInput, url = urlInput))
-                                    }
-                                }
-                            }) {
-                                Icon(
-                                    if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
-                                    contentDescription = "Bookmark",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(onClick = {
-                                if (isLoading) webView?.stopLoading() else webView?.reload()
-                            }) {
-                                Icon(
-                                    if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
-                                    contentDescription = if (isLoading) "Stop" else "Refresh",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
+            Column {
+                if (activeTab.isLoading && !isFindMode) {
+                    LinearProgressIndicator(
+                        progress = { activeTab.progress },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Transparent
+                    )
                 }
+                BrowserAddressBar(
+                    urlInput = urlInput,
+                    onUrlChange = {
+                        urlInput = it
+                        viewModel.updateSuggestions(it)
+                    },
+                    onGo = {
+                        val input = urlInput.trim()
+                        if (input.isNotEmpty()) {
+                            val target = UrlUtils.resolveUrl(input, settings.searchEngine)
+                            if (target == "about:home") onBackToHome() else viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                        }
+                        viewModel.updateSuggestions("")
+                    },
+                    onRefresh = { viewModel.getOrCreateWebView(activeTab.id, context).reload() },
+                    onStop = { viewModel.getOrCreateWebView(activeTab.id, context).stopLoading() },
+                    isLoading = activeTab.isLoading,
+                    pageFavicon = activeTab.faviconBitmap,
+                    onPrivacyClick = { showPrivacyReport = true },
+                    onBookmarkClick = {
+                        scope.launch {
+                            if (isBookmarked) {
+                                bookmarks.find { it.url == activeTab.url }?.let { database.bookmarkDao().deleteBookmark(it) }
+                            } else {
+                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title ?: urlInput, url = urlInput))
+                            }
+                        }
+                    },
+                    isBookmarked = isBookmarked,
+                    isFindMode = isFindMode,
+                    findQuery = findQuery,
+                    onFindQueryChange = {
+                        findQuery = it
+                        viewModel.getOrCreateWebView(activeTab.id, context).findAllAsync(it)
+                    },
+                    onFindNext = { forward -> viewModel.getOrCreateWebView(activeTab.id, context).findNext(forward) },
+                    onCloseFind = {
+                        isFindMode = false
+                        findQuery = ""
+                        viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
+                    },
+                    onHomeClick = onBackToHome,
+                    suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
+                    onSuggestionClick = { suggestion ->
+                        val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+                        if (target == "about:home") onBackToHome() else {
+                            urlInput = target
+                            viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                        }
+                        viewModel.updateSuggestions("")
+                    },
+                    searchEngine = settings.searchEngine
+                )
             }
         },
         bottomBar = {
-            BottomAppBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f), modifier = Modifier.navigationBarsPadding(), contentPadding = PaddingValues(0.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                    NavButton(Icons.Default.Layers, "Tabs", badge = viewModel.tabs.size) { showTabs = true }
-                    NavButton(Icons.Default.Add, "New") { viewModel.createTab() }
-                    NavButton(Icons.Default.VideoLibrary, "Media", badge = detectedMedia.size) { showMediaGrabber = true }
-                    NavButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back") {
-                         if (webView?.canGoBack() == true) webView?.goBack() else onBackToHome()
-                    }
-                    NavButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward") { webView?.goForward() }
-                    NavButton(Icons.Default.Download, "Files") { onOpenDownloads() }
-                    NavButton(Icons.Default.MoreVert, "Menu") { showTools = true }
-                }
-            }
+            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+            BrowserBottomBar(
+                tabCount = viewModel.tabs.size,
+                mediaCount = activeTab.detectedMedia.size,
+                onShowTabs = { showTabs = true },
+                onNewTab = { viewModel.createTab() },
+                onShowMedia = { showMediaGrabber = true },
+                onBack = { if (currentWebView.canGoBack()) currentWebView.goBack() else onBackToHome() },
+                onForward = { if (currentWebView.canGoForward()) currentWebView.goForward() },
+                onShowDownloads = onOpenDownloads,
+                onShowMenu = { showTools = true }
+            )
         }
     ) { padding ->
+    val lifecycleOwner = LocalLifecycleOwner.current
     HorizontalPager(
         state = pagerState,
         modifier = Modifier.padding(padding).fillMaxSize(),
         userScrollEnabled = false
     ) { pageIndex ->
         val tab = tabs[pageIndex]
+        val currentWebView = remember(tab.id) { viewModel.getOrCreateWebView(tab.id, context) }
+
+        DisposableEffect(tab.id, lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> currentWebView.onResume()
+                    Lifecycle.Event.ON_PAUSE -> currentWebView.onPause()
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
             AndroidView(
-                factory = { context ->
-                viewModel.getOrCreateWebView(tab.id, context).apply {
+                factory = { _ ->
+                currentWebView.apply {
                         this.settings.apply {
-                            javaScriptEnabled = true
+                            javaScriptEnabled = settings.javaScriptEnabled
                             domStorageEnabled = true
                             databaseEnabled = true
                             mediaPlaybackRequiresUserGesture = false
@@ -397,6 +322,7 @@ fun BrowserView(
                             allowFileAccess = true
                             setRenderPriority(WebSettings.RenderPriority.HIGH)
                             enableSmoothTransition()
+                            userAgentString = settings.customUserAgent ?: userAgentString
                         }
 
                     if (tab.isIncognito) {
@@ -406,19 +332,21 @@ fun BrowserView(
                             this.settings.cacheMode = WebSettings.LOAD_NO_CACHE
                         } else {
                             CookieManager.getInstance().setAcceptCookie(true)
+                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
                         }
 
                         addJavascriptInterface(WebAppInterface(
-                            onMediaDetected = { detectedMedia = it },
-                            onTextExtracted = { pageText = it }
+                            onMediaDetected = {
+                                tab.detectedMedia.clear()
+                                tab.detectedMedia.addAll(it)
+                            },
+                            onTextExtracted = { if (tab.id == activeTab.id) pageText = it }
                         ), "Android")
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                            if (tab.id == activeTab.id) {
-                                progress = newProgress / 100f
-                                if (newProgress == 100) isLoading = false
-                            }
+                                tab.progress = newProgress / 100f
+                                if (newProgress == 100) tab.isLoading = false
                             }
 
                             override fun onReceivedTitle(view: WebView?, title: String?) {
@@ -431,7 +359,7 @@ fun BrowserView(
 
                             override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
                                 super.onReceivedIcon(view, icon)
-                            if (tab.id == activeTab.id) pageFavicon = icon
+                                tab.faviconBitmap = icon
                             }
 
                             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
@@ -472,10 +400,10 @@ fun BrowserView(
                             }
 
                             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                            if (tab.id == activeTab.id) {
-                                isLoading = true
-                                url?.let { urlInput = it }
-                            }
+                                tab.isLoading = true
+                                if (tab.id == activeTab.id) {
+                                    url?.let { urlInput = it }
+                                }
                             url?.let { currentUrl ->
                                 userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "start" }.forEach { script ->
                                     try {
@@ -498,7 +426,7 @@ fun BrowserView(
                             }
 
                             override fun onPageFinished(view: WebView?, url: String?) {
-                                if (tab.id == activeTab.id) isLoading = false
+                                tab.isLoading = false
                             if (settings.adBlockEnabled) {
                                 view?.evaluateJavascript("""
                                     (function() {
@@ -584,7 +512,7 @@ fun BrowserView(
                                             const host = location.host;
                                             const socialDomains = ['instagram.com', 'x.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'threads.net', 'vimeo.com', 'dailymotion.com', 'pinterest.com'];
                                             if (socialDomains.some(d => host.includes(d))) {
-                                                // yt-dlp will handle the page URL better than individual sniffed parts
+                                                // Aggressive detection for social media
                                                 if (!seen.has(location.href)) {
                                                     seen.add(location.href);
                                                     media.push({
@@ -596,15 +524,16 @@ fun BrowserView(
                                                 }
                                             }
 
-                                            // Check for HLS/M3U8 streams in network-like behavior (heuristic)
+                                            // Check for HLS/M3U8 streams and large blobs
                                             performance.getEntriesByType('resource').forEach(resource => {
-                                                if (resource.name.includes('.m3u8') && !seen.has(resource.name)) {
+                                                const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd');
+                                                if (isHls && !seen.has(resource.name)) {
                                                     seen.add(resource.name);
                                                     media.push({
-                                                        id: 'hls-' + Math.random().toString(36).substr(2, 5),
+                                                        id: 'stream-' + Math.random().toString(36).substr(2, 5),
                                                         src: resource.name,
                                                         type: 'video',
-                                                        title: 'HLS Stream: ' + (document.title || 'Video')
+                                                        title: 'Stream: ' + (document.title || 'Video')
                                                     });
                                                 }
                                             });
@@ -629,6 +558,7 @@ fun BrowserView(
                                                 Android.postMedia(JSON.stringify(media));
                                             }
                                         }
+
                                         if (!window.omniSnifferStarted) {
                                             window.omniSnifferStarted = true;
                                             const observer = new MutationObserver(sniff);
@@ -684,9 +614,6 @@ fun BrowserView(
                     }
                 },
                 update = { view ->
-                    if (tab.id == activeTab.id) {
-                        webView = view
-                    }
                     if (view.url != tab.url && !tab.url.startsWith("about:")) {
                         view.loadUrl(tab.url)
                     }
@@ -695,6 +622,9 @@ fun BrowserView(
                     val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
                     val activeNetwork = connectivityManager.activeNetworkInfo
                     view.settings.cacheMode = if (activeNetwork?.isConnected == true) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+
+                    view.settings.javaScriptEnabled = settings.javaScriptEnabled
+                    view.settings.userAgentString = settings.customUserAgent ?: view.settings.userAgentString
 
                     if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                         WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
@@ -708,97 +638,15 @@ fun BrowserView(
     }
 
     if (showTabs) {
-        ModalBottomSheet(onDismissRequest = { showTabs = false }, containerColor = MaterialTheme.colorScheme.surface) {
-            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    Row {
-                        IconButton(onClick = {
-                            viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) }
-                            showTabs = false
-                        }) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "Close All Tabs", tint = MaterialTheme.colorScheme.error)
-                        }
-                        IconButton(onClick = {
-                            viewModel.createTab(isIncognito = true)
-                            showTabs = false
-                        }) {
-                            Icon(Icons.Default.VisibilityOff, contentDescription = "New Incognito Tab")
-                        }
-                        IconButton(onClick = {
-                            viewModel.createTab()
-                            showTabs = false
-                        }) {
-                            Icon(Icons.Default.Add, contentDescription = "New Tab")
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(viewModel.tabs) { tab ->
-                        val isSelected = tab.id == viewModel.activeTabId.value
-                        OutlinedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .clickable {
-                                    viewModel.selectTab(tab.id)
-                                    showTabs = false
-                                },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.outlinedCardColors(
-                                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                            )
-                        ) {
-                            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                        Icon(
-                                            if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(14.dp),
-                                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(tab.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                    IconButton(
-                                        onClick = { viewModel.closeTab(tab.id) },
-                                        modifier = Modifier.size(24.dp)
-                                    ) {
-                                        Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                                    if (tab.id == activeTab.id && pageFavicon != null) {
-                                         androidx.compose.foundation.Image(
-                                            bitmap = pageFavicon!!.asImageBitmap(),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(48.dp)
-                                        )
-                                    } else {
-                                        Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
+        TabSwitcherSheet(
+            tabs = viewModel.tabs,
+            activeTabId = viewModel.activeTabId.value,
+            onTabSelect = { viewModel.selectTab(it) },
+            onTabClose = { viewModel.closeTab(it) },
+            onCloseAll = { viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) } },
+            onNewTab = { viewModel.createTab(isIncognito = it) },
+            onDismiss = { showTabs = false }
+        )
     }
 
     if (showTools) {
@@ -826,7 +674,8 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
-                            webView?.url?.let {
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.url?.let {
                                 val intent = Intent(Intent.ACTION_SEND).apply {
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, it)
@@ -838,7 +687,8 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.ContentCopy, "Copy URL", Color(0xFF8B5CF6)) {
-                            webView?.url?.let {
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.url?.let {
                                 val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
                                 Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
@@ -848,20 +698,18 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
-                            webView?.let {
-                                val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
-                                val printAdapter = it.createPrintDocumentAdapter("Document")
-                                printManager.print("Omni Browser Document", printAdapter, null)
-                            }
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+                            val printAdapter = currentWebView.createPrintDocumentAdapter("Document")
+                            printManager.print("Omni Browser Document", printAdapter, null)
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
-                            webView?.let {
-                                val targetUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${Uri.encode(it.url)}"
-                                it.loadUrl(targetUrl)
-                            }
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            val targetUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${Uri.encode(currentWebView.url)}"
+                            currentWebView.loadUrl(targetUrl)
                             showTools = false
                         }
                     }
@@ -873,13 +721,15 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
-                            webView?.let { PageUtils.saveAsMhtml(context, it, it.title ?: "Page") }
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            PageUtils.saveAsMhtml(context, currentWebView, currentWebView.title ?: "Page")
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
-                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
                                 val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
                                     source.substring(1, source.length - 1)
                                         .replace("\\\"", "\"")
@@ -888,14 +738,15 @@ fun BrowserView(
                                 } else {
                                     source ?: ""
                                 }
-                                PageUtils.saveAsMarkdown(context, cleanSource, webView?.title ?: "Page")
+                                PageUtils.saveAsMarkdown(context, cleanSource, currentWebView.title ?: "Page")
                             }
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.Code, "View Source", Color(0xFFEA580C)) {
-                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
                                 pageSource = source ?: "No source available"
                                 showSource = true
                                 showTools = false
@@ -910,13 +761,14 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile Site" else "Desktop Site", Color(0xFF6366F1)) {
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                             isDesktopMode = !isDesktopMode
-                            webView?.settings?.userAgentString = if (isDesktopMode) {
+                            currentWebView.settings.userAgentString = if (isDesktopMode) {
                                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                             } else {
                                 null // Use default
                             }
-                            webView?.reload()
+                            currentWebView.reload()
                             showTools = false
                         }
                     }
@@ -928,12 +780,13 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                 val shortcutManager = context.getSystemService(ShortcutManager::class.java)
                                 if (shortcutManager!!.isRequestPinShortcutSupported) {
                                     val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
-                                        .setShortLabel(webView?.title ?: "Web Page")
-                                        .setIcon(if (pageFavicon != null) Icon.createWithBitmap(pageFavicon) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
+                                        .setShortLabel(currentWebView.title ?: "Web Page")
+                                        .setIcon(if (activeTab.faviconBitmap != null) Icon.createWithBitmap(activeTab.faviconBitmap) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
                                         .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
                                         .build()
                                     shortcutManager.requestPinShortcut(pinShortcutInfo, null)
@@ -945,13 +798,15 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.CameraAlt, "Screenshot", Color(0xFF06B6D4)) {
-                            webView?.let { PageUtils.takeScreenshot(context, it, it.title ?: "Page") }
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            PageUtils.takeScreenshot(context, currentWebView, currentWebView.title ?: "Page")
                             showTools = false
                         }
                     }
                     item {
                         ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                            webView?.let { PageUtils.saveAsPdf(context, it, it.title ?: "Page") }
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            PageUtils.saveAsPdf(context, currentWebView, currentWebView.title ?: "Page")
                             showTools = false
                         }
                     }
@@ -981,13 +836,15 @@ fun BrowserView(
                     }
                     item {
                         ToolButton(Icons.Default.VerticalAlignBottom, "Auto Scroll", Color(0xFF0EA5E9)) {
-                            webView?.evaluateJavascript("window.startOmniScroll()", null)
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.evaluateJavascript("window.startOmniScroll()", null)
                             showTools = false
                         }
                     }
                     item {
-                        ToolButton(Icons.Default.MenuBook, "Reader Mode", Color(0xFFEA580C)) {
-                            webView?.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader Mode", Color(0xFFEA580C)) {
+                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
                                 val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
                                     source.substring(1, source.length - 1)
                                         .replace("\\\"", "\"")
@@ -1017,7 +874,7 @@ fun BrowserView(
     }
 
     if (showMediaGrabber) {
-        MediaGrabberView(mediaItems = detectedMedia, onDownload = { item ->
+        MediaGrabberView(mediaItems = activeTab.detectedMedia, onDownload = { item ->
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
@@ -1029,6 +886,7 @@ fun BrowserView(
         val bookmarklets = userScripts.filter { it.type == "bookmarklet" && it.enabled }
         ModalBottomSheet(onDismissRequest = { showBookmarklets = false }, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
+                val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                 Text("Bookmarklets", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 if (bookmarklets.isEmpty()) {
@@ -1039,7 +897,7 @@ fun BrowserView(
                             ListItem(
                                 headlineContent = { Text(bookmarklet.name) },
                                 modifier = Modifier.clickable {
-                                    webView?.evaluateJavascript("(function() { ${bookmarklet.script} })();", null)
+                                    currentWebView.evaluateJavascript("(function() { ${bookmarklet.script} })();", null)
                                     showBookmarklets = false
                                 },
                                 leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null, tint = Color(0xFFFACC15)) }
@@ -1053,8 +911,9 @@ fun BrowserView(
     }
 
     if (isReaderMode) {
+        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
         ReaderModeView(
-            title = webView?.title ?: "Reader Mode",
+            title = currentWebView.title ?: "Reader Mode",
             content = readerContent,
             onClose = { isReaderMode = false }
         )
