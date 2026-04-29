@@ -77,6 +77,7 @@ private val ADS_DOMAINS = setOf(
     "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
     "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
     "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
+    "adnxs.com", "carbonads.net", "ad-delivery.net", "adform.net",
     "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com",
     "atdmt.com", "ad-delivery.net", "adnxs-simple.com", "adform.net", "adgrx.com",
     "adhigh.net", "adinall.com", "adition.com", "admanmedia.com", "admicro.vn",
@@ -162,6 +163,7 @@ fun BrowserView(
 
     var isFindMode by remember { mutableStateOf(false) }
     var findQuery by remember { mutableStateOf("") }
+    var findMatchStatus by remember { mutableStateOf("") }
     var isDesktopMode by remember { mutableStateOf(false) }
     var isForceDark by remember { mutableStateOf(false) }
     var isReaderMode by remember { mutableStateOf(false) }
@@ -245,9 +247,11 @@ fun BrowserView(
                         viewModel.getOrCreateWebView(activeTab.id, context).findAllAsync(it)
                     },
                     onFindNext = { forward -> viewModel.getOrCreateWebView(activeTab.id, context).findNext(forward) },
+                    findMatchStatus = findMatchStatus,
                     onCloseFind = {
                         isFindMode = false
                         findQuery = ""
+                        findMatchStatus = ""
                         viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
                     },
                     onHomeClick = onBackToHome,
@@ -323,6 +327,9 @@ fun BrowserView(
                             setRenderPriority(WebSettings.RenderPriority.HIGH)
                             enableSmoothTransition()
                             userAgentString = settings.customUserAgent ?: userAgentString
+                            if (WebViewFeature.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE)) {
+                                WebSettingsCompat.setSafeBrowsingEnabled(this, true)
+                            }
                         }
 
                     if (tab.isIncognito) {
@@ -342,6 +349,12 @@ fun BrowserView(
                             },
                             onTextExtracted = { if (tab.id == activeTab.id) pageText = it }
                         ), "Android")
+
+                        setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                            if (isDoneCounting) {
+                                findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
+                            }
+                        }
 
                         webChromeClient = object : WebChromeClient() {
                             override fun onProgressChanged(view: WebView?, newProgress: Int) {
@@ -435,7 +448,8 @@ fun BrowserView(
                                             "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
                                             "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
                                             "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
-                                            "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']"
+                                            "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']",
+                                            ".ad-container", "[class*='ad-unit']", ".sponsored-content"
                                         ];
                                         const style = document.createElement('style');
                                         style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
@@ -1103,6 +1117,7 @@ fun BrowserView(
 fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
     var fontSize by remember { mutableFloatStateOf(18f) }
     var theme by remember { mutableStateOf("light") } // "light", "dark"
+    var isSerif by remember { mutableStateOf(true) }
 
     val isDark = when (theme) {
         "dark" -> true
@@ -1131,6 +1146,9 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                     IconButton(onClick = { fontSize = (fontSize - 2f).coerceAtLeast(12f) }) {
                         Icon(Icons.Default.TextDecrease, contentDescription = "Decrease Font")
                     }
+                    IconButton(onClick = { isSerif = !isSerif }) {
+                        Icon(if (isSerif) Icons.Default.FontDownload else Icons.Default.FontDownloadOff, contentDescription = "Toggle Font")
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = backgroundColor,
@@ -1154,7 +1172,8 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                 fontSize = (fontSize * 1.5).sp,
                 fontWeight = FontWeight.Black,
                 lineHeight = (fontSize * 1.8).sp,
-                color = textColor
+                color = textColor,
+                fontFamily = if (isSerif) androidx.compose.ui.text.font.FontFamily.Serif else androidx.compose.ui.text.font.FontFamily.SansSerif
             )
             Spacer(modifier = Modifier.height(24.dp))
             val cleanContent = content.replace(Regex("<[^>]*>"), "")
@@ -1162,7 +1181,8 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                 text = cleanContent,
                 fontSize = fontSize.sp,
                 lineHeight = (fontSize * 1.6).sp,
-                color = textColor.copy(alpha = 0.9f)
+                color = textColor.copy(alpha = 0.9f),
+                fontFamily = if (isSerif) androidx.compose.ui.text.font.FontFamily.Serif else androidx.compose.ui.text.font.FontFamily.SansSerif
             )
         }
     }

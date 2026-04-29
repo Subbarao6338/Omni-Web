@@ -82,8 +82,13 @@ object PageUtils {
         val bodyMatch = Regex("<body.*?>(.*?)</body>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(html)
         var content = bodyMatch?.groupValues?.get(1) ?: html
 
+        // Pre-emptively remove common structural elements that usually don't contain the main article
+        content = content.replace(Regex("<header.*?>.*?</header>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        content = content.replace(Regex("<footer.*?>.*?</footer>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+        content = content.replace(Regex("<nav.*?>.*?</nav>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+
         // Remove non-content elements aggressively
-        val tagsToRemove = listOf("script", "style", "nav", "footer", "header", "aside", "iframe", "noscript", "svg", "form", "button", "canvas", "video", "audio")
+        val tagsToRemove = listOf("script", "style", "aside", "iframe", "noscript", "svg", "form", "button", "canvas", "video", "audio")
         tagsToRemove.forEach { tag ->
             content = content.replace(Regex("<$tag.*?>.*?</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
         }
