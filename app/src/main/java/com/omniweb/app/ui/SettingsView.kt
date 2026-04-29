@@ -36,6 +36,7 @@ import com.omniweb.app.data.Settings
 import com.omniweb.app.util.BackupManager
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -44,6 +45,26 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val scope = rememberCoroutineScope()
     val settings = settingsState ?: Settings()
+
+    var showAddEngineDialog by remember { mutableStateOf(false) }
+    var newEngineName by remember { mutableStateOf("") }
+    var newEngineUrl by remember { mutableStateOf("") }
+
+    val customEngines = remember(settings.customSearchEngines) {
+        try {
+            val list = mutableListOf<Pair<String, String>>()
+            if (!settings.customSearchEngines.isNullOrBlank()) {
+                val array = JSONArray(settings.customSearchEngines)
+                for (i in 0 until array.length()) {
+                    val obj = array.getJSONObject(i)
+                    list.add(obj.getString("name") to obj.getString("url"))
+                }
+            }
+            list
+        } catch (e: Exception) {
+            emptyList<Pair<String, String>>()
+        }
+    }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -95,7 +116,8 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                         "DuckDuckGo" to "https://duckduckgo.com/?q=",
                         "Bing" to "https://www.bing.com/search?q=",
                         "Yahoo" to "https://search.yahoo.com/search?p="
-                    )
+                    ) + customEngines
+
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         engines.forEach { (name, url) ->
                             FilterChip(
@@ -106,6 +128,11 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                                 label = { Text(name) }
                             )
                         }
+                        AssistChip(
+                            onClick = { showAddEngineDialog = true },
+                            label = { Text("Add Custom") },
+                            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
                     }
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
@@ -349,6 +376,57 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showAddEngineDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddEngineDialog = false },
+            title = { Text("Add Custom Search Engine") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newEngineName,
+                        onValueChange = { newEngineName = it },
+                        label = { Text("Engine Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newEngineUrl,
+                        onValueChange = { newEngineUrl = it },
+                        label = { Text("Query URL (use %s for query)") },
+                        placeholder = { Text("https://example.com/search?q=%s") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (newEngineName.isNotBlank() && newEngineUrl.isNotBlank()) {
+                        scope.launch {
+                            val array = try {
+                                if (settings.customSearchEngines != null) JSONArray(settings.customSearchEngines) else JSONArray()
+                            } catch (e: Exception) {
+                                JSONArray()
+                            }
+                            val obj = org.json.JSONObject()
+                            obj.put("name", newEngineName)
+                            obj.put("url", newEngineUrl.replace("%s", ""))
+                            array.put(obj)
+
+                            database.settingsDao().updateSettings(settings.copy(
+                                customSearchEngines = array.toString()
+                            ))
+                            newEngineName = ""
+                            newEngineUrl = ""
+                            showAddEngineDialog = false
+                        }
+                    }
+                }) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddEngineDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 

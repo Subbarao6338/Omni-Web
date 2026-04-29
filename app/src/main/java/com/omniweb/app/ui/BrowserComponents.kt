@@ -53,7 +53,7 @@ fun BrowserAddressBar(
     onHomeClick: () -> Unit,
     suggestions: List<Suggestion>,
     onSuggestionClick: (Suggestion) -> Unit,
-    searchEngine: String
+    blockedCount: Int = 0
 ) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
         Column {
@@ -115,8 +115,23 @@ fun BrowserAddressBar(
                                 }
                             },
                             trailingIcon = {
-                                if (urlInput.isNotEmpty()) {
-                                    IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (blockedCount > 0) {
+                                        Surface(
+                                            color = Color(0xFF10B981).copy(alpha = 0.1f),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.clickable { onPrivacyClick() }
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                                Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFF10B981))
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(blockedCount.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                            }
+                                        }
+                                    }
+                                    if (urlInput.isNotEmpty()) {
+                                        IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                    }
                                 }
                             },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),

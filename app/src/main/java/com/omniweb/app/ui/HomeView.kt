@@ -130,7 +130,25 @@ fun HomeView(
             placeholder = { Text("Search or type URL", fontSize = 16.sp) },
             modifier = Modifier.fillMaxWidth().height(60.dp),
             shape = RoundedCornerShape(20.dp),
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            leadingIcon = {
+                val icon = when {
+                    settings.searchEngine.contains("google") -> Icons.Default.Search
+                    settings.searchEngine.contains("duckduckgo") -> Icons.Default.Shield
+                    settings.searchEngine.contains("bing") -> Icons.Default.TravelExplore
+                    else -> Icons.Default.Language
+                }
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = {
+                        query = ""
+                        viewModel.updateSuggestions("")
+                    }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                    }
+                }
+            },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = {

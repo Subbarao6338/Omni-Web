@@ -33,7 +33,8 @@ data class Settings(
     val clearDataOnExit: Boolean = false,
     val javaScriptEnabled: Boolean = true,
     val blockThirdPartyCookies: Boolean = true,
-    val customUserAgent: String? = null
+    val customUserAgent: String? = null,
+    val customSearchEngines: String? = null // Stored as JSON: List<Pair<String, String>>
 )
 
 @Entity(tableName = "tabs")

@@ -183,6 +183,7 @@ class OmniDownloadManager(private val context: Context) {
             var isDownloading = true
             var lastDownloaded: Long = 0
             var lastTime: Long = System.currentTimeMillis()
+            val speedSamples = mutableListOf<Long>()
 
             while (isDownloading) {
                 try {
@@ -195,8 +196,15 @@ class OmniDownloadManager(private val context: Context) {
 
                         val currentTime = System.currentTimeMillis()
                         val timeDiff = (currentTime - lastTime) / 1000f
-                        val speed = if (timeDiff > 0 && downloaded > lastDownloaded) ((downloaded - lastDownloaded) / timeDiff).toLong() else 0L
-                        val remaining = if (speed > 0 && total > 0) (total - downloaded) / speed else 0L
+                        val currentSpeed = if (timeDiff > 0 && downloaded > lastDownloaded) ((downloaded - lastDownloaded) / timeDiff).toLong() else 0L
+
+                        if (currentSpeed > 0) {
+                            speedSamples.add(currentSpeed)
+                            if (speedSamples.size > 5) speedSamples.removeAt(0)
+                        }
+
+                        val averageSpeed = if (speedSamples.isNotEmpty()) speedSamples.average().toLong() else currentSpeed
+                        val remaining = if (averageSpeed > 0 && total > 0) (total - downloaded) / averageSpeed else 0L
 
                         lastDownloaded = downloaded
                         lastTime = currentTime
@@ -206,7 +214,7 @@ class OmniDownloadManager(private val context: Context) {
                                 status = status,
                                 downloadedSize = downloaded,
                                 totalSize = total,
-                                downloadSpeed = speed,
+                                downloadSpeed = averageSpeed,
                                 estimatedTimeRemaining = remaining
                             ))
                         }
@@ -215,12 +223,17 @@ class OmniDownloadManager(private val context: Context) {
                             isDownloading = false
                         }
                     } else {
-                        isDownloading = false
+                        // Check if it exists in DB as YtDl download which might not be in Android DownloadManager
+                        val dbTask = db.downloadDao().getDownloadByIdSync(downloadId)
+                        if (dbTask == null || dbTask.status == DownloadManager.STATUS_SUCCESSFUL || dbTask.status == DownloadManager.STATUS_FAILED) {
+                            isDownloading = false
+                        }
                     }
                     cursor?.close()
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    isDownloading = false
+                    // Don't kill the loop on transient errors, just delay and retry
+                    delay(2000)
                 }
                 if (isDownloading) delay(1000)
             }
