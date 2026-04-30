@@ -29,28 +29,29 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val blockedTrackersByTab = mutableMapOf<String, MutableSet<String>>()
 
     init {
-        // Start with a placeholder if empty to prevent crash in UI before init completes
-        if (tabs.isEmpty()) {
-            tabs.add(TabInfo("loading", "about:blank", "Loading..."))
-            activeTabId.value = "loading"
-        }
+        // Initialize with a default tab to avoid empty state; it will be replaced if saved tabs are restored.
+        val initialId = UUID.randomUUID().toString()
+        tabs.add(TabInfo(initialId, "about:home", "Home"))
+        activeTabId.value = initialId
 
         viewModelScope.launch {
             val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
             val savedTabs = database.tabDao().getAllTabs().firstOrNull() ?: emptyList()
 
-            tabs.clear()
-
             if (currentSettings.restoreTabsOnStart && savedTabs.isNotEmpty()) {
-                savedTabs.forEach { entry ->
-                    tabs.add(TabInfo(entry.id, entry.url, entry.title, entry.isIncognito, entry.scrollX, entry.scrollY))
+                val restoredTabs = savedTabs.map { entry ->
+                    TabInfo(entry.id, entry.url, entry.title, entry.isIncognito, entry.scrollX, entry.scrollY)
                 }
-                activeTabId.value = tabs.first().id
+                tabs.clear()
+                tabs.addAll(restoredTabs)
+                activeTabId.value = restoredTabs.first().id
             } else {
                 if (!currentSettings.restoreTabsOnStart) {
                     database.tabDao().clearAllTabs()
                 }
-                createDefaultTab()
+                // If not restoring, the default tab already created suffices.
+                // We should save it to DB to ensure consistency.
+                saveTabToDb(tabs.first())
             }
         }
 

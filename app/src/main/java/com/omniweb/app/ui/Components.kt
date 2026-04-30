@@ -56,35 +56,43 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Uni
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(4.dp)
+            .padding(8.dp)
     ) {
         ElevatedCard(
-            modifier = Modifier.size(60.dp),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp, pressedElevation = 6.dp),
+            modifier = Modifier.size(64.dp),
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp, pressedElevation = 8.dp),
             colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = shortcut.title.take(1).uppercase(),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = shortcut.title.take(1).uppercase(),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = shortcut.title,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,

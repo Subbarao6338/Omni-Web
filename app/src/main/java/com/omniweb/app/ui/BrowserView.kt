@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -87,7 +90,9 @@ private val ADS_DOMAINS = setOf(
     "gumgum.com", "indexww.com", "lijit.com", "media.net", "mopub.com", "popads.net",
     "revcontent.com", "rubiconproject.com", "sharethrough.com", "sovrn.com",
     "adcolony.com", "applovin.com", "chartboost.com", "fyber.com", "ironsrc.com",
-    "unityads.unity3d.com", "vungle.com", "flurry.com", "inmobi.com", "tapjoy.com"
+    "unityads.unity3d.com", "vungle.com", "flurry.com", "inmobi.com", "tapjoy.com",
+    "mgid.com", "propellerads.com", "popcash.net", "popads.net", "yandex.ru", "mail.ru",
+    "serving-sys.com", "adnxs.com", "contextweb.com", "bidswitch.net", "rubiconproject.com"
 )
 
 private val ANALYTICS_DOMAINS = setOf(
@@ -96,7 +101,8 @@ private val ANALYTICS_DOMAINS = setOf(
     "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com",
     "scorecardresearch.com", "chartbeat.com", "clicky.com", "newrelic.com",
     "amplitude.com", "statcounter.com", "inspectlet.com", "fullstory.com",
-    "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com"
+    "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com",
+    "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io"
 )
 
 private val SOCIAL_DOMAINS = setOf(
@@ -141,9 +147,11 @@ fun BrowserView(
         }
     }
 
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerState.currentPage < tabs.size) {
-            viewModel.selectTab(tabs[pagerState.currentPage].id)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            if (page >= 0 && page < tabs.size) {
+                viewModel.selectTab(tabs[page].id)
+            }
         }
     }
 
@@ -264,7 +272,7 @@ fun BrowserView(
                         }
                         viewModel.updateSuggestions("")
                     },
-                    searchEngine = settings.searchEngine
+                    blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 }
                 )
             }
         },
@@ -306,348 +314,364 @@ fun BrowserView(
             }
         }
 
-            AndroidView(
-                factory = { _ ->
-                currentWebView.apply {
-                        this.settings.apply {
-                            javaScriptEnabled = settings.javaScriptEnabled
-                            domStorageEnabled = true
-                            databaseEnabled = true
-                            mediaPlaybackRequiresUserGesture = false
-                            loadWithOverviewMode = true
-                            useWideViewPort = true
-                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                            cacheMode = WebSettings.LOAD_DEFAULT
-                            setSupportZoom(true)
-                            builtInZoomControls = true
-                            displayZoomControls = false
-                            setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-                            allowContentAccess = true
-                            allowFileAccess = true
-                            setRenderPriority(WebSettings.RenderPriority.HIGH)
-                            enableSmoothTransition()
-                            userAgentString = settings.customUserAgent ?: userAgentString
-                            if (WebViewFeature.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE)) {
-                                WebSettingsCompat.setSafeBrowsingEnabled(this, true)
-                            }
-                        }
+            val pullToRefreshState = rememberPullToRefreshState()
+            if (pullToRefreshState.isRefreshing) {
+                LaunchedEffect(true) {
+                    currentWebView.reload()
+                    delay(500)
+                    while (tab.isLoading) { delay(100) }
+                    pullToRefreshState.endRefresh()
+                }
+            }
 
-                    if (tab.isIncognito) {
-                            CookieManager.getInstance().setAcceptCookie(false)
-                            this.settings.databaseEnabled = false
-                            this.settings.domStorageEnabled = false
-                            this.settings.cacheMode = WebSettings.LOAD_NO_CACHE
-                        } else {
-                            CookieManager.getInstance().setAcceptCookie(true)
-                            CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
-                        }
-
-                        addJavascriptInterface(WebAppInterface(
-                            onMediaDetected = {
-                                tab.detectedMedia.clear()
-                                tab.detectedMedia.addAll(it)
-                            },
-                            onTextExtracted = { if (tab.id == activeTab.id) pageText = it }
-                        ), "Android")
-
-                        setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
-                            if (isDoneCounting) {
-                                findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
-                            }
-                        }
-
-                        webChromeClient = object : WebChromeClient() {
-                            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                tab.progress = newProgress / 100f
-                                if (newProgress == 100) tab.isLoading = false
-                            }
-
-                            override fun onReceivedTitle(view: WebView?, title: String?) {
-                                super.onReceivedTitle(view, title)
-                                if (title != null && !title.startsWith("http")) {
-                                tab.title = title
-                                    viewModel.updateTabInDb(tab)
+            Box(modifier = Modifier.fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
+                AndroidView(
+                    factory = { _ ->
+                        currentWebView.apply {
+                            this.settings.apply {
+                                javaScriptEnabled = settings.javaScriptEnabled
+                                domStorageEnabled = true
+                                databaseEnabled = true
+                                mediaPlaybackRequiresUserGesture = false
+                                loadWithOverviewMode = true
+                                useWideViewPort = true
+                                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                cacheMode = WebSettings.LOAD_DEFAULT
+                                setSupportZoom(true)
+                                builtInZoomControls = true
+                                displayZoomControls = false
+                                setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+                                allowContentAccess = true
+                                allowFileAccess = true
+                                setRenderPriority(WebSettings.RenderPriority.HIGH)
+                                enableSmoothTransition()
+                                userAgentString = settings.customUserAgent ?: userAgentString
+                                if (WebViewFeature.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE)) {
+                                    WebSettingsCompat.setSafeBrowsingEnabled(this, true)
                                 }
                             }
 
-                            override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
-                                super.onReceivedIcon(view, icon)
-                                tab.faviconBitmap = icon
-                            }
-
-                            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                                consoleMessage?.let {
-                                    consoleLogs.add(ConsoleLog(it.message(), it.messageLevel().name))
-                                }
-                                return super.onConsoleMessage(consoleMessage)
-                            }
-                        }
-
-                        setOnLongClickListener {
-                            val result = hitTestResult
-                            if (result.type != WebView.HitTestResult.UNKNOWN_TYPE) {
-                                contextMenuResult = result
-                                showContextMenu = true
-                                true
+                            if (tab.isIncognito) {
+                                CookieManager.getInstance().setAcceptCookie(false)
+                                this.settings.databaseEnabled = false
+                                this.settings.domStorageEnabled = false
+                                this.settings.cacheMode = WebSettings.LOAD_NO_CACHE
                             } else {
-                                false
+                                CookieManager.getInstance().setAcceptCookie(true)
+                                CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
                             }
-                        }
 
-                        webViewClient = object : WebViewClient() {
-                            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                                val url = request?.url?.toString() ?: return false
-                                if (UrlUtils.isBookmarklet(url)) {
-                                    showAddBookmarkletDialog = url
+                            addJavascriptInterface(WebAppInterface(
+                                onMediaDetected = {
+                                    tab.detectedMedia.clear()
+                                    tab.detectedMedia.addAll(it)
+                                },
+                                onTextExtracted = { if (tab.id == activeTab.id) pageText = it }
+                            ), "Android")
+
+                            setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                                if (isDoneCounting) {
+                                    findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
+                                }
+                            }
+
+                            webChromeClient = object : WebChromeClient() {
+                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                                    tab.progress = newProgress / 100f
+                                    if (newProgress == 100) tab.isLoading = false
+                                }
+
+                                override fun onReceivedTitle(view: WebView?, title: String?) {
+                                    super.onReceivedTitle(view, title)
+                                    if (title != null && !title.startsWith("http")) {
+                                        tab.title = title
+                                        viewModel.updateTabInDb(tab)
+                                    }
+                                }
+
+                                override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
+                                    super.onReceivedIcon(view, icon)
+                                    tab.faviconBitmap = icon
+                                }
+
+                                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                                    consoleMessage?.let {
+                                        consoleLogs.add(ConsoleLog(it.message(), it.messageLevel().name))
+                                    }
+                                    return super.onConsoleMessage(consoleMessage)
+                                }
+                            }
+
+                            setOnLongClickListener {
+                                val result = hitTestResult
+                                if (result.type != WebView.HitTestResult.UNKNOWN_TYPE) {
+                                    contextMenuResult = result
+                                    showContextMenu = true
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+
+                            webViewClient = object : WebViewClient() {
+                                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                                    val url = request?.url?.toString() ?: return false
+                                    if (UrlUtils.isBookmarklet(url)) {
+                                        showAddBookmarkletDialog = url
+                                        return true
+                                    }
+                                    return false
+                                }
+
+                                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                                    if (tab.id == activeTab.id) {
+                                        Toast.makeText(context, "WebView crashed, reloading...", Toast.LENGTH_SHORT).show()
+                                        view?.reload()
+                                    }
                                     return true
                                 }
-                                return false
-                            }
 
-                            override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
-                                if (tab.id == activeTab.id) {
-                                    Toast.makeText(context, "WebView crashed, reloading...", Toast.LENGTH_SHORT).show()
-                                    view?.reload()
-                                }
-                                return true
-                            }
-
-                            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                tab.isLoading = true
-                                if (tab.id == activeTab.id) {
-                                    url?.let { urlInput = it }
-                                }
-                            url?.let { currentUrl ->
-                                userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "start" }.forEach { script ->
-                                    try {
-                                        val patterns = script.matchPattern.split(",").map { it.trim() }
-                                        val isMatch = patterns.any { pattern ->
-                                            val regex = pattern.replace(".", "\\.")
-                                                .replace("?", ".")
-                                                .replace("*", ".*")
-                                                .let { "^$it$" }
-                                            currentUrl.matches(Regex(regex))
-                                        }
-                                        if (isMatch) {
-                                            view?.evaluateJavascript("(function() { ${script.script} })();", null)
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
+                                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                                    tab.isLoading = true
+                                    if (tab.id == activeTab.id) {
+                                        url?.let { urlInput = it }
                                     }
-                                }
-                            }
-                            }
-
-                            override fun onPageFinished(view: WebView?, url: String?) {
-                                tab.isLoading = false
-                            if (settings.adBlockEnabled) {
-                                view?.evaluateJavascript("""
-                                    (function() {
-                                        const selectors = [
-                                            "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
-                                            "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
-                                            "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
-                                            "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
-                                            "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']",
-                                            ".ad-container", "[class*='ad-unit']", ".sponsored-content"
-                                        ];
-                                        const style = document.createElement('style');
-                                        style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
-                                        document.head.appendChild(style);
-                                    })();
-                                """.trimIndent(), null)
-                            }
-                                url?.let {
-                                tab.url = it
-                                    val title = view?.title
-                                    if (title != null && title.isNotEmpty()) {
-                                     tab.title = title
-                                    }
-                                    viewModel.updateTabInDb(tab)
-
-                                if (!tab.isIncognito) {
-                                        scope.launch {
-                                            database.historyDao().insertHistory(HistoryEntry(title = view?.title ?: it, url = it))
-                                        }
-                                    }
-
-                                    userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "end" }.forEach { script ->
-                                        try {
-                                            val patterns = script.matchPattern.split(",").map { it.trim() }
-                                            val isMatch = patterns.any { pattern ->
-                                                val regex = pattern.replace(".", "\\.")
-                                                    .replace("?", ".")
-                                                    .replace("*", ".*")
-                                                    .let { "^$it$" }
-                                                it.matches(Regex(regex))
+                                    url?.let { currentUrl ->
+                                        userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "start" }.forEach { script ->
+                                            try {
+                                                val patterns = script.matchPattern.split(",").map { it.trim() }
+                                                val isMatch = patterns.any { pattern ->
+                                                    val regex = pattern.replace(".", "\\.")
+                                                        .replace("?", ".")
+                                                        .replace("*", ".*")
+                                                        .let { "^$it$" }
+                                                    currentUrl.matches(Regex(regex))
+                                                }
+                                                if (isMatch) {
+                                                    view?.evaluateJavascript("(function() { ${script.script} })();", null)
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
                                             }
-                                            if (isMatch) {
-                                                view?.evaluateJavascript("(function() { ${script.script} })();", null)
-                                            }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
                                         }
                                     }
                                 }
 
-                                view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
+                                override fun onPageFinished(view: WebView?, url: String?) {
+                                    tab.isLoading = false
+                                    if (settings.adBlockEnabled) {
+                                        view?.evaluateJavascript("""
+                                            (function() {
+                                                const selectors = [
+                                                    "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
+                                                    "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
+                                                    "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
+                                                    "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
+                                                    "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']",
+                                                    ".ad-container", "[class*='ad-unit']", ".sponsored-content"
+                                                ];
+                                                const style = document.createElement('style');
+                                                style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
+                                                document.head.appendChild(style);
+                                            })();
+                                        """.trimIndent(), null)
+                                    }
+                                    url?.let {
+                                        tab.url = it
+                                        val title = view?.title
+                                        if (title != null && title.isNotEmpty()) {
+                                            tab.title = title
+                                        }
+                                        viewModel.updateTabInDb(tab)
 
-                                view?.evaluateJavascript("""
-                                    (function() {
-                                        function sniff() {
-                                            const media = [];
-                                            const seen = new Set();
+                                        if (!tab.isIncognito) {
+                                            scope.launch {
+                                                database.historyDao().insertHistory(HistoryEntry(title = view?.title ?: it, url = it))
+                                            }
+                                        }
 
-                                            // Generic media elements and common extensions
-                                            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
-                                            document.querySelectorAll(selectors).forEach(el => {
-                                                let src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
-                                                if (src && src.startsWith('//')) src = 'https:' + src;
-                                                if (src && src.startsWith('http') && !seen.has(src)) {
-                                                    const urlObj = new URL(src);
-                                                    const ext = urlObj.pathname.split('.').pop().toLowerCase();
-                                                    const isVideo = ['mp4', 'm3u8', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
-                                                    const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
-                                                    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
+                                        userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "end" }.forEach { script ->
+                                            try {
+                                                val patterns = script.matchPattern.split(",").map { it.trim() }
+                                                val isMatch = patterns.any { pattern ->
+                                                    val regex = pattern.replace(".", "\\.")
+                                                        .replace("?", ".")
+                                                        .replace("*", ".*")
+                                                        .let { "^$it$" }
+                                                    it.matches(Regex(regex))
+                                                }
+                                                if (isMatch) {
+                                                    view?.evaluateJavascript("(function() { ${script.script} })();", null)
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        }
+                                    }
 
-                                                    if (isVideo || isAudio || isImage) {
-                                                        seen.add(src);
+                                    view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
+
+                                    view?.evaluateJavascript("""
+                                        (function() {
+                                            function sniff() {
+                                                const media = [];
+                                                const seen = new Set();
+
+                                                // Generic media elements and common extensions
+                                                const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
+                                                document.querySelectorAll(selectors).forEach(el => {
+                                                    let src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
+                                                    if (src && src.startsWith('//')) src = 'https:' + src;
+                                                    if (src && src.startsWith('http') && !seen.has(src)) {
+                                                        const urlObj = new URL(src);
+                                                        const ext = urlObj.pathname.split('.').pop().toLowerCase();
+                                                        const isVideo = ['mp4', 'm3u8', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
+                                                        const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
+                                                        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
+
+                                                        if (isVideo || isAudio || isImage) {
+                                                            seen.add(src);
+                                                            media.push({
+                                                                id: Math.random().toString(36).substr(2, 9),
+                                                                src: src,
+                                                                type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
+                                                                title: document.title || 'Media File'
+                                                            });
+                                                        }
+                                                    }
+                                                });
+
+                                                // Special handling for social platforms
+                                                const host = location.host;
+                                                const socialDomains = ['instagram.com', 'x.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'threads.net', 'vimeo.com', 'dailymotion.com', 'pinterest.com'];
+                                                if (socialDomains.some(d => host.includes(d))) {
+                                                    // Aggressive detection for social media
+                                                    if (!seen.has(location.href)) {
+                                                        seen.add(location.href);
                                                         media.push({
-                                                            id: Math.random().toString(36).substr(2, 9),
-                                                            src: src,
-                                                            type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
-                                                            title: document.title || 'Media File'
+                                                            id: 'page-' + Date.now(),
+                                                            src: location.href,
+                                                            type: 'video',
+                                                            title: (document.title || (host.split('.')[0] + ' Video'))
                                                         });
                                                     }
                                                 }
-                                            });
 
-                                            // Special handling for social platforms
-                                            const host = location.host;
-                                            const socialDomains = ['instagram.com', 'x.com', 'twitter.com', 'facebook.com', 'tiktok.com', 'threads.net', 'vimeo.com', 'dailymotion.com', 'pinterest.com'];
-                                            if (socialDomains.some(d => host.includes(d))) {
-                                                // Aggressive detection for social media
-                                                if (!seen.has(location.href)) {
-                                                    seen.add(location.href);
-                                                    media.push({
-                                                        id: 'page-' + Date.now(),
-                                                        src: location.href,
-                                                        type: 'video',
-                                                        title: (document.title || (host.split('.')[0] + ' Video'))
-                                                    });
-                                                }
-                                            }
-
-                                            // Check for HLS/M3U8 streams and large blobs
-                                            performance.getEntriesByType('resource').forEach(resource => {
-                                                const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd');
-                                                if (isHls && !seen.has(resource.name)) {
-                                                    seen.add(resource.name);
-                                                    media.push({
-                                                        id: 'stream-' + Math.random().toString(36).substr(2, 5),
-                                                        src: resource.name,
-                                                        type: 'video',
-                                                        title: 'Stream: ' + (document.title || 'Video')
-                                                    });
-                                                }
-                                            });
-
-                                            if (host.includes('youtube.com')) {
-                                                const videoId = new URLSearchParams(window.location.search).get('v');
-                                                if (videoId) {
-                                                    const ytUrl = 'https://www.youtube.com/watch?v=' + videoId;
-                                                    if (!seen.has(ytUrl)) {
-                                                         seen.add(ytUrl);
-                                                         media.push({
-                                                            id: 'yt-' + videoId,
-                                                            src: ytUrl,
+                                                // Check for HLS/M3U8 streams and large blobs
+                                                performance.getEntriesByType('resource').forEach(resource => {
+                                                    const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd');
+                                                    if (isHls && !seen.has(resource.name)) {
+                                                        seen.add(resource.name);
+                                                        media.push({
+                                                            id: 'stream-' + Math.random().toString(36).substr(2, 5),
+                                                            src: resource.name,
                                                             type: 'video',
-                                                            title: document.title
-                                                         });
+                                                            title: 'Stream: ' + (document.title || 'Video')
+                                                        });
                                                     }
+                                                });
+
+                                                if (host.includes('youtube.com')) {
+                                                    const videoId = new URLSearchParams(window.location.search).get('v');
+                                                    if (videoId) {
+                                                        const ytUrl = 'https://www.youtube.com/watch?v=' + videoId;
+                                                        if (!seen.has(ytUrl)) {
+                                                             seen.add(ytUrl);
+                                                             media.push({
+                                                                id: 'yt-' + videoId,
+                                                                src: ytUrl,
+                                                                type: 'video',
+                                                                title: document.title
+                                                             });
+                                                        }
+                                                    }
+                                                }
+
+                                                if (media.length > 0) {
+                                                    Android.postMedia(JSON.stringify(media));
                                                 }
                                             }
 
-                                            if (media.length > 0) {
-                                                Android.postMedia(JSON.stringify(media));
+                                            if (!window.omniSnifferStarted) {
+                                                window.omniSnifferStarted = true;
+                                                const observer = new MutationObserver(sniff);
+                                                observer.observe(document.body, { childList: true, subtree: true });
+                                                setInterval(sniff, 5000);
+                                                sniff();
+                                                window.startOmniScroll = function() {
+                                                    let distance = 100;
+                                                    let timer = setInterval(() => {
+                                                        window.scrollBy(0, distance);
+                                                        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
+                                                            clearInterval(timer);
+                                                        }
+                                                    }, 500);
+                                                }
                                             }
-                                        }
-
-                                        if (!window.omniSnifferStarted) {
-                                            window.omniSnifferStarted = true;
-                                            const observer = new MutationObserver(sniff);
-                                            observer.observe(document.body, { childList: true, subtree: true });
-                                            setInterval(sniff, 5000);
-                                            sniff();
-                                            window.startOmniScroll = function() {
-                                                let distance = 100;
-                                                let timer = setInterval(() => {
-                                                    window.scrollBy(0, distance);
-                                                    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight) {
-                                                        clearInterval(timer);
-                                                    }
-                                                }, 500);
-                                            }
-                                        }
-                                    })();
-                                """.trimIndent(), null)
-                            }
-
-                            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                                val host = request?.url?.host ?: ""
-                                if (settings.adBlockEnabled) {
-                                    val isAd = ADS_DOMAINS.any { host.contains(it) }
-                                    val isAnalytics = ANALYTICS_DOMAINS.any { host.contains(it) }
-                                    val isSocial = SOCIAL_DOMAINS.any { host.contains(it) }
-
-                                    if (isAd || isAnalytics || isSocial) {
-                                        synchronized(viewModel.blockedTrackersByTab) {
-                                            val category = when {
-                                                isAd -> "[Ad]"
-                                                isAnalytics -> "[Analytics]"
-                                                isSocial -> "[Social]"
-                                                else -> "[Other]"
-                                            }
-                                            val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
-                                            blockedSet.add("$category $host")
-                                        }
-                                        return WebResourceResponse("text/plain", "UTF-8", null)
-                                    }
+                                        })();
+                                    """.trimIndent(), null)
                                 }
 
-                                // Privacy: Do Not Track
-                                request?.requestHeaders?.put("DNT", "1")
+                                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                                    val host = request?.url?.host ?: ""
+                                    if (settings.adBlockEnabled) {
+                                        val isAd = ADS_DOMAINS.any { host.contains(it) }
+                                        val isAnalytics = ANALYTICS_DOMAINS.any { host.contains(it) }
+                                        val isSocial = SOCIAL_DOMAINS.any { host.contains(it) }
 
-                                return super.shouldInterceptRequest(view, request)
+                                        if (isAd || isAnalytics || isSocial) {
+                                            synchronized(viewModel.blockedTrackersByTab) {
+                                                val category = when {
+                                                    isAd -> "[Ad]"
+                                                    isAnalytics -> "[Analytics]"
+                                                    isSocial -> "[Social]"
+                                                    else -> "[Other]"
+                                                }
+                                                val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
+                                                blockedSet.add("$category $host")
+                                            }
+                                            return WebResourceResponse("text/plain", "UTF-8", null)
+                                        }
+                                    }
+
+                                    // Privacy: Do Not Track
+                                    request?.requestHeaders?.put("DNT", "1")
+
+                                    return super.shouldInterceptRequest(view, request)
+                                }
+                            }
+
+                            if (url == null || url == "about:blank") {
+                                loadUrl(tab.url)
                             }
                         }
+                    },
+                    update = { view ->
+                        if (view.url != tab.url && !tab.url.startsWith("about:")) {
+                            view.loadUrl(tab.url)
+                        }
 
-                    if (url == null || url == "about:blank") {
-                        loadUrl(tab.url)
-                    }
-                    }
-                },
-                update = { view ->
-                    if (view.url != tab.url && !tab.url.startsWith("about:")) {
-                        view.loadUrl(tab.url)
-                    }
+                        // Performance: Adjust cache based on connectivity
+                        val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                        val activeNetwork = connectivityManager.activeNetworkInfo
+                        view.settings.cacheMode = if (activeNetwork?.isConnected == true) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
 
-                    // Performance: Adjust cache based on connectivity
-                    val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
-                    val activeNetwork = connectivityManager.activeNetworkInfo
-                    view.settings.cacheMode = if (activeNetwork?.isConnected == true) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        view.settings.javaScriptEnabled = settings.javaScriptEnabled
+                        view.settings.userAgentString = settings.customUserAgent ?: view.settings.userAgentString
 
-                    view.settings.javaScriptEnabled = settings.javaScriptEnabled
-                    view.settings.userAgentString = settings.customUserAgent ?: view.settings.userAgentString
-
-                    if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                        WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
-                    } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                        WebSettingsCompat.setForceDark(view.settings, if (isForceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                            WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, isForceDark)
+                        } else if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                            WebSettingsCompat.setForceDark(view.settings, if (isForceDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                PullToRefreshContainer(
+                    state = pullToRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
         }
     }
 
@@ -1116,16 +1140,14 @@ fun BrowserView(
 @Composable
 fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
     var fontSize by remember { mutableFloatStateOf(18f) }
-    var theme by remember { mutableStateOf("light") } // "light", "dark"
+    var theme by remember { mutableStateOf("light") } // "light", "dark", "sepia"
     var isSerif by remember { mutableStateOf(true) }
 
-    val isDark = when (theme) {
-        "dark" -> true
-        else -> false
+    val (backgroundColor, textColor) = when (theme) {
+        "dark" -> Color(0xFF121212) to Color(0xFFE0E0E0)
+        "sepia" -> Color(0xFFF4ECD8) to Color(0xFF5B4636)
+        else -> Color(0xFFFFFFFF) to Color(0xFF1A1A1A)
     }
-
-    val backgroundColor = if (isDark) Color(0xFF121212) else Color(0xFFFFFFFF)
-    val textColor = if (isDark) Color(0xFFE0E0E0) else Color(0xFF1A1A1A)
 
     Scaffold(
         topBar = {
@@ -1137,8 +1159,19 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { theme = if (theme == "light") "dark" else "light" }) {
-                        Icon(if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Toggle Theme")
+                    IconButton(onClick = {
+                        theme = when(theme) {
+                            "light" -> "sepia"
+                            "sepia" -> "dark"
+                            else -> "light"
+                        }
+                    }) {
+                        val icon = when(theme) {
+                            "light" -> Icons.Default.MenuBook
+                            "sepia" -> Icons.Default.DarkMode
+                            else -> Icons.Default.LightMode
+                        }
+                        Icon(icon, contentDescription = "Toggle Theme")
                     }
                     IconButton(onClick = { fontSize = (fontSize + 2f).coerceAtMost(32f) }) {
                         Icon(Icons.Default.TextIncrease, contentDescription = "Increase Font")
