@@ -1,6 +1,9 @@
 package com.omniweb.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -90,77 +93,83 @@ fun BrowserAddressBar(
             } else {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(onClick = onHomeClick) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    Box(modifier = Modifier.weight(1f)) {
-                        TextField(
-                            value = urlInput,
-                            onValueChange = onUrlChange,
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(24.dp),
-                            singleLine = true,
-                            leadingIcon = {
-                                if (pageFavicon != null) {
-                                    Image(
-                                        bitmap = pageFavicon.asImageBitmap(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)).clickable { onPrivacyClick() }
-                                    )
-                                } else {
-                                    val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
-                                    Icon(
-                                        icon,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp).clickable { onPrivacyClick() },
-                                        tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            trailingIcon = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    if (blockedCount > 0) {
-                                        Surface(
-                                            color = Color(0xFF10B981).copy(alpha = 0.1f),
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.clickable { onPrivacyClick() }
-                                        ) {
-                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                                Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFF10B981))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(blockedCount.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Box {
+                            TextField(
+                                value = urlInput,
+                                onValueChange = onUrlChange,
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(24.dp),
+                                singleLine = true,
+                                leadingIcon = {
+                                    if (pageFavicon != null) {
+                                        Image(
+                                            bitmap = pageFavicon.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)).clickable { onPrivacyClick() }
+                                        )
+                                    } else {
+                                        val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
+                                        Icon(
+                                            icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp).clickable { onPrivacyClick() },
+                                            tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                trailingIcon = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        if (blockedCount > 0) {
+                                            Surface(
+                                                color = Color(0xFF10B981).copy(alpha = 0.1f),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.clickable { onPrivacyClick() }
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                                    Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFF10B981))
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(blockedCount.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
+                                                }
                                             }
                                         }
+                                        if (urlInput.isNotEmpty()) {
+                                            IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                        }
                                     }
-                                    if (urlInput.isNotEmpty()) {
-                                        IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
-                                    }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                            keyboardActions = KeyboardActions(onGo = { onGo() }),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                            ),
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
-                        )
-
-                        if (isLoading) {
-                            LinearProgressIndicator(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp)
-                                    .height(2.dp)
-                                    .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.Transparent
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                                keyboardActions = KeyboardActions(onGo = { onGo() }),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                ),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
                             )
+
+                            if (isLoading) {
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp)
+                                        .height(2.dp)
+                                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = Color.Transparent
+                                )
+                            }
                         }
 
-                        if (suggestions.isNotEmpty()) {
+                        AnimatedVisibility(
+                            visible = suggestions.isNotEmpty(),
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
                             Card(
-                                modifier = Modifier.fillMaxWidth().padding(top = 52.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                                 shape = RoundedCornerShape(16.dp),
                                 elevation = CardDefaults.cardElevation(8.dp)
                             ) {
@@ -295,7 +304,15 @@ fun TabSwitcherSheet(
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Box(modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
+                                if (tab.faviconBitmap != null) {
+                                    Image(
+                                        bitmap = tab.faviconBitmap!!.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                                    )
+                                } else {
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
+                                }
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)

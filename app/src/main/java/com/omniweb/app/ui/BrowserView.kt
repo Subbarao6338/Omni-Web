@@ -92,7 +92,12 @@ private val ADS_DOMAINS = setOf(
     "adcolony.com", "applovin.com", "chartboost.com", "fyber.com", "ironsrc.com",
     "unityads.unity3d.com", "vungle.com", "flurry.com", "inmobi.com", "tapjoy.com",
     "mgid.com", "propellerads.com", "popcash.net", "popads.net", "yandex.ru", "mail.ru",
-    "serving-sys.com", "adnxs.com", "contextweb.com", "bidswitch.net", "rubiconproject.com"
+    "serving-sys.com", "adnxs.com", "contextweb.com", "bidswitch.net", "rubiconproject.com",
+    "popads.net", "popcash.net", "adcash.com", "adsterra.com", "ad-maven.com",
+    "propellerads.com", "clickadu.com", "hilltopads.com", "evadav.com", "activerevenue.com",
+    "ad-maven.com", "shorte.st", "adf.ly", "bitly.com", "tinyurl.com", "t.co",
+    "adform.net", "bidswitch.net", "casalemedia.com", "criteo.com", "openx.net",
+    "pubmatic.com", "rubiconproject.com", "smartadserver.com", "yieldmo.com"
 )
 
 private val ANALYTICS_DOMAINS = setOf(
@@ -102,7 +107,10 @@ private val ANALYTICS_DOMAINS = setOf(
     "scorecardresearch.com", "chartbeat.com", "clicky.com", "newrelic.com",
     "amplitude.com", "statcounter.com", "inspectlet.com", "fullstory.com",
     "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com",
-    "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io"
+    "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io",
+    "fullstory.com", "inspectlet.com", "hotjar.com", "crazyegg.com", "mouseflow.com",
+    "luckyorange.com", "clicktale.com", "sessionstack.com", "smartlook.com",
+    "userway.org", "equalweb.com", "accessibe.com", "audioeye.com"
 )
 
 private val SOCIAL_DOMAINS = setOf(
@@ -332,6 +340,7 @@ fun BrowserView(
                                 javaScriptEnabled = settings.javaScriptEnabled
                                 domStorageEnabled = true
                                 databaseEnabled = true
+                                setGeolocationEnabled(true)
                                 mediaPlaybackRequiresUserGesture = false
                                 loadWithOverviewMode = true
                                 useWideViewPort = true
@@ -402,6 +411,10 @@ fun BrowserView(
                                 }
                             }
 
+                            setOnScrollChangeListener { _, scrollX, scrollY, _, _ ->
+                                viewModel.updateTabScroll(tab.id, scrollX, scrollY)
+                            }
+
                             setOnLongClickListener {
                                 val result = hitTestResult
                                 if (result.type != WebView.HitTestResult.UNKNOWN_TYPE) {
@@ -468,7 +481,10 @@ fun BrowserView(
                                                     "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
                                                     "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
                                                     "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']",
-                                                    ".ad-container", "[class*='ad-unit']", ".sponsored-content"
+                                                    ".ad-container", "[class*='ad-unit']", ".sponsored-content",
+                                                    "div[class*='AdContainer']", "div[class*='promoted']", "div[class*='sponsored']",
+                                                    "iframe[src*='doubleclick.net']", "iframe[src*='googleads']",
+                                                    "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad"
                                                 ];
                                                 const style = document.createElement('style');
                                                 style.innerHTML = selectors.join(', ') + ' { display: none !important; }';

@@ -30,8 +30,13 @@ object UrlUtils {
         }
 
         // Check for common TLDs or localhost/IPs even if WEB_URL is picky
-        val commonTlds = listOf(".com", ".org", ".net", ".io", ".gov", ".edu", ".me", ".info", ".biz", ".ai")
-        val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1")
+        val commonTlds = listOf(
+            ".com", ".org", ".net", ".io", ".gov", ".edu", ".me", ".info", ".biz", ".ai",
+            ".app", ".dev", ".xyz", ".tech", ".online", ".site", ".shop", ".cloud",
+            ".network", ".icu", ".buzz", ".top", ".vip", ".blog", ".store", ".co", ".uk", ".jp", ".de"
+        )
+        val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
+        val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)
         val hasCommonTld = commonTlds.any { trimmed.contains(it, ignoreCase = true) }
 
         // Check if it's a valid URL
@@ -43,7 +48,8 @@ object UrlUtils {
         // 3. It does not contain spaces
         if ((isUrl || isLocalhost || hasCommonTld) && !trimmed.contains(" ")) {
             if (trimmed.contains(".") || isLocalhost) {
-                return if (isLocalhost) "http://$trimmed" else "https://$trimmed"
+                val protocol = if (isLocalhost) "http://" else "https://"
+                return protocol + trimmed
             }
         }
 
