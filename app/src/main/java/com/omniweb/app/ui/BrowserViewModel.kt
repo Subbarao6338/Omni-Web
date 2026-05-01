@@ -94,7 +94,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateTabInDb(tab: TabInfo) {
         viewModelScope.launch {
-            database.tabDao().updateTab(TabEntry(
+            val entry = TabEntry(
                 id = tab.id,
                 url = tab.url,
                 title = tab.title,
@@ -102,7 +102,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 isIncognito = tab.isIncognito,
                 scrollX = tab.scrollX,
                 scrollY = tab.scrollY
-            ))
+            )
+            database.tabDao().updateTab(entry)
+        }
+    }
+
+    fun updateTabScroll(tabId: String, x: Int, y: Int) {
+        tabs.find { it.id == tabId }?.let { tab ->
+            tab.scrollX = x
+            tab.scrollY = y
+            updateTabInDb(tab)
         }
     }
 

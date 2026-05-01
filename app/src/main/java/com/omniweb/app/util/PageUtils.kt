@@ -115,20 +115,23 @@ object PageUtils {
         }
 
         // Density-based scoring system for paragraphs and structural elements
-        val blocks = Regex("<(div|section).*?>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
+        val blocks = Regex("<(div|section|article).*?>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
         var bestScore = 0
         var bestContent = content
 
         blocks.forEach { match ->
+            val tag = match.groupValues[1].lowercase()
             val inner = match.groupValues[2]
             val pCount = Regex("<p.*?>").findAll(inner).count()
             val imgCount = Regex("<img.*?>").findAll(inner).count()
             val linkCount = Regex("<a.*?>").findAll(inner).count()
 
             // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
-            val score = (pCount * 20) + (inner.length / 100) - (linkCount * 10) + (imgCount * 5)
+            // article/section tags get a bonus
+            val tagBonus = if (tag == "article") 50 else if (tag == "section") 20 else 0
+            val score = (pCount * 25) + (inner.length / 80) - (linkCount * 12) + (imgCount * 8) + tagBonus
 
-            if (score > bestScore && inner.length > 200) {
+            if (score > bestScore && inner.length > 150) {
                 bestScore = score
                 bestContent = inner
             }
