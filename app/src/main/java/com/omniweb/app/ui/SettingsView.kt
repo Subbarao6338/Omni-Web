@@ -40,7 +40,7 @@ import org.json.JSONArray
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}) {
+fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}, onOpenPasswords: () -> Unit = {}) {
     val context = LocalContext.current
     val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
     val scope = rememberCoroutineScope()
@@ -237,6 +237,13 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
             }
 
             SettingsSection("Privacy & Security", Icons.Default.Shield) {
+                ListItem(
+                    headlineContent = { Text("Passwords") },
+                    supportingContent = { Text("Manage saved credentials") },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                    modifier = Modifier.clickable { onOpenPasswords() }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
                     headlineContent = { Text("Ad Blocking") },
                     supportingContent = { Text("Block ads and trackers") },

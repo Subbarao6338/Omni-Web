@@ -9,7 +9,8 @@ import android.os.Looper
 // JavaScript Interface for communication
 class WebAppInterface(
     private val onMediaDetected: (List<MediaItem>) -> Unit,
-    private val onTextExtracted: (String) -> Unit
+    private val onTextExtracted: (String) -> Unit,
+    private val onLoginFormDetected: (String, String) -> Unit = { _, _ -> }
 ) {
     private val handler = Handler(Looper.getMainLooper())
 
@@ -38,5 +39,12 @@ class WebAppInterface(
     fun postText(text: String?) {
         if (text == null) return
         handler.post { onTextExtracted(text) }
+    }
+
+    @JavascriptInterface
+    fun onLoginDetected(user: String?, pass: String?) {
+        if (user != null && pass != null) {
+            handler.post { onLoginFormDetected(user, pass) }
+        }
     }
 }

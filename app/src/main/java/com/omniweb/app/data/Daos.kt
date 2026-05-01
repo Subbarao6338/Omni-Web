@@ -110,3 +110,21 @@ interface ShortcutDao {
     @Delete
     suspend fun deleteShortcut(shortcut: Shortcut)
 }
+
+@Dao
+interface PasswordDao {
+    @Query("SELECT * FROM passwords ORDER BY timestamp DESC")
+    fun getAllPasswords(): Flow<List<PasswordEntry>>
+
+    @Query("SELECT * FROM passwords WHERE site = :site")
+    suspend fun getPasswordsForSite(site: String): List<PasswordEntry>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPassword(entry: PasswordEntry)
+
+    @Delete
+    suspend fun deletePassword(entry: PasswordEntry)
+
+    @Query("DELETE FROM passwords")
+    suspend fun clearAllPasswords()
+}

@@ -16,11 +16,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.omniweb.app.ui.*
+import com.omniweb.app.data.AppDatabase
 import com.yausername.youtubedl_android.YoutubeDL
 import android.util.Log
 import android.webkit.CookieManager
 import android.webkit.WebStorage
-import com.omniweb.app.data.AppDatabase
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
@@ -135,21 +135,32 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("settings") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     SettingsView(
-                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        database = AppDatabase.getDatabase(context),
                         onBack = { navController.popBackStack() },
-                        onOpenScripts = { navController.navigate("scripts") }
+                        onOpenScripts = { navController.navigate("scripts") },
+                        onOpenPasswords = { navController.navigate("passwords") }
+                    )
+                }
+                composable("passwords") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    PasswordManagerView(
+                        database = AppDatabase.getDatabase(context),
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("scripts") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     ScriptManagerView(
-                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        database = AppDatabase.getDatabase(context),
                         onBack = { navController.popBackStack() }
                     )
                 }
                 composable("bookmarks") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     BookmarksView(
-                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        database = AppDatabase.getDatabase(context),
                         onNavigate = { url ->
                             activeTab.url = url
                             navController.navigate("browser") {
@@ -160,8 +171,9 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("history") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     HistoryView(
-                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        database = AppDatabase.getDatabase(context),
                         onNavigate = { url ->
                             activeTab.url = url
                             navController.navigate("browser") {
@@ -172,8 +184,9 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("downloads") {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     DownloadsView(
-                        database = com.omniweb.app.data.AppDatabase.getDatabase(androidx.compose.ui.platform.LocalContext.current),
+                        database = AppDatabase.getDatabase(context),
                         onBack = { navController.popBackStack() }
                     )
                 }
