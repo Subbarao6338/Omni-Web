@@ -98,7 +98,7 @@ object PageUtils {
         }
 
         // Priority tags
-        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article", "div#main", "div.main")
+        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article", "div#main", "div.main", "section.content")
         for (tag in priorityTags) {
             val pattern = if (tag.contains("#") || tag.contains(".") || tag.contains("[")) {
                 val parts = tag.split("#", ".", "[")

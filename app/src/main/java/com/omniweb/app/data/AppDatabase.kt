@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class],
-    version = 10,
+    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class, PerSiteSettings::class],
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,6 +24,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun shortcutDao(): ShortcutDao
     abstract fun tabDao(): TabDao
     abstract fun passwordDao(): PasswordDao
+    abstract fun perSiteSettingsDao(): PerSiteSettingsDao
 
     companion object {
         @Volatile
@@ -69,6 +70,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Update passwords table for IV
+                database.execSQL("ALTER TABLE passwords ADD COLUMN iv TEXT NOT NULL DEFAULT ''")
+                // Create per_site_settings table
+                database.execSQL("CREATE TABLE IF NOT EXISTS `per_site_settings` (`host` TEXT PRIMARY KEY NOT NULL, `adBlockEnabled` INTEGER NOT NULL DEFAULT 1, `desktopMode` INTEGER NOT NULL DEFAULT 0, `javaScriptEnabled` INTEGER NOT NULL DEFAULT 1)")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -76,7 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "omni_browser_db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

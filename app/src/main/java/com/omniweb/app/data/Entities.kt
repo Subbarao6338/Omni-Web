@@ -14,10 +14,10 @@ data class Bookmark(
 @Entity(tableName = "passwords")
 data class PasswordEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val site: String, // Hostname
+    val site: String,
     val username: String,
-    // Note: In production, password must be encrypted (e.g., using SQLCipher or Android Keystore)
-    val password: String,
+    val password: String, // Encrypted
+    val iv: String, // Initialization Vector
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -31,20 +31,20 @@ data class HistoryEntry(
 
 @Entity(tableName = "settings")
 data class Settings(
-    @PrimaryKey val id: Int = 0, // Only one row
+    @PrimaryKey val id: Int = 0,
     val searchEngine: String = "https://www.google.com/search?q=",
     val adBlockEnabled: Boolean = true,
-    val themeMode: String = "system", // "light", "dark", "system"
+    val themeMode: String = "system",
     val lastTabUrl: String = "about:home",
     val accentColor: String = "#3B82F6",
-    val darkMode: Boolean = false, // Deprecated but kept for migration if needed
+    val darkMode: Boolean = false,
     val downloadPath: String? = null,
     val restoreTabsOnStart: Boolean = true,
     val clearDataOnExit: Boolean = false,
     val javaScriptEnabled: Boolean = true,
     val blockThirdPartyCookies: Boolean = true,
     val customUserAgent: String? = null,
-    val customSearchEngines: String? = null // Stored as JSON: List<Pair<String, String>>
+    val customSearchEngines: String? = null
 )
 
 @Entity(tableName = "tabs")
@@ -61,7 +61,7 @@ data class TabEntry(
 
 @Entity(tableName = "downloads")
 data class DownloadTask(
-    @PrimaryKey val id: Long, // Use the ID from Android DownloadManager
+    @PrimaryKey val id: Long,
     val title: String,
     val url: String,
     val filePath: String?,
@@ -78,10 +78,10 @@ data class UserScript(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val script: String,
-    val matchPattern: String = "*", // Glob pattern for URLs
+    val matchPattern: String = "*",
     val enabled: Boolean = true,
-    val type: String = "userscript", // "userscript" or "bookmarklet"
-    val runAt: String = "end" // "start" or "end"
+    val type: String = "userscript",
+    val runAt: String = "end"
 )
 
 @Entity(tableName = "shortcuts")
@@ -90,4 +90,12 @@ data class Shortcut(
     val title: String,
     val url: String,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "per_site_settings")
+data class PerSiteSettings(
+    @PrimaryKey val host: String,
+    val adBlockEnabled: Boolean = true,
+    val desktopMode: Boolean = false,
+    val javaScriptEnabled: Boolean = true
 )

@@ -204,6 +204,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                         saveState(state)
                         webViewStateCache[tab.id] = state
                         stopLoading()
+                        // Important: clear clients before destruction
+                        webChromeClient = null
+                        webViewClient = android.webkit.WebViewClient()
                         destroy()
                     }
                 }

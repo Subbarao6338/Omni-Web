@@ -22,14 +22,15 @@ class OmniDownloadManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun startDownload(url: String, fileName: String) {
+        val sanitizedName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
         val isVideoUrl = url.contains("youtube.com") || url.contains("youtu.be") || url.contains("instagram.com") || url.contains("x.com") || url.contains("facebook.com")
 
         if (isVideoUrl) {
             scope.launch {
-                startYtDlDownload(url, fileName)
+                startYtDlDownload(url, sanitizedName)
             }
         } else {
-            enqueueStandardDownload(url, fileName)
+            enqueueStandardDownload(url, sanitizedName)
         }
     }
 

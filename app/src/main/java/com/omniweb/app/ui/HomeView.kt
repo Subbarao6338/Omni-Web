@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
@@ -214,7 +215,16 @@ fun HomeView(
                                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        val favicon = tabs.find { it.url == entry.url }?.faviconBitmap
+                                        if (favicon != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = favicon.asImageBitmap(),
+                                                contentDescription = null,
+                                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                            )
+                                        } else {
+                                            Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        }
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))

@@ -128,3 +128,15 @@ interface PasswordDao {
     @Query("DELETE FROM passwords")
     suspend fun clearAllPasswords()
 }
+
+@Dao
+interface PerSiteSettingsDao {
+    @Query("SELECT * FROM per_site_settings WHERE host = :host")
+    suspend fun getSettingsForHost(host: String): PerSiteSettings?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updateSettings(settings: PerSiteSettings)
+
+    @Query("DELETE FROM per_site_settings WHERE host = :host")
+    suspend fun deleteSettings(host: String)
+}
