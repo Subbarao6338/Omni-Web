@@ -73,6 +73,10 @@ object PageUtils {
         md = md.replace(Regex("<li.*?>(.*?)</li>", RegexOption.IGNORE_CASE), "- $1\n")
         md = md.replace(Regex("<ul.*?>", RegexOption.IGNORE_CASE), "\n")
         md = md.replace(Regex("</ul>", RegexOption.IGNORE_CASE), "\n")
+        md = md.replace(Regex("<code.*?>(.*?)</code>", RegexOption.IGNORE_CASE), "`$1`")
+        md = md.replace(Regex("<pre.*?>(.*?)</pre>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "```\n$1\n```\n\n")
+        md = md.replace(Regex("<tr.*?>(.*?)</tr>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "|$1|\n")
+        md = md.replace(Regex("<t[dh].*?>(.*?)</t[dh]>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " $1 |")
         md = md.replace(Regex("<br.*?>", RegexOption.IGNORE_CASE), "\n")
         md = md.replace(Regex("<[^>]*>", RegexOption.IGNORE_CASE), "") // Strip remaining tags
         return md.trim()
@@ -94,10 +98,11 @@ object PageUtils {
         }
 
         // Priority tags
-        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article")
+        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article", "div#main", "div.main")
         for (tag in priorityTags) {
             val pattern = if (tag.contains("#") || tag.contains(".") || tag.contains("[")) {
-                val part = tag.split("#", ".", "[").first()
+                val parts = tag.split("#", ".", "[")
+                val part = parts.first().ifEmpty { "div" }
                 val attrValue = if (tag.contains("#")) tag.split("#").last()
                                else if (tag.contains(".")) tag.split(".").last()
                                else tag.split("[").last().split("=").last().replace("]", "").replace("\"", "").replace("'", "")
@@ -107,9 +112,10 @@ object PageUtils {
                 Regex("<$tag.*?>(.*?)</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
             }
 
-            val match = pattern.find(content)
-            if (match != null && match.groupValues[1].length > 400) {
-                content = match.groupValues[1]
+            val matches = pattern.findAll(content)
+            val bestMatch = matches.maxByOrNull { it.groupValues[1].length }
+            if (bestMatch != null && bestMatch.groupValues[1].length > 400) {
+                content = bestMatch.groupValues[1]
                 break
             }
         }

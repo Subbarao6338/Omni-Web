@@ -11,6 +11,16 @@ data class Bookmark(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "passwords")
+data class PasswordEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val site: String, // Hostname
+    val username: String,
+    // Note: In production, password must be encrypted (e.g., using SQLCipher or Android Keystore)
+    val password: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "history")
 data class HistoryEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

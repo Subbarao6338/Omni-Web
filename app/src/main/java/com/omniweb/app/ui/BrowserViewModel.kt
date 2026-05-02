@@ -24,9 +24,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val tabs = mutableStateListOf<TabInfo>()
     val activeTabId = mutableStateOf("")
     private val webViewCache = mutableMapOf<String, WebView>()
+    private val webViewStateCache = mutableMapOf<String, android.os.Bundle>()
     private val _searchQuery = MutableStateFlow("")
 
     val blockedTrackersByTab = mutableMapOf<String, MutableSet<String>>()
+    private val tabLastActive = mutableMapOf<String, Long>()
 
     init {
         // Initialize with a default tab to avoid empty state; it will be replaced if saved tabs are restored.
@@ -122,6 +124,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT
                 )
+                webViewStateCache[tabId]?.let { state ->
+                    restoreState(state)
+                    webViewStateCache.remove(tabId)
+                }
             }
         }
     }
@@ -182,6 +188,27 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectTab(id: String) {
         activeTabId.value = id
+        tabLastActive[id] = System.currentTimeMillis()
+        hibernateTabsIfNeeded()
+    }
+
+    private fun hibernateTabsIfNeeded() {
+        val now = System.currentTimeMillis()
+        val timeout = 5 * 60 * 1000 // 5 minutes
+        tabs.forEach { tab ->
+            if (tab.id != activeTabId.value) {
+                val lastActive = tabLastActive[tab.id] ?: 0L
+                if (now - lastActive > timeout) {
+                    webViewCache.remove(tab.id)?.apply {
+                        val state = android.os.Bundle()
+                        saveState(state)
+                        webViewStateCache[tab.id] = state
+                        stopLoading()
+                        destroy()
+                    }
+                }
+            }
+        }
     }
 
     fun updateSuggestions(query: String) {
