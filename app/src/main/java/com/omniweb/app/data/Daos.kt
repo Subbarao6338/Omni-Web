@@ -112,6 +112,21 @@ interface ShortcutDao {
 }
 
 @Dao
+interface PerSiteSettingsDao {
+    @Query("SELECT * FROM per_site_settings WHERE host = :host")
+    fun getSettingsForHost(host: String): Flow<PerSiteSettings?>
+
+    @Query("SELECT * FROM per_site_settings WHERE host = :host")
+    suspend fun getSettingsForHostSync(host: String): PerSiteSettings?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSettings(settings: PerSiteSettings)
+
+    @Query("DELETE FROM per_site_settings WHERE host = :host")
+    suspend fun deleteSettingsForHost(host: String)
+}
+
+@Dao
 interface PasswordDao {
     @Query("SELECT * FROM passwords ORDER BY timestamp DESC")
     fun getAllPasswords(): Flow<List<PasswordEntry>>

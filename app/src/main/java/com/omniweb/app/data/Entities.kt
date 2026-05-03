@@ -21,6 +21,15 @@ data class PasswordEntry(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "per_site_settings")
+data class PerSiteSettings(
+    @PrimaryKey val host: String,
+    val desktopMode: Boolean = false,
+    val adBlockEnabled: Boolean = true,
+    val javaScriptEnabled: Boolean = true,
+    val zoomLevel: Float = 1.0f
+)
+
 @Entity(tableName = "history")
 data class HistoryEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

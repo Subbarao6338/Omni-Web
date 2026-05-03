@@ -29,6 +29,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     val blockedTrackersByTab = mutableMapOf<String, MutableSet<String>>()
     private val tabLastActive = mutableMapOf<String, Long>()
+    private val perSiteSettingsCache = mutableMapOf<String, PerSiteSettings>()
 
     init {
         // Initialize with a default tab to avoid empty state; it will be replaced if saved tabs are restored.
@@ -155,15 +156,18 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             viewModelScope.launch {
                 database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))
             }
-            webViewCache.remove(id)?.apply {
-                stopLoading()
-                webChromeClient = null
-                webViewClient = WebViewClient()
-                clearHistory()
-                removeAllViews()
-                destroy()
+            webViewCache.remove(id)?.let { webView ->
+                webView.stopLoading()
+                webView.webChromeClient = null
+                webView.webViewClient = WebViewClient()
+                webView.clearHistory()
+                webView.removeAllViews()
+                webView.destroy()
             }
+            webViewStateCache.remove(id)
             blockedTrackersByTab.remove(id)
+            tabLastActive.remove(id)
+
             if (tabs.isEmpty()) {
                 createTab()
             } else if (activeTabId.value == id) {
@@ -174,15 +178,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     override fun onCleared() {
         super.onCleared()
-        webViewCache.values.forEach {
-            it.stopLoading()
-            it.webChromeClient = null
-            it.webViewClient = WebViewClient()
-            it.clearHistory()
-            it.removeAllViews()
-            it.destroy()
+        webViewCache.values.forEach { webView ->
+            webView.stopLoading()
+            webView.webChromeClient = null
+            webView.webViewClient = WebViewClient()
+            webView.clearHistory()
+            webView.removeAllViews()
+            webView.destroy()
         }
         webViewCache.clear()
+        webViewStateCache.clear()
         blockedTrackersByTab.clear()
     }
 
@@ -198,13 +203,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         tabs.forEach { tab ->
             if (tab.id != activeTabId.value) {
                 val lastActive = tabLastActive[tab.id] ?: 0L
-                if (now - lastActive > timeout) {
-                    webViewCache.remove(tab.id)?.apply {
+                if (now - lastActive > timeout && webViewCache.containsKey(tab.id)) {
+                    webViewCache.remove(tab.id)?.let { webView ->
                         val state = android.os.Bundle()
-                        saveState(state)
+                        webView.saveState(state)
                         webViewStateCache[tab.id] = state
-                        stopLoading()
-                        destroy()
+                        webView.stopLoading()
+                        webView.webChromeClient = null
+                        webView.webViewClient = WebViewClient()
+                        webView.destroy()
                     }
                 }
             }
@@ -213,6 +220,27 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun updateSuggestions(query: String) {
         _searchQuery.value = query
+    }
+
+    fun getPerSiteSettings(host: String): PerSiteSettings? {
+        return perSiteSettingsCache[host]
+    }
+
+    fun preloadPerSiteSettings(host: String) {
+        if (host.isBlank()) return
+        viewModelScope.launch {
+            val settings = database.perSiteSettingsDao().getSettingsForHostSync(host)
+            if (settings != null) {
+                perSiteSettingsCache[host] = settings
+            }
+        }
+    }
+
+    fun updatePerSiteSettings(settings: PerSiteSettings) {
+        perSiteSettingsCache[settings.host] = settings
+        viewModelScope.launch {
+            database.perSiteSettingsDao().insertSettings(settings)
+        }
     }
 
     private suspend fun fetchSuggestionsInternal(query: String) {

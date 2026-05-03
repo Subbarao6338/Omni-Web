@@ -55,28 +55,43 @@ fun ViewSourceView(source: String, onBack: () -> Unit) {
         ) {
             items(lines) { line ->
                 val annotatedString = androidx.compose.ui.text.buildAnnotatedString {
-                    val trimmed = line.trim()
-                    when {
-                        trimmed.startsWith("<!--") -> {
-                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF6A9955)))
-                            append(line)
+                    var currentPos = 0
+                    val tagRegex = Regex("<(/?[a-zA-Z0-9]+)([^>]*)>")
+                    val attrRegex = Regex("([a-zA-Z0-9-]+)=\"([^\"]*)\"")
+                    val commentRegex = Regex("<!--.*?-->")
+
+                    // Simple syntax highlighting logic
+                    val matches = tagRegex.findAll(line)
+                    matches.forEach { match ->
+                        // Append text before the match
+                        append(line.substring(currentPos, match.range.first))
+
+                        // Highlight the tag
+                        pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF569CD6))) // Tag name blue
+                        append("<${match.groupValues[1]}")
+                        pop()
+
+                        // Highlight attributes
+                        val attrs = match.groupValues[2]
+                        var attrPos = 0
+                        attrRegex.findAll(attrs).forEach { attrMatch ->
+                            append(attrs.substring(attrPos, attrMatch.range.first))
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF9CDCFE))) // Attr name light blue
+                            append(attrMatch.groupValues[1])
+                            pop()
+                            append("=\"")
+                            pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFFCE9178))) // Attr value orange
+                            append(attrMatch.groupValues[2])
+                            pop()
+                            append("\"")
+                            attrPos = attrMatch.range.last + 1
                         }
-                        trimmed.startsWith("<") -> {
-                            val tagEnd = line.indexOfAny(charArrayOf(' ', '>'))
-                            if (tagEnd != -1) {
-                                pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF569CD6))) // Blue for tags
-                                append(line.substring(0, tagEnd))
-                                pop()
-                                append(line.substring(tagEnd))
-                            } else {
-                                pushStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF569CD6)))
-                                append(line)
-                            }
-                        }
-                        else -> {
-                            append(line)
-                        }
+                        append(attrs.substring(attrPos))
+                        append(">")
+
+                        currentPos = match.range.last + 1
                     }
+                    append(line.substring(currentPos))
                 }
                 Text(
                     text = annotatedString,

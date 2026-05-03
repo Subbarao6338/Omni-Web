@@ -154,11 +154,11 @@ fun BrowserAddressBar(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
-                                        .padding(horizontal = 24.dp)
-                                        .height(2.dp)
-                                        .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
+                                        .height(3.dp)
+                                        .padding(horizontal = 12.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
                                     color = MaterialTheme.colorScheme.primary,
-                                    trackColor = Color.Transparent
+                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                 )
                             }
                         }

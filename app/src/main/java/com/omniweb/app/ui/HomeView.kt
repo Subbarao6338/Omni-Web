@@ -22,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalFocusManager
@@ -202,23 +203,33 @@ fun HomeView(
                 Text("Most Visited", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     items(mostVisited) { entry ->
+                        val tabInfo = tabs.find { it.url == entry.url }
                         Card(
-                            modifier = Modifier.width(120.dp).clickable { onNavigate(entry.url) },
-                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.width(100.dp).clickable { onNavigate(entry.url) },
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                         ) {
                             Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Surface(
-                                    modifier = Modifier.size(40.dp),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    modifier = Modifier.size(48.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shadowElevation = 2.dp
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        if (tabInfo?.faviconBitmap != null) {
+                                            androidx.compose.foundation.Image(
+                                                bitmap = tabInfo.faviconBitmap!!.asImageBitmap(),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        } else {
+                                            Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
+                                        }
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(entry.title, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                                Text(entry.title, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                             }
                         }
                     }
