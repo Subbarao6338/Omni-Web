@@ -22,14 +22,15 @@ class OmniDownloadManager(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun startDownload(url: String, fileName: String) {
+        val sanitizedName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
         val isVideoUrl = url.contains("youtube.com") || url.contains("youtu.be") || url.contains("instagram.com") || url.contains("x.com") || url.contains("facebook.com")
 
         if (isVideoUrl) {
             scope.launch {
-                startYtDlDownload(url, fileName)
+                startYtDlDownload(url, sanitizedName)
             }
         } else {
-            enqueueStandardDownload(url, fileName)
+            enqueueStandardDownload(url, sanitizedName)
         }
     }
 
@@ -114,7 +115,8 @@ class OmniDownloadManager(private val context: Context) {
             val request = YoutubeDLRequest(url)
             request.addOption("-o", tempFile.absolutePath)
             request.addOption("--no-check-certificate")
-            request.addOption("--socket-timeout", "5")
+            request.addOption("--socket-timeout", "10")
+            request.addOption("--retries", "3")
 
             withContext(Dispatchers.IO) {
                 YoutubeDL.getInstance().execute(request) { progress, _, _ ->
@@ -122,7 +124,8 @@ class OmniDownloadManager(private val context: Context) {
                        db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
                            db.downloadDao().updateDownload(currentTask.copy(
                                downloadedSize = progress.toLong(),
-                               totalSize = 100 // Progress is 0-100
+                               totalSize = 100,
+                               status = DownloadManager.STATUS_RUNNING
                            ))
                        }
                     }
@@ -174,6 +177,9 @@ class OmniDownloadManager(private val context: Context) {
             if (tempFile.exists()) tempFile.delete()
             db.downloadDao().getDownloadByIdSync(downloadId)?.let { errorTask ->
                 db.downloadDao().updateDownload(errorTask.copy(status = DownloadManager.STATUS_FAILED))
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Video download failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }

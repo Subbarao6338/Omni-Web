@@ -70,6 +70,7 @@ import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
@@ -140,6 +141,7 @@ fun BrowserView(
     var readerContent by remember { mutableStateOf("") }
 
     var showPrivacyReport by remember { mutableStateOf(false) }
+    var showSiteSettings by remember { mutableStateOf(false) }
 
     var passwordToSave by remember { mutableStateOf<Triple<String, String, String>?>(null) } // site, user, pass
 
@@ -200,7 +202,7 @@ fun BrowserView(
                     onStop = { viewModel.getOrCreateWebView(activeTab.id, context).stopLoading() },
                     isLoading = activeTab.isLoading,
                     pageFavicon = activeTab.faviconBitmap,
-                    onPrivacyClick = { showPrivacyReport = true },
+                    onPrivacyClick = { showSiteSettings = true },
                     onBookmarkClick = {
                         scope.launch {
                             if (isBookmarked) {
@@ -291,8 +293,11 @@ fun BrowserView(
                 AndroidView(
                     factory = { _ ->
                         currentWebView.apply {
+                            val host = Uri.parse(tab.url).host ?: ""
+                            val perSite = viewModel.getPerSiteSettings(host)
+
                             this.settings.apply {
-                                javaScriptEnabled = settings.javaScriptEnabled
+                                javaScriptEnabled = perSite?.javaScriptEnabled ?: settings.javaScriptEnabled
                                 domStorageEnabled = true
                                 databaseEnabled = true
                                 setGeolocationEnabled(true)
@@ -309,7 +314,14 @@ fun BrowserView(
                                 allowFileAccess = true
                                 setRenderPriority(WebSettings.RenderPriority.HIGH)
                                 enableSmoothTransition()
-                                userAgentString = settings.customUserAgent ?: userAgentString
+
+                                val ua = if (perSite?.desktopMode == true) {
+                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                } else {
+                                    settings.customUserAgent ?: userAgentString
+                                }
+                                userAgentString = ua
+
                                 if (WebViewFeature.isFeatureSupported(WebViewFeature.SAFE_BROWSING_ENABLE)) {
                                     WebSettingsCompat.setSafeBrowsingEnabled(this, true)
                                 }
@@ -409,6 +421,10 @@ fun BrowserView(
                                     tab.isLoading = true
                                     if (tab.id == activeTab.id) {
                                         url?.let { urlInput = it }
+                                    }
+                                    url?.let {
+                                        val host = Uri.parse(it).host ?: ""
+                                        viewModel.preloadPerSiteSettings(host)
                                     }
                                     url?.let { currentUrl ->
                                         userScripts.filter { it.enabled && it.type == "userscript" && it.runAt == "start" }.forEach { script ->
@@ -591,14 +607,19 @@ fun BrowserView(
                                 }
 
                                 override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                                    val host = request?.url?.host ?: ""
-                                    if (settings.adBlockEnabled) {
-                                        val category = AdBlockManager.getCategory(host)
+                                    val reqHost = request?.url?.host ?: ""
+                                    val pageHost = Uri.parse(tab.url).host ?: ""
+                                    val perSite = viewModel.getPerSiteSettings(pageHost)
+
+                                    val adBlockEnabled = perSite?.adBlockEnabled ?: settings.adBlockEnabled
+
+                                    if (adBlockEnabled) {
+                                        val category = AdBlockManager.getCategory(reqHost)
 
                                         if (category != null) {
                                             synchronized(viewModel.blockedTrackersByTab) {
                                                 val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
-                                                blockedSet.add("$category $host")
+                                                blockedSet.add("$category $reqHost")
                                             }
                                             return WebResourceResponse("text/plain", "UTF-8", null)
                                         }
@@ -927,6 +948,63 @@ fun BrowserView(
         )
     }
 
+    if (showSiteSettings) {
+        val host = Uri.parse(activeTab.url).host ?: "Local"
+        val perSiteSettings by database.perSiteSettingsDao().getSettingsForHost(host).collectAsState(initial = null)
+        val currentPerSite = perSiteSettings ?: com.omniweb.app.data.PerSiteSettings(host)
+
+        ModalBottomSheet(onDismissRequest = { showSiteSettings = false }) {
+            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
+                Text("Site Settings", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(host, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(24.dp))
+
+                ListItem(
+                    headlineContent = { Text("Desktop Mode") },
+                    trailingContent = {
+                        Switch(checked = currentPerSite.desktopMode, onCheckedChange = {
+                            viewModel.updatePerSiteSettings(currentPerSite.copy(desktopMode = it))
+                            viewModel.getOrCreateWebView(activeTab.id, context).reload()
+                        })
+                    },
+                    leadingContent = { Icon(Icons.Default.Computer, contentDescription = null) }
+                )
+                ListItem(
+                    headlineContent = { Text("Ad Blocking") },
+                    trailingContent = {
+                        Switch(checked = currentPerSite.adBlockEnabled, onCheckedChange = {
+                            viewModel.updatePerSiteSettings(currentPerSite.copy(adBlockEnabled = it))
+                            viewModel.getOrCreateWebView(activeTab.id, context).reload()
+                        })
+                    },
+                    leadingContent = { Icon(Icons.Default.Shield, contentDescription = null) }
+                )
+                ListItem(
+                    headlineContent = { Text("JavaScript") },
+                    trailingContent = {
+                        Switch(checked = currentPerSite.javaScriptEnabled, onCheckedChange = {
+                            viewModel.updatePerSiteSettings(currentPerSite.copy(javaScriptEnabled = it))
+                            viewModel.getOrCreateWebView(activeTab.id, context).reload()
+                        })
+                    },
+                    leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null) }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { showPrivacyReport = true; showSiteSettings = false },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant, contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+                ) {
+                    Icon(Icons.Default.Assessment, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("View Privacy Report")
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+    }
+
     if (showPrivacyReport) {
         val blockedTrackers = synchronized(viewModel.blockedTrackersByTab) {
             viewModel.blockedTrackersByTab[activeTab.id]?.toList() ?: emptyList()
@@ -1043,6 +1121,18 @@ fun BrowserView(
                             leadingContent = { Icon(Icons.Default.OpenInNew, contentDescription = null) },
                             modifier = Modifier.clickable {
                                 extra?.let { viewModel.createTab(it) }
+                                showContextMenu = false
+                            }
+                        )
+                        ListItem(
+                            headlineContent = { Text("Open in Background") },
+                            leadingContent = { Icon(Icons.Default.Tab, contentDescription = null) },
+                            modifier = Modifier.clickable {
+                                extra?.let {
+                                    val currentTabId = activeTab.id
+                                    viewModel.createTab(it)
+                                    viewModel.selectTab(currentTabId) // Switch back
+                                }
                                 showContextMenu = false
                             }
                         )
@@ -1200,7 +1290,15 @@ fun ReaderModeView(title: String, content: String, onClose: () -> Unit) {
                 fontFamily = if (isSerif) androidx.compose.ui.text.font.FontFamily.Serif else androidx.compose.ui.text.font.FontFamily.SansSerif
             )
             Spacer(modifier = Modifier.height(24.dp))
-            val cleanContent = content.replace(Regex("<[^>]*>"), "")
+            val cleanContent = content
+                .replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "\n\n")
+                .replace(Regex("<br.*?>", RegexOption.IGNORE_CASE), "\n")
+                .replace(Regex("<h[1-6].*?>(.*?)</h[1-6]>", RegexOption.IGNORE_CASE), "\n\n# $1\n\n")
+                .replace(Regex("<li.*?>", RegexOption.IGNORE_CASE), "\n• ")
+                .replace(Regex("<[^>]*>"), "")
+                .replace(Regex("\n{3,}"), "\n\n")
+                .trim()
+
             Text(
                 text = cleanContent,
                 fontSize = fontSize.sp,

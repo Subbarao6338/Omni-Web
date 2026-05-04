@@ -1,33 +1,31 @@
 package com.omniweb.app.util
 
 object AdBlockManager {
-    private val ADS_DOMAINS = setOf(
+    private val ADS_DOMAINS = hashSetOf(
         "doubleclick.net", "googleadservices.com", "adnxs.com", "googlesyndication.com",
         "zedo.com", "amazon-adsystem.com", "adservice.google.com", "ad.doubleclick.net",
         "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
         "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
         "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
-        "adnxs.com", "carbonads.net", "ad-delivery.net", "adform.net",
+        "carbonads.net", "ad-delivery.net", "adform.net",
         "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com",
-        "atdmt.com", "ad-delivery.net", "adnxs-simple.com", "adform.net", "adgrx.com",
+        "atdmt.com", "adnxs-simple.com", "adgrx.com",
         "adhigh.net", "adinall.com", "adition.com", "admanmedia.com", "admicro.vn",
         "admixer.net", "adotmob.com", "adperium.com", "adriver.ru", "adrtx.com",
         "ads-pixie.com", "ads-union.com", "ads-zero.com", "adsafeprotected.com",
         "adsrvr.org", "adswizz.com", "adsymptotic.com", "bidswitch.net", "bluekai.com",
         "gumgum.com", "indexww.com", "lijit.com", "media.net", "mopub.com", "popads.net",
-        "revcontent.com", "rubiconproject.com", "sharethrough.com", "sovrn.com",
+        "revcontent.com", "sharethrough.com", "sovrn.com",
         "adcolony.com", "applovin.com", "chartboost.com", "fyber.com", "ironsrc.com",
         "unityads.unity3d.com", "vungle.com", "flurry.com", "inmobi.com", "tapjoy.com",
-        "mgid.com", "propellerads.com", "popcash.net", "popads.net", "yandex.ru", "mail.ru",
-        "serving-sys.com", "adnxs.com", "contextweb.com", "bidswitch.net", "rubiconproject.com",
-        "popads.net", "popcash.net", "adcash.com", "adsterra.com", "ad-maven.com",
-        "propellerads.com", "clickadu.com", "hilltopads.com", "evadav.com", "activerevenue.com",
-        "ad-maven.com", "shorte.st", "adf.ly", "bitly.com", "tinyurl.com", "t.co",
-        "adform.net", "bidswitch.net", "casalemedia.com", "criteo.com", "openx.net",
-        "pubmatic.com", "rubiconproject.com", "smartadserver.com", "yieldmo.com"
+        "mgid.com", "propellerads.com", "popcash.net", "yandex.ru", "mail.ru",
+        "serving-sys.com", "contextweb.com", "adcash.com", "adsterra.com", "ad-maven.com",
+        "clickadu.com", "hilltopads.com", "evadav.com", "activerevenue.com",
+        "shorte.st", "adf.ly", "bitly.com", "tinyurl.com", "t.co",
+        "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com", "ezoic.com"
     )
 
-    private val ANALYTICS_DOMAINS = setOf(
+    private val ANALYTICS_DOMAINS = hashSetOf(
         "google-analytics.com", "analytics.google.com", "googletagmanager.com",
         "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
         "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com",
@@ -35,12 +33,11 @@ object AdBlockManager {
         "amplitude.com", "statcounter.com", "inspectlet.com", "fullstory.com",
         "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com",
         "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io",
-        "fullstory.com", "inspectlet.com", "hotjar.com", "crazyegg.com", "mouseflow.com",
         "luckyorange.com", "clicktale.com", "sessionstack.com", "smartlook.com",
         "userway.org", "equalweb.com", "accessibe.com", "audioeye.com"
     )
 
-    private val SOCIAL_DOMAINS = setOf(
+    private val SOCIAL_DOMAINS = hashSetOf(
         "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
         "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com",
         "ads-api.twitter.com", "pixel.facebook.com", "connect.facebook.net",
@@ -49,12 +46,14 @@ object AdBlockManager {
     )
 
     fun getCategory(host: String): String? {
-        return when {
-            ADS_DOMAINS.any { host.contains(it) } -> "[Ad]"
-            ANALYTICS_DOMAINS.any { host.contains(it) } -> "[Analytics]"
-            SOCIAL_DOMAINS.any { host.contains(it) } -> "[Social]"
-            else -> null
+        val parts = host.split(".")
+        for (i in parts.indices) {
+            val domain = parts.subList(i, parts.size).joinToString(".")
+            if (ADS_DOMAINS.contains(domain)) return "[Ad]"
+            if (ANALYTICS_DOMAINS.contains(domain)) return "[Analytics]"
+            if (SOCIAL_DOMAINS.contains(domain)) return "[Social]"
         }
+        return null
     }
 
     fun shouldBlock(host: String): Boolean {
@@ -73,11 +72,15 @@ object AdBlockManager {
                     ".ad-container", "[class*='ad-unit']", ".sponsored-content",
                     "div[class*='AdContainer']", "div[class*='promoted']", "div[class*='sponsored']",
                     "iframe[src*='doubleclick.net']", "iframe[src*='googleads']",
-                    "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad"
+                    "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad",
+                    ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]"
                 ];
                 const style = document.createElement('style');
-                style.innerHTML = selectors.join(', ') + ' { display: none !important; }';
-                document.head.appendChild(style);
+                style.id = 'omni-adblock-style';
+                style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; }';
+                if (!document.getElementById('omni-adblock-style')) {
+                    document.head.appendChild(style);
+                }
             })();
         """.trimIndent()
     }
