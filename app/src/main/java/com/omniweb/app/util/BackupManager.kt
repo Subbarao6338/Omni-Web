@@ -2,11 +2,12 @@ package com.omniweb.app.util
 
 import com.omniweb.app.data.Bookmark
 import com.omniweb.app.data.Settings
+import com.omniweb.app.data.Shortcut
 import org.json.JSONArray
 import org.json.JSONObject
 
 object BackupManager {
-    fun exportData(bookmarks: List<Bookmark>, settings: Settings): String {
+    fun exportData(bookmarks: List<Bookmark>, shortcuts: List<Shortcut>, settings: Settings): String {
         val root = JSONObject()
 
         val bookmarksArray = JSONArray()
@@ -17,6 +18,15 @@ object BackupManager {
             bookmarksArray.put(obj)
         }
         root.put("bookmarks", bookmarksArray)
+
+        val shortcutsArray = JSONArray()
+        shortcuts.forEach {
+            val obj = JSONObject()
+            obj.put("title", it.title)
+            obj.put("url", it.url)
+            shortcutsArray.put(obj)
+        }
+        root.put("shortcuts", shortcutsArray)
 
         val settingsObj = JSONObject()
         settingsObj.put("searchEngine", settings.searchEngine)
@@ -36,6 +46,19 @@ object BackupManager {
             for (i in 0 until array.length()) {
                 val obj = array.getJSONObject(i)
                 list.add(Bookmark(title = obj.getString("title"), url = obj.getString("url")))
+            }
+        }
+        return list
+    }
+
+    fun importShortcuts(json: String): List<Shortcut> {
+        val list = mutableListOf<Shortcut>()
+        val root = JSONObject(json)
+        if (root.has("shortcuts")) {
+            val array = root.getJSONArray("shortcuts")
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                list.add(Shortcut(title = obj.getString("title"), url = obj.getString("url")))
             }
         }
         return list

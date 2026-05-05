@@ -22,7 +22,8 @@ object AdBlockManager {
         "serving-sys.com", "contextweb.com", "adcash.com", "adsterra.com", "ad-maven.com",
         "clickadu.com", "hilltopads.com", "evadav.com", "activerevenue.com",
         "shorte.st", "adf.ly", "bitly.com", "tinyurl.com", "t.co",
-        "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com", "ezoic.com"
+        "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com", "ezoic.com",
+        "buysellads.com", "srv.buysellads.com", "exponential.com", "dotomi.com", "quantcount.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -73,7 +74,8 @@ object AdBlockManager {
                     "div[class*='AdContainer']", "div[class*='promoted']", "div[class*='sponsored']",
                     "iframe[src*='doubleclick.net']", "iframe[src*='googleads']",
                     "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad",
-                    ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]"
+                    ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
+                    "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']"
                 ];
                 const style = document.createElement('style');
                 style.id = 'omni-adblock-style';
