@@ -137,7 +137,8 @@ object PageUtils {
             // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
             // article/section tags get a bonus
             val tagBonus = if (tag == "article") 50 else if (tag == "section") 20 else 0
-            val score = (pCount * 25) + (inner.length / 80) - (linkCount * 12) + (imgCount * 8) + tagBonus
+            val pBonus = if (pCount > 5) 100 else 0
+            val score = (pCount * 25) + (inner.length / 80) - (linkCount * 12) + (imgCount * 8) + tagBonus + pBonus
 
             if (score > bestScore && inner.length > 150) {
                 bestScore = score
@@ -152,5 +153,29 @@ object PageUtils {
         content = content.replace(Regex("<div.*?>", RegexOption.IGNORE_CASE), "<div>")
 
         return content.trim()
+    }
+
+    fun takeFullPageScreenshot(context: Context, webView: WebView, title: String) {
+        try {
+            val scale = webView.scale
+            val width = webView.width
+            val maxHeight = 12000 // Prevention of OutOfMemoryError
+            val height = (webView.contentHeight * scale).toInt().coerceAtMost(maxHeight)
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            val canvas = Canvas(bitmap)
+            webView.draw(canvas)
+
+            val fileName = "FullScreenshot_${title.replace(Regex("[^a-zA-Z0-9]"), "_")}_${System.currentTimeMillis()}.png"
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+            val file = File(dir, fileName)
+
+            FileOutputStream(file).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            Toast.makeText(context, "Full page screenshot saved: ${file.name}", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(context, "Failed to take full screenshot: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 }

@@ -8,9 +8,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.omniweb.app.util.CryptoUtils
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.omniweb.app.data.AppDatabase
@@ -42,15 +46,41 @@ fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
                 items(passwords) { entry ->
+                    var showPassword by remember { mutableStateOf(false) }
+                    val decryptedPassword = remember(entry, showPassword) {
+                        if (showPassword) {
+                            try {
+                                CryptoUtils.decrypt(entry.encryptedPassword, entry.iv)
+                            } catch (e: Exception) {
+                                "Error decrypting"
+                            }
+                        } else {
+                            "••••••••"
+                        }
+                    }
+
                     ListItem(
                         headlineContent = { Text(entry.site) },
-                        supportingContent = { Text(entry.username) },
+                        supportingContent = {
+                            Column {
+                                Text(entry.username)
+                                Text(decryptedPassword, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         leadingContent = { Icon(Icons.Default.Lock, contentDescription = null) },
                         trailingContent = {
-                            IconButton(onClick = {
-                                scope.launch { database.passwordDao().deletePassword(entry) }
-                            }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete")
+                            Row {
+                                IconButton(onClick = { showPassword = !showPassword }) {
+                                    Icon(
+                                        if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = "Toggle Password"
+                                    )
+                                }
+                                IconButton(onClick = {
+                                    scope.launch { database.passwordDao().deletePassword(entry) }
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete")
+                                }
                             }
                         }
                     )

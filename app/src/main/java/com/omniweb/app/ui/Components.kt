@@ -66,7 +66,7 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Uni
         ElevatedCard(
             modifier = Modifier.size(64.dp),
             shape = RoundedCornerShape(20.dp),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp, pressedElevation = 8.dp),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp, pressedElevation = 6.dp),
             colors = CardDefaults.elevatedCardColors(
                 containerColor = MaterialTheme.colorScheme.surface
             )

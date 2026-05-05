@@ -7,9 +7,10 @@ object AdBlockManager {
         "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
         "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
         "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
-        "carbonads.net", "ad-delivery.net", "adform.net",
+        "ad-delivery.net", "adform.net", "adservice.com", "adspirit.de", "adtarget.me",
+        "adthor.com", "ad-up.com", "advid.tv", "adzerk.net", "affise.com",
         "rubiconproject.com", "smartadserver.com", "criteo.com", "casalemedia.com",
-        "atdmt.com", "adnxs-simple.com", "adgrx.com",
+        "atdmt.com", "adnxs-simple.com", "adgrx.com", "bidtheatre.com", "bidvertiser.com",
         "adhigh.net", "adinall.com", "adition.com", "admanmedia.com", "admicro.vn",
         "admixer.net", "adotmob.com", "adperium.com", "adriver.ru", "adrtx.com",
         "ads-pixie.com", "ads-union.com", "ads-zero.com", "adsafeprotected.com",
@@ -75,7 +76,9 @@ object AdBlockManager {
                     "iframe[src*='doubleclick.net']", "iframe[src*='googleads']",
                     "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad",
                     ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
-                    "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']"
+                    "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
+                    "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
+                    "img[src*='pixel']", "div[class*='tracker']", "div[id*='tracker']"
                 ];
                 const style = document.createElement('style');
                 style.id = 'omni-adblock-style';

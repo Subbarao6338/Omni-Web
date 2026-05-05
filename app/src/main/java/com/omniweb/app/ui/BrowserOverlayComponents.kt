@@ -197,7 +197,7 @@ fun ReaderModeView(
 ) {
     var fontSize by remember { mutableFloatStateOf(18f) }
     var theme by remember { mutableStateOf("light") } // "light", "dark", "sepia"
-    var isSerif by remember { mutableStateOf(true) }
+    var fontFamilyType by remember { mutableStateOf("serif") } // "serif", "sans", "mono"
 
     val (backgroundColor, textColor) = when (theme) {
         "dark" -> Color(0xFF121212) to Color(0xFFE0E0E0)
@@ -235,8 +235,14 @@ fun ReaderModeView(
                     IconButton(onClick = { fontSize = (fontSize - 2f).coerceAtLeast(12f) }) {
                         Icon(Icons.Default.TextDecrease, contentDescription = "Decrease Font")
                     }
-                    IconButton(onClick = { isSerif = !isSerif }) {
-                        Icon(if (isSerif) Icons.Default.FontDownload else Icons.Default.FontDownloadOff, contentDescription = "Toggle Font")
+                    IconButton(onClick = {
+                        fontFamilyType = when(fontFamilyType) {
+                            "serif" -> "sans"
+                            "sans" -> "mono"
+                            else -> "serif"
+                        }
+                    }) {
+                        Icon(Icons.Default.FontDownload, contentDescription = "Toggle Font")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -262,7 +268,11 @@ fun ReaderModeView(
                 fontWeight = FontWeight.Black,
                 lineHeight = (fontSize * 1.8).sp,
                 color = textColor,
-                fontFamily = if (isSerif) androidx.compose.ui.text.font.FontFamily.Serif else androidx.compose.ui.text.font.FontFamily.SansSerif
+                fontFamily = when(fontFamilyType) {
+                    "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+                    "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                    else -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                }
             )
             Spacer(modifier = Modifier.height(24.dp))
             val cleanContent = content
@@ -279,7 +289,11 @@ fun ReaderModeView(
                 fontSize = fontSize.sp,
                 lineHeight = (fontSize * 1.6).sp,
                 color = textColor.copy(alpha = 0.9f),
-                fontFamily = if (isSerif) androidx.compose.ui.text.font.FontFamily.Serif else androidx.compose.ui.text.font.FontFamily.SansSerif
+                fontFamily = when(fontFamilyType) {
+                    "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+                    "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
+                    else -> androidx.compose.ui.text.font.FontFamily.SansSerif
+                }
             )
         }
     }

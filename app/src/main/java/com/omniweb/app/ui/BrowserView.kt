@@ -69,6 +69,7 @@ import com.omniweb.app.util.OmniDownloadManager
 import com.omniweb.app.util.PageUtils
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
+import com.omniweb.app.util.CryptoUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -308,9 +309,10 @@ fun BrowserView(
     }
 
     if (showTabs) {
+        val activeId by viewModel.activeTabId.collectAsState()
         TabSwitcherSheet(
             tabs = viewModel.tabs,
-            activeTabId = viewModel.activeTabId.value,
+            activeTabId = activeId,
             onTabSelect = { viewModel.selectTab(it) },
             onTabClose = { viewModel.closeTab(it) },
             onCloseAll = { viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) } },
@@ -470,9 +472,9 @@ fun BrowserView(
                         }
                     }
                     item {
-                        ToolButton(Icons.Default.CameraAlt, "Screenshot", Color(0xFF06B6D4)) {
+                        ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
                             val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            PageUtils.takeScreenshot(context, currentWebView, currentWebView.title ?: "Page")
+                            PageUtils.takeFullPageScreenshot(context, currentWebView, currentWebView.title ?: "Page")
                             showTools = false
                         }
                     }
@@ -649,7 +651,8 @@ fun BrowserView(
             confirmButton = {
                 TextButton(onClick = {
                     scope.launch {
-                        database.passwordDao().insertPassword(com.omniweb.app.data.PasswordEntry(site = site, username = user, password = pass))
+                        val (encrypted, iv) = CryptoUtils.encrypt(pass)
+                        database.passwordDao().insertPassword(com.omniweb.app.data.PasswordEntry(site = site, username = user, encryptedPassword = encrypted, iv = iv))
                         Toast.makeText(context, "Password saved", Toast.LENGTH_SHORT).show()
                     }
                     passwordToSave = null

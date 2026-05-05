@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        android.webkit.WebView.enableSlowWholeDocumentDraw()
 
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
@@ -67,7 +68,7 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
     val settings = settingsState ?: com.omniweb.app.data.Settings()
 
     val tabs = viewModel.tabs
-    val activeTabId by viewModel.activeTabId
+    val activeTabId by viewModel.activeTabId.collectAsState()
     val activeTab = tabs.find { it.id == activeTabId } ?: tabs.firstOrNull() ?: com.omniweb.app.data.TabInfo("default", "about:home", "Home")
 
     val accentColor = try {

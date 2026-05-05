@@ -99,7 +99,7 @@ fun BrowserAddressBar(
                                 value = urlInput,
                                 onValueChange = onUrlChange,
                                 modifier = Modifier.fillMaxWidth().height(48.dp),
-                                shape = RoundedCornerShape(24.dp),
+                                shape = RoundedCornerShape(12.dp),
                                 singleLine = true,
                                 leadingIcon = {
                                     if (pageFavicon != null) {
