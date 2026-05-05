@@ -199,7 +199,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     private fun hibernateTabsIfNeeded() {
         val now = System.currentTimeMillis()
-        val timeout = 5 * 60 * 1000 // 5 minutes
+        val timeout = 2 * 60 * 1000 // 2 minutes
         tabs.forEach { tab ->
             if (tab.id != activeTabId.value) {
                 val lastActive = tabLastActive[tab.id] ?: 0L

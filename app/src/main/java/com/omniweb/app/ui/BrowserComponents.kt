@@ -138,6 +138,18 @@ fun BrowserAddressBar(
                                         }
                                     }
                                 },
+                                supportingText = {
+                                    if (isLoading) {
+                                        LinearProgressIndicator(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(2.dp)
+                                                .clip(RoundedCornerShape(1.dp)),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            trackColor = Color.Transparent
+                                        )
+                                    }
+                                },
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                 keyboardActions = KeyboardActions(onGo = { onGo() }),
                                 colors = TextFieldDefaults.colors(
@@ -149,18 +161,6 @@ fun BrowserAddressBar(
                                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
                             )
 
-                            if (isLoading) {
-                                LinearProgressIndicator(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .height(3.dp)
-                                        .padding(horizontal = 12.dp)
-                                        .clip(RoundedCornerShape(4.dp)),
-                                    color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                )
-                            }
                         }
 
                         AnimatedVisibility(

@@ -23,6 +23,7 @@ class OmniDownloadManager(private val context: Context) {
 
     fun startDownload(url: String, fileName: String) {
         val sanitizedName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .replace(Regex("[^a-zA-Z0-9._-]"), "_")
         val isVideoUrl = url.contains("youtube.com") || url.contains("youtu.be") || url.contains("instagram.com") || url.contains("x.com") || url.contains("facebook.com")
 
         if (isVideoUrl) {
@@ -119,7 +120,8 @@ class OmniDownloadManager(private val context: Context) {
             request.addOption("--retries", "3")
 
             withContext(Dispatchers.IO) {
-                YoutubeDL.getInstance().execute(request) { progress, _, _ ->
+                try {
+                    YoutubeDL.getInstance().execute(request) { progress, _, _ ->
                     scope.launch {
                        db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
                            db.downloadDao().updateDownload(currentTask.copy(
@@ -129,6 +131,9 @@ class OmniDownloadManager(private val context: Context) {
                            ))
                        }
                     }
+                    }
+                } catch (e: Exception) {
+                    throw e
                 }
             }
 

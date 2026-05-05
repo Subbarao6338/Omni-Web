@@ -338,8 +338,9 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                     trailingContent = {
                         IconButton(onClick = {
                             scope.launch {
-                            val bookmarks = database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()
-                                val json = BackupManager.exportData(bookmarks, settings)
+                        val bookmarks = database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()
+                        val shortcuts = database.shortcutDao().getAllShortcuts().firstOrNull() ?: emptyList()
+                        val json = BackupManager.exportData(bookmarks, shortcuts, settings)
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val clip = ClipData.newPlainText("OmniBackup", json)
                                 clipboard.setPrimaryClip(clip)
@@ -361,10 +362,12 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                                 if (json != null) {
                                     scope.launch {
                                         val newBookmarks = BackupManager.importBookmarks(json)
+                                        val newShortcuts = BackupManager.importShortcuts(json)
                                         val newSettings = BackupManager.importSettings(json, settings)
 
                                         database.settingsDao().updateSettings(newSettings)
                                         newBookmarks.forEach { database.bookmarkDao().insertBookmark(it) }
+                                        newShortcuts.forEach { database.shortcutDao().insertShortcut(it) }
 
                                         Toast.makeText(context, "Data imported successfully", Toast.LENGTH_SHORT).show()
                                     }

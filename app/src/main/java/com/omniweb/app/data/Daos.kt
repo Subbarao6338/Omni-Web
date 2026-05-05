@@ -143,3 +143,18 @@ interface PasswordDao {
     @Query("DELETE FROM passwords")
     suspend fun clearAllPasswords()
 }
+
+@Dao
+interface ReadingListDao {
+    @Query("SELECT * FROM reading_list ORDER BY timestamp DESC")
+    fun getAllEntries(): Flow<List<ReadingListEntry>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEntry(entry: ReadingListEntry)
+
+    @Delete
+    suspend fun deleteEntry(entry: ReadingListEntry)
+
+    @Query("DELETE FROM reading_list")
+    suspend fun clearAll()
+}

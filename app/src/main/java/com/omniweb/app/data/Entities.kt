@@ -11,6 +11,15 @@ data class Bookmark(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+@Entity(tableName = "reading_list")
+data class ReadingListEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val url: String,
+    val filePath: String? = null,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "passwords")
 data class PasswordEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

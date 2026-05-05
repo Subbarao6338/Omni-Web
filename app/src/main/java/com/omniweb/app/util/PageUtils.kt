@@ -39,12 +39,14 @@ object PageUtils {
         printManager.print(jobName, printAdapter, PrintAttributes.Builder().build())
     }
 
-    fun saveAsMhtml(context: Context, webView: WebView, title: String) {
+    fun saveAsMhtml(context: Context, webView: WebView, title: String): String? {
         val fileName = "${title.replace(Regex("[^a-zA-Z0-9]"), "_")}_${System.currentTimeMillis()}.mhtml"
-        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        val dir = File(context.getExternalFilesDir(null), "offline")
+        if (!dir.exists()) dir.mkdirs()
         val file = File(dir, fileName)
         webView.saveWebArchive(file.absolutePath)
-        Toast.makeText(context, "Saved as MHTML: ${file.name}", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Saved for offline viewing", Toast.LENGTH_SHORT).show()
+        return file.absolutePath
     }
 
     fun saveAsMarkdown(context: Context, html: String, title: String) {
