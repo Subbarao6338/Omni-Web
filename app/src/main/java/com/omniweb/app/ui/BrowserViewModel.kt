@@ -27,6 +27,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val webViewCache = mutableMapOf<String, WebView>()
     private val webViewStateCache = mutableMapOf<String, android.os.Bundle>()
     private val _searchQuery = MutableStateFlow("")
+    private val suggestionCache = mutableMapOf<String, List<Suggestion>>()
+    val recentlyClosedTabs = mutableStateListOf<TabInfo>()
 
     val blockedTrackersByTab = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
     private val tabLastActive = mutableMapOf<String, Long>()
@@ -154,6 +156,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val index = tabs.indexOfFirst { it.id == id }
         if (index != -1) {
             val removedTab = tabs.removeAt(index)
+            recentlyClosedTabs.add(0, removedTab)
+            if (recentlyClosedTabs.size > 10) recentlyClosedTabs.removeLast()
+
             viewModelScope.launch {
                 database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))
             }
@@ -196,6 +201,15 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _activeTabId.value = id
         tabLastActive[id] = System.currentTimeMillis()
         hibernateTabsIfNeeded()
+    }
+
+    fun restoreLastClosedTab() {
+        if (recentlyClosedTabs.isNotEmpty()) {
+            val tab = recentlyClosedTabs.removeAt(0)
+            tabs.add(tab)
+            _activeTabId.value = tab.id
+            saveTabToDb(tab)
+        }
     }
 
     private fun hibernateTabsIfNeeded() {
@@ -261,6 +275,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private suspend fun fetchLiveSuggestions(query: String): List<Suggestion> = withContext(Dispatchers.IO) {
+        suggestionCache[query]?.let { return@withContext it }
         try {
             val url = URL("https://duckduckgo.com/ac/?q=${android.net.Uri.encode(query)}")
             val connection = url.openConnection() as HttpURLConnection
@@ -273,6 +288,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 val phrase = obj.getString("phrase")
                 suggestions.add(Suggestion(phrase, phrase, isHistory = false))
             }
+            suggestionCache[query] = suggestions
             suggestions
         } catch (e: Exception) {
             emptyList()

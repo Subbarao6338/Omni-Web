@@ -4,7 +4,9 @@ object AdBlockManager {
     private val ADS_DOMAINS = hashSetOf(
         "doubleclick.net", "googleadservices.com", "adnxs.com", "googlesyndication.com",
         "zedo.com", "amazon-adsystem.com", "adservice.google.com", "ad.doubleclick.net",
+        "googleads.g.doubleclick.net", "securepubads.g.doubleclick.net",
         "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
+        "pagead2.googleadservices.com",
         "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
         "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
         "ad-delivery.net", "adform.net", "adservice.com", "adspirit.de", "adtarget.me",
@@ -34,6 +36,7 @@ object AdBlockManager {
         "scorecardresearch.com", "chartbeat.com", "clicky.com", "newrelic.com",
         "amplitude.com", "statcounter.com", "inspectlet.com", "fullstory.com",
         "bugsnag.com", "sentry.io", "crashlytics.com", "app-measurement.com",
+        "crashlytics-reports-pa.googleapis.com", "firebase-settings.crashlytics.com",
         "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io",
         "luckyorange.com", "clicktale.com", "sessionstack.com", "smartlook.com",
         "userway.org", "equalweb.com", "accessibe.com", "audioeye.com"

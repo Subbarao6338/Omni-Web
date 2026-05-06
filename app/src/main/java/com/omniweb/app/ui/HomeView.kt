@@ -301,8 +301,8 @@ fun HomeView(
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
             modifier = Modifier.heightIn(max = 2000.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             userScrollEnabled = false
         ) {
             items(shortcuts) { shortcut ->

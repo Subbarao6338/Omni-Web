@@ -299,8 +299,11 @@ private fun mediaSnifferScript() = """
                 }
             });
             performance.getEntriesByType('resource').forEach(resource => {
-                const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd');
+                const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd') || resource.name.includes('.ts');
                 if (isHls && !seen.has(resource.name)) {
+                    // Ignore common noise
+                    if (resource.name.includes('google-analytics') || resource.name.includes('doubleclick')) return;
+
                     seen.add(resource.name);
                     media.push({
                         id: 'stream-' + Math.random().toString(36).substr(2, 5),

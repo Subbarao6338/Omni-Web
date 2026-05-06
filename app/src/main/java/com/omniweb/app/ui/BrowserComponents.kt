@@ -139,7 +139,11 @@ fun BrowserAddressBar(
                                     }
                                 },
                                 supportingText = {
-                                    if (isLoading) {
+                                    androidx.compose.animation.AnimatedVisibility(
+                                        visible = isLoading,
+                                        enter = fadeIn(),
+                                        exit = fadeOut()
+                                    ) {
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -241,12 +245,31 @@ fun TabSwitcherSheet(
     onNewTab: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var showCloseAllDialog by remember { mutableStateOf(false) }
+
+    if (showCloseAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showCloseAllDialog = false },
+            title = { Text("Close All Tabs?") },
+            text = { Text("Are you sure you want to close all open tabs?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onCloseAll()
+                    showCloseAllDialog = false
+                }) { Text("Close All", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloseAllDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Tabs", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Row {
-                    IconButton(onClick = onCloseAll) {
+                    IconButton(onClick = { showCloseAllDialog = true }) {
                         Icon(Icons.Default.DeleteSweep, contentDescription = "Close All Tabs", tint = MaterialTheme.colorScheme.error)
                     }
                     IconButton(onClick = { onNewTab(true) }) {

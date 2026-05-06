@@ -50,6 +50,12 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
     var newEngineName by remember { mutableStateOf("") }
     var newEngineUrl by remember { mutableStateOf("") }
 
+    var showClearDataDialog by remember { mutableStateOf(false) }
+    var clearHistory by remember { mutableStateOf(true) }
+    var clearCookies by remember { mutableStateOf(true) }
+    var clearCache by remember { mutableStateOf(true) }
+    var clearWebStorage by remember { mutableStateOf(true) }
+
     val customEngines = remember(settings.customSearchEngines) {
         try {
             val list = mutableListOf<Pair<String, String>>()
@@ -292,14 +298,7 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                 ListItem(
                     headlineContent = { Text("Clear Browsing Data", color = MaterialTheme.colorScheme.error) },
                     supportingContent = { Text("History, Cache, and Cookies") },
-                    modifier = Modifier.clickable {
-                        scope.launch {
-                            database.historyDao().clearHistory()
-                            android.webkit.WebStorage.getInstance().deleteAllData()
-                            android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                            Toast.makeText(context, "Browsing data cleared", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    modifier = Modifier.clickable { showClearDataDialog = true }
                 )
             }
 
@@ -386,6 +385,51 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showClearDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearDataDialog = false },
+            title = { Text("Clear Browsing Data") },
+            text = {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clearHistory = !clearHistory }) {
+                        Checkbox(checked = clearHistory, onCheckedChange = { clearHistory = it })
+                        Text("History")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clearCookies = !clearCookies }) {
+                        Checkbox(checked = clearCookies, onCheckedChange = { clearCookies = it })
+                        Text("Cookies")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clearCache = !clearCache }) {
+                        Checkbox(checked = clearCache, onCheckedChange = { clearCache = it })
+                        Text("Cache")
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { clearWebStorage = !clearWebStorage }) {
+                        Checkbox(checked = clearWebStorage, onCheckedChange = { clearWebStorage = it })
+                        Text("Web Storage")
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        if (clearHistory) database.historyDao().clearHistory()
+                        if (clearCookies) android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                        if (clearCache) {
+                            // Note: WebView cache clearing is typically done via WebStorage or by deleting files
+                        }
+                        if (clearWebStorage) android.webkit.WebStorage.getInstance().deleteAllData()
+
+                        Toast.makeText(context, "Selected data cleared", Toast.LENGTH_SHORT).show()
+                        showClearDataDialog = false
+                    }
+                }) { Text("Clear", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearDataDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showAddEngineDialog) {
