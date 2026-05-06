@@ -233,10 +233,8 @@ fun WebViewContainer(
                             if (adBlockEnabled) {
                                 val category = AdBlockManager.getCategory(reqHost)
                                 if (category != null) {
-                                    synchronized(viewModel.blockedTrackersByTab) {
-                                        val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { mutableSetOf() }
-                                        blockedSet.add("$category $reqHost")
-                                    }
+                                    val blockedSet = viewModel.blockedTrackersByTab.getOrPut(tab.id) { java.util.concurrent.ConcurrentHashMap.newKeySet<String>() }
+                                    blockedSet.add("$category $reqHost")
                                     return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
                             }

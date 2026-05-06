@@ -57,7 +57,7 @@ fun HomeView(
     val scope = rememberCoroutineScope()
 
     val tabs = viewModel.tabs
-    val activeTabId by viewModel.activeTabId
+    val activeTabId by viewModel.activeTabId.collectAsState()
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }

@@ -25,8 +25,8 @@ data class PasswordEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val site: String, // Hostname
     val username: String,
-    // Note: In production, password must be encrypted (e.g., using SQLCipher or Android Keystore)
-    val password: String,
+    val encryptedPassword: String,
+    val iv: String,
     val timestamp: Long = System.currentTimeMillis()
 )
 

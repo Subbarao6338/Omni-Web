@@ -22,12 +22,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val database = AppDatabase.getDatabase(application)
 
     val tabs = mutableStateListOf<TabInfo>()
-    val activeTabId = mutableStateOf("")
+    private val _activeTabId = MutableStateFlow("")
+    val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
     private val webViewCache = mutableMapOf<String, WebView>()
     private val webViewStateCache = mutableMapOf<String, android.os.Bundle>()
     private val _searchQuery = MutableStateFlow("")
 
-    val blockedTrackersByTab = mutableMapOf<String, MutableSet<String>>()
+    val blockedTrackersByTab = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
     private val tabLastActive = mutableMapOf<String, Long>()
     private val perSiteSettingsCache = mutableMapOf<String, PerSiteSettings>()
 
@@ -35,7 +36,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         // Initialize with a default tab to avoid empty state; it will be replaced if saved tabs are restored.
         val initialId = UUID.randomUUID().toString()
         tabs.add(TabInfo(initialId, "about:home", "Home"))
-        activeTabId.value = initialId
+        _activeTabId.value = initialId
 
         viewModelScope.launch {
             val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
@@ -47,7 +48,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 }
                 tabs.clear()
                 tabs.addAll(restoredTabs)
-                activeTabId.value = restoredTabs.first().id
+                _activeTabId.value = restoredTabs.first().id
             } else {
                 if (!currentSettings.restoreTabsOnStart) {
                     database.tabDao().clearAllTabs()
@@ -77,7 +78,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val id = UUID.randomUUID().toString()
         val newTab = TabInfo(id, "about:home", "Home")
         tabs.add(newTab)
-        activeTabId.value = id
+        _activeTabId.value = id
         saveTabToDb(newTab)
     }
 
@@ -145,7 +146,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun createTab(url: String = "about:home", title: String = "Home", isIncognito: Boolean = false) {
         val newTab = TabInfo(UUID.randomUUID().toString(), url, title, isIncognito)
         tabs.add(newTab)
-        activeTabId.value = newTab.id
+        _activeTabId.value = newTab.id
         saveTabToDb(newTab)
     }
 
@@ -170,8 +171,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
             if (tabs.isEmpty()) {
                 createTab()
-            } else if (activeTabId.value == id) {
-                activeTabId.value = tabs[maxOf(0, index - 1)].id
+            } else if (_activeTabId.value == id) {
+                _activeTabId.value = tabs[maxOf(0, index - 1)].id
             }
         }
     }
@@ -192,7 +193,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun selectTab(id: String) {
-        activeTabId.value = id
+        _activeTabId.value = id
         tabLastActive[id] = System.currentTimeMillis()
         hibernateTabsIfNeeded()
     }
@@ -201,7 +202,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val now = System.currentTimeMillis()
         val timeout = 2 * 60 * 1000 // 2 minutes
         tabs.forEach { tab ->
-            if (tab.id != activeTabId.value) {
+            if (tab.id != _activeTabId.value) {
                 val lastActive = tabLastActive[tab.id] ?: 0L
                 if (now - lastActive > timeout && webViewCache.containsKey(tab.id)) {
                     webViewCache.remove(tab.id)?.let { webView ->
@@ -211,6 +212,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                         webView.stopLoading()
                         webView.webChromeClient = null
                         webView.webViewClient = WebViewClient()
+                        webView.clearHistory()
+                        webView.removeAllViews()
                         webView.destroy()
                     }
                 }
