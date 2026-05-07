@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class, PerSiteSettings::class, ReadingListEntry::class],
-    version = 13,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -92,6 +92,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `settings` ADD COLUMN `httpsOnlyMode` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `settings` ADD COLUMN `deepDarkMode` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -99,12 +111,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "omni_browser_db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, customUserAgent, customSearchEngines) " +
-                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, NULL, NULL)")
+                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, httpsOnlyMode, deepDarkMode, customUserAgent, customSearchEngines) " +
+                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, 0, 0, NULL, NULL)")
                     }
                 })
                 .fallbackToDestructiveMigration()

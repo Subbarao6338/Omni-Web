@@ -6,11 +6,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -289,57 +291,92 @@ fun TabSwitcherSheet(
             ) {
                 items(tabs) { tab ->
                     val isSelected = tab.id == activeTabId
-                    OutlinedCard(
+                    ElevatedCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
+                            .height(180.dp)
                             .clickable {
                                 onTabSelect(tab.id)
                                 onDismiss()
                             },
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.outlinedCardColors(
-                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
                         ),
-                        border = androidx.compose.foundation.BorderStroke(
-                            width = if (isSelected) 3.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                        ),
-                        elevation = if (isSelected) CardDefaults.outlinedCardElevation(defaultElevation = 8.dp) else CardDefaults.outlinedCardElevation()
+                        elevation = CardDefaults.elevatedCardElevation(
+                            defaultElevation = if (isSelected) 8.dp else 2.dp
+                        )
                     ) {
-                        Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                    Icon(
-                                        if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    Surface(
+                                        color = if (tab.isIncognito) Color(0xFF6366F1).copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        shape = CircleShape,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp),
+                                                tint = if (tab.isIncognito) Color(0xFF6366F1) else MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = tab.title,
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(tab.title, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
-                                IconButton(
+                                Surface(
                                     onClick = { onTabClose(tab.id) },
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                                     modifier = Modifier.size(24.dp)
                                 ) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close Tab", modifier = Modifier.size(16.dp))
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
+                                    }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Box(modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 if (tab.faviconBitmap != null) {
                                     Image(
                                         bitmap = tab.faviconBitmap!!.asImageBitmap(),
                                         contentDescription = null,
-                                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
                                     )
                                 } else {
-                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f), modifier = Modifier.size(32.dp))
+                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), modifier = Modifier.size(32.dp))
+                                }
+
+                                if (isSelected) {
+                                    Box(modifier = Modifier.fillMaxSize().border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)))
                                 }
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(tab.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = tab.url,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 4.dp)
+                            )
                         }
                     }
                 }

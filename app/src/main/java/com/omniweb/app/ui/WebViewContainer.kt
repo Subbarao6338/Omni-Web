@@ -2,6 +2,7 @@ package com.omniweb.app.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.os.Build
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.view.View
@@ -183,14 +184,32 @@ fun WebViewContainer(
                                 onBookmarkletDetected(url)
                                 return true
                             }
+
+                            if (settings.httpsOnlyMode && url.startsWith("http://")) {
+                                val httpsUrl = url.replace("http://", "https://")
+                                view?.loadUrl(httpsUrl)
+                                return true
+                            }
+
                             return false
                         }
 
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             tab.isLoading = true
                             url?.let {
-                                val host = Uri.parse(it).host ?: ""
+                                val uri = Uri.parse(it)
+                                val host = uri.host ?: ""
                                 viewModel.preloadPerSiteSettings(host)
+
+                                // DNS Pre-fetch for common resources
+                                view?.evaluateJavascript("""
+                                    (function() {
+                                        const link = document.createElement('link');
+                                        link.rel = 'dns-prefetch';
+                                        link.href = '${uri.scheme}://${host}';
+                                        document.head.appendChild(link);
+                                    })();
+                                """.trimIndent(), null)
                             }
                         }
 
@@ -198,6 +217,33 @@ fun WebViewContainer(
                             tab.isLoading = false
                             if (settings.adBlockEnabled) {
                                 view?.evaluateJavascript(AdBlockManager.getAdBlockScript(), null)
+                            }
+
+                            if (settings.deepDarkMode) {
+                                view?.evaluateJavascript("""
+                                    (function() {
+                                        if (window.omniDeepDark) return;
+                                        window.omniDeepDark = true;
+                                        const style = document.createElement('style');
+                                        style.innerHTML = `
+                                            html, body {
+                                                background-color: #121212 !important;
+                                                color: #e0e0e0 !important;
+                                            }
+                                            div, section, article, p, span, li, h1, h2, h3, h4, h5, h6 {
+                                                background-color: transparent !important;
+                                                color: #e0e0e0 !important;
+                                            }
+                                            a {
+                                                color: #bb86fc !important;
+                                            }
+                                            img, video {
+                                                filter: brightness(0.8) contrast(1.2) !important;
+                                            }
+                                        `;
+                                        document.head.appendChild(style);
+                                    })();
+                                """.trimIndent(), null)
                             }
 
                             // Password Management: Injection
@@ -255,7 +301,19 @@ fun WebViewContainer(
 
                 val cm = context.getSystemService(ConnectivityManager::class.java)
                 val activeNetwork = cm.activeNetworkInfo
-                view.settings.cacheMode = if (activeNetwork?.isConnected == true) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+                val isSlowConnection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
+                    capabilities != null && (capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || capabilities.linkDownstreamBandwidthKbps < 2000)
+                } else {
+                    activeNetwork?.type == ConnectivityManager.TYPE_MOBILE
+                }
+
+                view.settings.cacheMode = if (activeNetwork?.isConnected == true) {
+                    if (isSlowConnection) WebSettings.LOAD_CACHE_ELSE_NETWORK else WebSettings.LOAD_DEFAULT
+                } else {
+                    WebSettingsCompat.setSafeBrowsingEnabled(view.settings, false)
+                    WebSettings.LOAD_CACHE_ONLY
+                }
 
                 view.settings.javaScriptEnabled = settings.javaScriptEnabled
 

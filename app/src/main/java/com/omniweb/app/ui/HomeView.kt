@@ -98,226 +98,239 @@ fun HomeView(
             }
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .verticalScroll(rememberScrollState())
-                .padding(top = 80.dp, start = 24.dp, end = 24.dp, bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(MaterialTheme.colorScheme.surface),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(56.dp))
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(text = "Omni Browser", fontSize = 32.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurface)
-        Spacer(modifier = Modifier.height(48.dp))
-
-        val focusManager = LocalFocusManager.current
-        TextField(
-            value = query,
-            onValueChange = {
-                query = it
-                viewModel.updateSuggestions(it)
-            },
-            placeholder = { Text("Search or type URL", fontSize = 16.sp) },
-            modifier = Modifier.fillMaxWidth().height(60.dp),
-            shape = RoundedCornerShape(20.dp),
-            leadingIcon = {
-                val icon = when {
-                    settings.searchEngine.contains("google") -> Icons.Default.Search
-                    settings.searchEngine.contains("duckduckgo") -> Icons.Default.Shield
-                    settings.searchEngine.contains("bing") -> Icons.Default.TravelExplore
-                    else -> Icons.Default.Language
+            item {
+                Spacer(modifier = Modifier.height(64.dp))
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Language,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(56.dp)
+                    )
                 }
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            },
-            trailingIcon = {
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = {
-                        query = ""
-                        viewModel.updateSuggestions("")
-                    }) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear")
-                    }
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = {
-                if (query.isNotEmpty()) {
-                    val target = UrlUtils.resolveUrl(query, settings.searchEngine)
-                    if (target == "about:home") {
-                        query = ""
-                    } else {
-                        onNavigate(target)
-                    }
-                }
-                focusManager.clearFocus()
-            }),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF1E1E1E) else Color.White,
-                unfocusedContainerColor = if (MaterialTheme.colorScheme.surface == Color(0xFF121212)) Color(0xFF2C2C2C) else Color(0xFFE5E7EB),
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-            )
-        )
+                Spacer(modifier = Modifier.height(24.dp))
+                Text(
+                    text = "Omni Browser",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(48.dp))
+            }
 
-        val suggestions by viewModel.searchSuggestions
-        if (suggestions.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column {
-                    suggestions.forEach { suggestion ->
-                        ListItem(
-                            headlineContent = { Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                            supportingContent = { Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
-                            leadingContent = { Icon(if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                            modifier = Modifier.clickable {
-                                val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+            item {
+                val focusManager = LocalFocusManager.current
+                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                    TextField(
+                        value = query,
+                        onValueChange = {
+                            query = it
+                            viewModel.updateSuggestions(it)
+                        },
+                        placeholder = { Text("Search or type URL", fontSize = 16.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        leadingIcon = {
+                            val icon = when {
+                                settings.searchEngine.contains("google") -> Icons.Default.Search
+                                settings.searchEngine.contains("duckduckgo") -> Icons.Default.Shield
+                                settings.searchEngine.contains("bing") -> Icons.Default.TravelExplore
+                                else -> Icons.Default.Language
+                            }
+                            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        trailingIcon = {
+                            if (query.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    query = ""
+                                    viewModel.updateSuggestions("")
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Clear")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            if (query.isNotEmpty()) {
+                                val target = UrlUtils.resolveUrl(query, settings.searchEngine)
                                 if (target != "about:home") {
                                     onNavigate(target)
                                 }
                             }
+                            focusManager.clearFocus()
+                        }),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
                         )
-                    }
-                }
-            }
-        }
+                    )
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        if (mostVisited.isNotEmpty()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Most Visited", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    modifier = Modifier.heightIn(max = 240.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    userScrollEnabled = false
-                ) {
-                    items(mostVisited.take(8)) { entry ->
-                        val tabInfo = tabs.find { it.url == entry.url }
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.clickable { onNavigate(entry.url) }
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(56.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shadowElevation = 1.dp
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (tabInfo?.faviconBitmap != null) {
-                                        androidx.compose.foundation.Image(
-                                            bitmap = tabInfo.faviconBitmap!!.asImageBitmap(),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    } else {
-                                        Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(entry.title, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-
-        val readingList by database.readingListDao().getAllEntries().collectAsState(initial = emptyList())
-        if (readingList.isNotEmpty()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text("Reading List", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(readingList) { entry ->
+                    val suggestions by viewModel.searchSuggestions
+                    if (suggestions.isNotEmpty() && query.isNotEmpty()) {
                         Card(
-                            modifier = Modifier.width(160.dp).clickable { onNavigate(entry.filePath ?: entry.url) },
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-
-        if (history.isNotEmpty()) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Recent History", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
-                    IconButton(onClick = {
-                        scope.launch { database.historyDao().clearHistory() }
-                    }, modifier = Modifier.offset(y = (-8).dp)) {
-                        Icon(Icons.Default.ClearAll, contentDescription = "Clear History", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    }
-                }
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(history.take(4)) { entry ->
-                        Card(
-                            modifier = Modifier.width(140.dp).clickable { onNavigate(entry.url) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 64.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
                         ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                            Column {
+                                suggestions.forEach { suggestion ->
+                                    ListItem(
+                                        headlineContent = { Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        supportingContent = { Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
+                                        leadingContent = { Icon(if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                        modifier = Modifier.clickable {
+                                            val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+                                            if (target != "about:home") {
+                                                onNavigate(target)
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+
+            if (shortcuts.isNotEmpty()) {
+                item {
+                    SectionHeader("Shortcuts", onAction = { showAddShortcutDialog = true }, actionIcon = Icons.Default.Add)
+                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
+                        val rowCount = (shortcuts.size + 1 + 3) / 4
+                        Column {
+                            for (i in 0 until rowCount) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceEvenly
+                                ) {
+                                    for (j in 0 until 4) {
+                                        val index = i * 4 + j
+                                        if (index < shortcuts.size) {
+                                            val shortcut = shortcuts[index]
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                ShortcutItem(
+                                                    shortcut,
+                                                    onClick = { onNavigate(shortcut.url) },
+                                                    onLongClick = {
+                                                        scope.launch {
+                                                            database.shortcutDao().deleteShortcut(shortcut)
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        } else if (index == shortcuts.size) {
+                                            Box(modifier = Modifier.weight(1f)) {
+                                                AddShortcutItem(onClick = { showAddShortcutDialog = true })
+                                            }
+                                        } else {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
                                 Spacer(modifier = Modifier.height(8.dp))
-                                Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(entry.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+
+            if (mostVisited.isNotEmpty()) {
+                item {
+                    SectionHeader("Most Visited")
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(mostVisited.take(8)) { entry ->
+                            val tabInfo = tabs.find { it.url == entry.url }
+                            MostVisitedCard(entry, tabInfo?.faviconBitmap) { onNavigate(entry.url) }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+
+            item {
+                val readingList by database.readingListDao().getAllEntries().collectAsState(initial = emptyList())
+                if (readingList.isNotEmpty()) {
+                    SectionHeader("Reading List")
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(readingList) { entry ->
+                            Card(
+                                modifier = Modifier
+                                    .width(160.dp)
+                                    .clickable { onNavigate(entry.filePath ?: entry.url) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+
+            if (history.isNotEmpty()) {
+                item {
+                    SectionHeader("Recent Activity", onAction = {
+                        scope.launch { database.historyDao().clearHistory() }
+                    }, actionIcon = Icons.Default.ClearAll)
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(history.take(10)) { entry ->
+                            Card(
+                                modifier = Modifier
+                                    .width(150.dp)
+                                    .clickable { onNavigate(entry.url) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(entry.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.url, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
                             }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(40.dp))
-        }
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-             Text("Shortcuts", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(bottom = 16.dp))
-        }
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
-            modifier = Modifier.heightIn(max = 2000.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            userScrollEnabled = false
-        ) {
-            items(shortcuts) { shortcut ->
-                ShortcutItem(
-                    shortcut,
-                    onClick = { onNavigate(shortcut.url) },
-                    onLongClick = {
-                        scope.launch {
-                            database.shortcutDao().deleteShortcut(shortcut)
-                        }
-                    }
-                )
-            }
-            item { AddShortcutItem(onClick = { showAddShortcutDialog = true }) }
-        }
         }
     }
 
@@ -405,5 +418,54 @@ fun HomeView(
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+    }
+}
+
+@Composable
+fun SectionHeader(title: String, onAction: (() -> Unit)? = null, actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+        if (onAction != null && actionIcon != null) {
+            IconButton(onClick = onAction) {
+                Icon(actionIcon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun MostVisitedCard(entry: com.omniweb.app.data.MostVisitedEntry, favicon: android.graphics.Bitmap?, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clickable { onClick() }
+    ) {
+        Surface(
+            modifier = Modifier.size(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shadowElevation = 2.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (favicon != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = favicon.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp).clip(RoundedCornerShape(4.dp))
+                    )
+                } else {
+                    Text(entry.title.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 20.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(entry.title, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }

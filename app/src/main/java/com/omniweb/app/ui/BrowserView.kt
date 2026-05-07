@@ -138,7 +138,6 @@ fun BrowserView(
     var findQuery by remember { mutableStateOf("") }
     var findMatchStatus by remember { mutableStateOf("") }
     var isDesktopMode by remember { mutableStateOf(false) }
-    var isForceDark by remember { mutableStateOf(false) }
     var isReaderMode by remember { mutableStateOf(false) }
     var readerContent by remember { mutableStateOf("") }
 
@@ -340,217 +339,127 @@ fun BrowserView(
 
     if (showTools) {
         ModalBottomSheet(onDismissRequest = { showTools = false }, containerColor = MaterialTheme.colorScheme.surface) {
-            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
-                Text("Page Tools", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState())) {
+                Text("Page Tools", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(24.dp))
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    item {
-                        ToolButton(Icons.Default.Add, "New Tab", Color(0xFF10B981)) {
-                            viewModel.createTab()
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.VisibilityOff, "New Incognito", Color(0xFF6366F1)) {
-                            viewModel.createTab(isIncognito = true)
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.url?.let {
-                                val intent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "text/plain"
-                                    putExtra(Intent.EXTRA_TEXT, it)
-                                }
-                                context.startActivity(Intent.createChooser(intent, "Share Link"))
+
+                ToolCategory("Page Actions") {
+                    item { ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        currentWebView.url?.let {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, it)
                             }
-                            showTools = false
+                            context.startActivity(Intent.createChooser(intent, "Share Link"))
                         }
-                    }
-                    item {
-                        ToolButton(Icons.Default.ContentCopy, "Copy URL", Color(0xFF8B5CF6)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.url?.let {
-                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
-                                Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                            }
-                            showTools = false
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.ContentCopy, "Copy Link", Color(0xFF8B5CF6)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        currentWebView.url?.let {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
+                            Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
                         }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
-                            val printAdapter = currentWebView.createPrintDocumentAdapter("Document")
-                            printManager.print("Omni Browser Document", printAdapter, null)
-                            showTools = false
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
+                        isFindMode = true
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader", Color(0xFFEA580C)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
+                            val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
+                                source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
+                            } else source ?: ""
+                            readerContent = PageUtils.extractArticleContent(cleanSource)
+                            isReaderMode = true
                         }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            val targetUrl = "https://translate.google.com/translate?sl=auto&tl=en&u=${Uri.encode(currentWebView.url)}"
-                            currentWebView.loadUrl(targetUrl)
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Javascript, "Bookmarklets", Color(0xFFFACC15)) {
-                            showBookmarklets = true
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            scope.launch {
-                                val path = PageUtils.saveAsMhtml(context, currentWebView, currentWebView.title ?: "Page")
-                                database.readingListDao().insertEntry(com.omniweb.app.data.ReadingListEntry(title = activeTab.title, url = activeTab.url, filePath = path))
-                            }
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
-                                val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
-                                    source.substring(1, source.length - 1)
-                                        .replace("\\\"", "\"")
-                                        .replace("\\n", "\n")
-                                        .replace("\\t", "\t")
-                                } else {
-                                    source ?: ""
-                                }
-                                PageUtils.saveAsMarkdown(context, cleanSource, currentWebView.title ?: "Page")
-                            }
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Code, "View Source", Color(0xFFEA580C)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
-                                pageSource = source ?: "No source available"
-                                showSource = true
-                                showTools = false
+                        showTools = false
+                    }}
+                    item { ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile" else "Desktop", Color(0xFF6366F1)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        isDesktopMode = !isDesktopMode
+                        currentWebView.settings.userAgentString = if (isDesktopMode) "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else null
+                        currentWebView.reload()
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            val shortcutManager = context.getSystemService(ShortcutManager::class.java)
+                            if (shortcutManager!!.isRequestPinShortcutSupported) {
+                                val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
+                                    .setShortLabel(currentWebView.title ?: "Web Page")
+                                    .setIcon(if (activeTab.faviconBitmap != null) Icon.createWithBitmap(activeTab.faviconBitmap) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
+                                    .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
+                                    .build()
+                                shortcutManager.requestPinShortcut(pinShortcutInfo, null)
                             }
                         }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
-                            showConsole = true
+                        showTools = false
+                    }}
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                ToolCategory("Save & Print") {
+                    item { ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
+                        PageUtils.takeFullPageScreenshot(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
+                        PageUtils.saveAsPdf(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
+                        scope.launch {
+                            val path = PageUtils.saveAsMhtml(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                            database.readingListDao().insertEntry(com.omniweb.app.data.ReadingListEntry(title = activeTab.title, url = activeTab.url, filePath = path))
+                        }
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
+                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                            val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
+                            PageUtils.saveAsMarkdown(context, clean, activeTab.title ?: "Page")
+                        }
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
+                        printManager.print("Omni Document", currentWebView.createPrintDocumentAdapter("Document"), null)
+                        showTools = false
+                    }}
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                ToolCategory("Developer Tools") {
+                    item { ToolButton(Icons.Default.Code, "Source", Color(0xFFEA580C)) {
+                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                            pageSource = source ?: ""
+                            showSource = true
                             showTools = false
                         }
-                    }
-                    item {
-                        ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile Site" else "Desktop Site", Color(0xFF6366F1)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            isDesktopMode = !isDesktopMode
-                            currentWebView.settings.userAgentString = if (isDesktopMode) {
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                            } else {
-                                null // Use default
-                            }
-                            currentWebView.reload()
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
-                            isFindMode = true
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                val shortcutManager = context.getSystemService(ShortcutManager::class.java)
-                                if (shortcutManager!!.isRequestPinShortcutSupported) {
-                                    val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
-                                        .setShortLabel(currentWebView.title ?: "Web Page")
-                                        .setIcon(if (activeTab.faviconBitmap != null) Icon.createWithBitmap(activeTab.faviconBitmap) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
-                                        .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
-                                        .build()
-                                    shortcutManager.requestPinShortcut(pinShortcutInfo, null)
-                                    Toast.makeText(context, "Adding to home screen...", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            PageUtils.takeFullPageScreenshot(context, currentWebView, currentWebView.title ?: "Page")
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            PageUtils.saveAsPdf(context, currentWebView, currentWebView.title ?: "Page")
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Star, "Bookmarks", Color(0xFFFFB000)) {
-                            onOpenBookmarks()
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.History, "History", Color(0xFF607D8B)) {
-                            onOpenHistory()
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) {
-                            onOpenSettings()
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(if (isForceDark) Icons.Default.LightMode else Icons.Default.DarkMode, if (isForceDark) "Force Light" else "Force Dark", Color(0xFF1E293B)) {
-                            isForceDark = !isForceDark
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.Default.VerticalAlignBottom, "Auto Scroll", Color(0xFF0EA5E9)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.evaluateJavascript("window.startOmniScroll()", null)
-                            showTools = false
-                        }
-                    }
-                    item {
-                        ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader Mode", Color(0xFFEA580C)) {
-                            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                            currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
-                                val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
-                                    source.substring(1, source.length - 1)
-                                        .replace("\\\"", "\"")
-                                        .replace("\\n", "\n")
-                                        .replace("\\t", "\t")
-                                } else {
-                                    source ?: ""
-                                }
-                                readerContent = PageUtils.extractArticleContent(cleanSource)
-                                isReaderMode = true
-                            }
-                            showTools = false
-                        }
-                    }
+                    }}
+                    item { ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
+                        showConsole = true
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Javascript, "Bookmarklets", Color(0xFFFACC15)) {
+                        showBookmarklets = true
+                        showTools = false
+                    }}
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                ToolCategory("Browser") {
+                    item { ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) { onOpenSettings(); showTools = false }}
+                    item { ToolButton(Icons.Default.History, "History", Color(0xFF607D8B)) { onOpenHistory(); showTools = false }}
+                    item { ToolButton(Icons.Default.Star, "Bookmarks", Color(0xFFFFB000)) { onOpenBookmarks(); showTools = false }}
+                    item { ToolButton(Icons.Default.Download, "Downloads", Color(0xFF3B82F6)) { onOpenDownloads(); showTools = false }}
                 }
                 Spacer(modifier = Modifier.height(48.dp))
             }
@@ -601,6 +510,7 @@ fun BrowserView(
             }
         }
     }
+
 
     if (isReaderMode) {
         ReaderModeView(
