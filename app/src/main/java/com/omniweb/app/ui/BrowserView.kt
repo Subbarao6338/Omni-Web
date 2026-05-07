@@ -155,6 +155,7 @@ fun BrowserView(
     var showQuickActions by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -178,6 +179,7 @@ fun BrowserView(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Column {
                 if (activeTab.isLoading && !isFindMode) {
@@ -314,8 +316,23 @@ fun BrowserView(
             tabs = viewModel.tabs,
             activeTabId = activeId,
             onTabSelect = { viewModel.selectTab(it) },
-            onTabClose = { viewModel.closeTab(it) },
-            onCloseAll = { viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) } },
+            onTabClose = { id ->
+                viewModel.closeTab(id)
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = "Tab closed",
+                        actionLabel = "Undo",
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.restoreLastClosedTab()
+                    }
+                }
+            },
+            onCloseAll = {
+                viewModel.tabs.toList().forEach { viewModel.closeTab(it.id) }
+                showTabs = false
+            },
             onNewTab = { viewModel.createTab(isIncognito = it) },
             onDismiss = { showTabs = false }
         )
