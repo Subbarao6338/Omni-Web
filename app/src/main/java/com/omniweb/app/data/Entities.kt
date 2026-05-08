@@ -61,6 +61,8 @@ data class Settings(
     val clearDataOnExit: Boolean = false,
     val javaScriptEnabled: Boolean = true,
     val blockThirdPartyCookies: Boolean = true,
+    val httpsOnlyMode: Boolean = false,
+    val deepDarkMode: Boolean = false,
     val customUserAgent: String? = null,
     val customSearchEngines: String? = null // Stored as JSON: List<Pair<String, String>>
 )

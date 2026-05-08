@@ -1,6 +1,9 @@
 package com.omniweb.app
 
 import android.os.Bundle
+import android.app.PictureInPictureParams
+import android.content.res.Configuration
+import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -25,14 +28,15 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onStop() {
+        super.onStop()
         if (isFinishing) {
+            val db = AppDatabase.getDatabase(this)
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-                val db = AppDatabase.getDatabase(this@MainActivity)
                 val settings = db.settingsDao().getSettings().firstOrNull()
                 if (settings?.clearDataOnExit == true) {
                     db.historyDao().clearHistory()
+                    db.tabDao().clearAllTabs()
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                         WebStorage.getInstance().deleteAllData()
                         CookieManager.getInstance().removeAllCookies(null)
@@ -40,6 +44,33 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
+            val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+            viewModel.hibernateTabsIfNeeded(force = true)
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+            val activeTabId = viewModel.activeTabId.value
+            val activeTab = viewModel.tabs.find { it.id == activeTabId }
+            if (activeTab != null && activeTab.detectedMedia.any { it.type == "video" }) {
+                enterPictureInPictureMode(PictureInPictureParams.Builder()
+                    .setAspectRatio(Rational(16, 9))
+                    .build())
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        // Adjust UI if needed, e.g., hide controls in PiP mode
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,6 +95,11 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isInPiP = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        (context as? android.app.Activity)?.isInPictureInPictureMode ?: false
+    } else false
+
     val settingsState by viewModel.settings.collectAsState()
     val settings = settingsState ?: com.omniweb.app.data.Settings()
 
@@ -121,19 +157,36 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("browser") {
-                    BrowserView(
-                        activeTab = activeTab,
-                        onBackToHome = {
-                            activeTab.url = "about:home"
-                            activeTab.title = "Home"
-                            navController.popBackStack("home", inclusive = false)
-                        },
-                        viewModel = viewModel,
-                        onOpenSettings = { navController.navigate("settings") },
-                        onOpenBookmarks = { navController.navigate("bookmarks") },
-                        onOpenHistory = { navController.navigate("history") },
-                        onOpenDownloads = { navController.navigate("downloads") }
-                    )
+                    if (isInPiP) {
+                        WebViewContainer(
+                            tab = activeTab,
+                            viewModel = viewModel,
+                            settings = settings,
+                            onLoginDetected = { _, _, _ -> },
+                            onBookmarkletDetected = { },
+                            onTextExtracted = { },
+                            onScrollChanged = { _, _ -> },
+                            onContextMenu = { },
+                            onProgressChanged = { activeTab.progress = it },
+                            onTitleReceived = { activeTab.title = it },
+                            onIconReceived = { activeTab.faviconBitmap = it },
+                            onConsoleLog = { _, _ -> }
+                        )
+                    } else {
+                        BrowserView(
+                            activeTab = activeTab,
+                            onBackToHome = {
+                                activeTab.url = "about:home"
+                                activeTab.title = "Home"
+                                navController.popBackStack("home", inclusive = false)
+                            },
+                            viewModel = viewModel,
+                            onOpenSettings = { navController.navigate("settings") },
+                            onOpenBookmarks = { navController.navigate("bookmarks") },
+                            onOpenHistory = { navController.navigate("history") },
+                            onOpenDownloads = { navController.navigate("downloads") }
+                        )
+                    }
                 }
                 composable("settings") {
                     val context = androidx.compose.ui.platform.LocalContext.current

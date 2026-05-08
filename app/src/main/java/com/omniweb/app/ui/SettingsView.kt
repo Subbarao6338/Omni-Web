@@ -281,6 +281,21 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
+                    headlineContent = { Text("HTTPS-Only Mode") },
+                    supportingContent = { Text("Always try to use a secure connection") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.httpsOnlyMode,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(httpsOnlyMode = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
                     headlineContent = { Text("Block Third-Party Cookies") },
                     supportingContent = { Text("Improved privacy by preventing cross-site tracking") },
                     trailingContent = {
@@ -289,6 +304,21 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                             onCheckedChange = { enabled ->
                                 scope.launch {
                                     database.settingsDao().updateSettings(settings.copy(blockThirdPartyCookies = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Deep Dark Mode") },
+                    supportingContent = { Text("Enforce dark theme on all websites") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.deepDarkMode,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(deepDarkMode = enabled))
                                 }
                             }
                         )

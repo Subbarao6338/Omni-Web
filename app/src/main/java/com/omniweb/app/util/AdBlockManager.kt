@@ -6,7 +6,7 @@ object AdBlockManager {
         "zedo.com", "amazon-adsystem.com", "adservice.google.com", "ad.doubleclick.net",
         "googleads.g.doubleclick.net", "securepubads.g.doubleclick.net",
         "pagead2.googlesyndication.com", "pubads.g.doubleclick.net", "ads.google.com",
-        "pagead2.googleadservices.com",
+        "pagead2.googleadservices.com", "adservice.com", "adsystem.com",
         "moatads.com", "openx.net", "adroll.com", "outbrain.com", "taboola.com",
         "advertising.com", "adtech.de", "adtechus.com", "yieldmanager.com", "pubmatic.com",
         "ad-delivery.net", "adform.net", "adservice.com", "adspirit.de", "adtarget.me",
@@ -26,7 +26,9 @@ object AdBlockManager {
         "clickadu.com", "hilltopads.com", "evadav.com", "activerevenue.com",
         "shorte.st", "adf.ly", "bitly.com", "tinyurl.com", "t.co",
         "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com", "ezoic.com",
-        "buysellads.com", "srv.buysellads.com", "exponential.com", "dotomi.com", "quantcount.com"
+        "buysellads.com", "srv.buysellads.com", "exponential.com", "dotomi.com", "quantcount.com",
+        "ad-api.com", "ad-score.com", "ad-target.com", "ad-tracker.com", "ad-vent.com",
+        "ad-zone.com", "ad.cx", "ad.gt", "ad.style", "ad120m.com", "ad127m.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -81,14 +83,28 @@ object AdBlockManager {
                     ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
                     "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
                     "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
-                    "img[src*='pixel']", "div[class*='tracker']", "div[id*='tracker']"
+                    "img[src*='pixel']", "div[class*='tracker']", "div[id*='tracker']",
+                    "[aria-label*='Advertisement']", "[title*='Advertisement']", "[id*='AdFrame']",
+                    "iframe[id*='aswift']", "iframe[name*='google_ads_frame']"
                 ];
                 const style = document.createElement('style');
                 style.id = 'omni-adblock-style';
-                style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; }';
+                style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; z-index: -9999 !important; }';
                 if (!document.getElementById('omni-adblock-style')) {
                     document.head.appendChild(style);
                 }
+
+                // Aggressive element removal
+                function clean() {
+                    selectors.forEach(s => {
+                        document.querySelectorAll(s).forEach(el => {
+                            if (el.parentElement) {
+                                // el.remove(); // Sometimes too aggressive, display:none is safer
+                            }
+                        });
+                    });
+                }
+                setInterval(clean, 2000);
             })();
         """.trimIndent()
     }

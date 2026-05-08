@@ -212,13 +212,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun hibernateTabsIfNeeded() {
+    fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        val timeout = 2 * 60 * 1000 // 2 minutes
+        val timeout = if (force) 0 else 60 * 1000 // 1 minute
         tabs.forEach { tab ->
             if (tab.id != _activeTabId.value) {
                 val lastActive = tabLastActive[tab.id] ?: 0L
-                if (now - lastActive > timeout && webViewCache.containsKey(tab.id)) {
+                if ((force || (now - lastActive > timeout)) && webViewCache.containsKey(tab.id)) {
                     webViewCache.remove(tab.id)?.let { webView ->
                         val state = android.os.Bundle()
                         webView.saveState(state)
