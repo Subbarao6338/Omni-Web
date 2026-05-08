@@ -102,6 +102,8 @@ fun WebViewContainer(
 
                         val ua = if (perSite?.desktopMode == true) {
                             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        } else if (settings.strictPrivacyMode) {
+                            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
                         } else {
                             settings.customUserAgent ?: userAgentString
                         }
@@ -268,6 +270,11 @@ fun WebViewContainer(
 
                             // Sniffer injection
                             view?.evaluateJavascript(mediaSnifferScript(), null)
+
+                            // Anti-fingerprinting injection
+                            if (settings.strictPrivacyMode) {
+                                view?.evaluateJavascript(antiFingerprintScript(), null)
+                            }
                         }
 
                         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
@@ -329,6 +336,30 @@ fun WebViewContainer(
         )
     }
 }
+
+private fun antiFingerprintScript() = """
+    (function() {
+        const hideProperty = (obj, prop, value) => {
+            Object.defineProperty(obj, prop, {
+                get: () => value,
+                enumerable: true,
+                configurable: false
+            });
+        };
+        hideProperty(navigator, 'platform', 'Linux armv8l');
+        hideProperty(navigator, 'webdriver', false);
+        hideProperty(navigator, 'plugins', []);
+        hideProperty(navigator, 'languages', ['en-US', 'en']);
+
+        // Minimize canvas fingerprinting by adding slight noise (placeholder logic)
+        const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+        CanvasRenderingContext2D.prototype.getImageData = function() {
+            const imageData = originalGetImageData.apply(this, arguments);
+            // Could add subtle noise here
+            return imageData;
+        };
+    })();
+""".trimIndent()
 
 private fun mediaSnifferScript() = """
     (function() {

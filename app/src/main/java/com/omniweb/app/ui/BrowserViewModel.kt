@@ -113,11 +113,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private var lastScrollUpdate = 0L
     fun updateTabScroll(tabId: String, x: Int, y: Int) {
         tabs.find { it.id == tabId }?.let { tab ->
             tab.scrollX = x
             tab.scrollY = y
-            updateTabInDb(tab)
+
+            val now = System.currentTimeMillis()
+            if (now - lastScrollUpdate > 2000) { // Throttled to every 2 seconds
+                lastScrollUpdate = now
+                viewModelScope.launch {
+                    val entry = TabEntry(
+                        id = tab.id,
+                        url = tab.url,
+                        title = tab.title,
+                        position = tabs.indexOf(tab),
+                        isIncognito = tab.isIncognito,
+                        scrollX = tab.scrollX,
+                        scrollY = tab.scrollY
+                    )
+                    database.tabDao().updateTab(entry)
+                }
+            }
         }
     }
 
@@ -214,7 +231,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        val timeout = if (force) 0 else 60 * 1000 // 1 minute
+        val timeout = if (force) 0 else 30 * 1000 // 30 seconds
         tabs.forEach { tab ->
             if (tab.id != _activeTabId.value) {
                 val lastActive = tabLastActive[tab.id] ?: 0L

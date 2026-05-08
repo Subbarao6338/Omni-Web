@@ -28,7 +28,11 @@ object AdBlockManager {
         "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com", "ezoic.com",
         "buysellads.com", "srv.buysellads.com", "exponential.com", "dotomi.com", "quantcount.com",
         "ad-api.com", "ad-score.com", "ad-target.com", "ad-tracker.com", "ad-vent.com",
-        "ad-zone.com", "ad.cx", "ad.gt", "ad.style", "ad120m.com", "ad127m.com"
+        "ad-zone.com", "ad.cx", "ad.gt", "ad.style", "ad120m.com", "ad127m.com",
+        "taboola.com", "outbrain.com", "mgid.com", "revcontent.com", "popads.net",
+        "popcash.net", "adcash.com", "propellerads.com", "adsterra.com", "exoclick.com",
+        "cloclo.me", "mobicow.com", "juicyads.com", "ero-advertising.com", "plugrush.com",
+        "trafficstars.com", "adnium.com", "adxpansion.com", "twinred.com", "trafficjunky.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -41,7 +45,9 @@ object AdBlockManager {
         "crashlytics-reports-pa.googleapis.com", "firebase-settings.crashlytics.com",
         "matomo.org", "piwik.pro", "heap.io", "pendo.io", "logrocket.com", "intercom.io",
         "luckyorange.com", "clicktale.com", "sessionstack.com", "smartlook.com",
-        "userway.org", "equalweb.com", "accessibe.com", "audioeye.com"
+        "userway.org", "equalweb.com", "accessibe.com", "audioeye.com",
+        "branch.io", "appsflyer.com", "adjust.com", "kochava.com", "singular.net",
+        "braze.com"
     )
 
     private val SOCIAL_DOMAINS = hashSetOf(
@@ -49,7 +55,8 @@ object AdBlockManager {
         "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com",
         "ads-api.twitter.com", "pixel.facebook.com", "connect.facebook.net",
         "snapads.com", "pinterest.com", "tiktok.com", "twimg.com", "t.co",
-        "instagram.com", "lnkd.in", "redditstatic.com", "redditmedia.com"
+        "instagram.com", "lnkd.in", "redditstatic.com", "redditmedia.com",
+        "doubleclick.net", "snapchat.com", "whatsapp.com"
     )
 
     fun getCategory(host: String): String? {
@@ -85,7 +92,12 @@ object AdBlockManager {
                     "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
                     "img[src*='pixel']", "div[class*='tracker']", "div[id*='tracker']",
                     "[aria-label*='Advertisement']", "[title*='Advertisement']", "[id*='AdFrame']",
-                    "iframe[id*='aswift']", "iframe[name*='google_ads_frame']"
+                    "iframe[id*='aswift']", "iframe[name*='google_ads_frame']",
+                    ".ad-box", ".ad-placard", ".ad-sign", ".ad-spacer", ".ad-wrap",
+                    "[class*='ad-banner']", "[id*='ad-banner']", "[class*='ad-container']",
+                    "[id*='ad-container']", "[class*='ad-content']", "[id*='ad-content']",
+                    "[class*='ad-footer']", "[id*='ad-footer']", "[class*='ad-header']",
+                    "[id*='ad-header']", "[class*='ad-sidebar']", "[id*='ad-sidebar']"
                 ];
                 const style = document.createElement('style');
                 style.id = 'omni-adblock-style';

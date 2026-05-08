@@ -82,7 +82,7 @@ class OmniDownloadManager(private val context: Context) {
                 db.downloadDao().insertDownload(task)
                 pollDownloadStatus(id)
             } catch (e: Exception) {
-                e.printStackTrace()
+                LogUtils.e("Failed to start standard download", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Failed to start download: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -178,7 +178,7 @@ class OmniDownloadManager(private val context: Context) {
                 ))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            LogUtils.e("Failed to start YouTube download", e)
             if (tempFile.exists()) tempFile.delete()
             db.downloadDao().getDownloadByIdSync(downloadId)?.let { errorTask ->
                 db.downloadDao().updateDownload(errorTask.copy(status = DownloadManager.STATUS_FAILED))
@@ -242,7 +242,7 @@ class OmniDownloadManager(private val context: Context) {
                     }
                     cursor?.close()
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    LogUtils.e("Error polling download status", e)
                     // Don't kill the loop on transient errors, just delay and retry
                     delay(2000)
                 }

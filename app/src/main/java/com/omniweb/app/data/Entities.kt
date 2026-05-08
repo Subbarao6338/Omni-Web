@@ -63,6 +63,7 @@ data class Settings(
     val blockThirdPartyCookies: Boolean = true,
     val httpsOnlyMode: Boolean = false,
     val deepDarkMode: Boolean = false,
+    val strictPrivacyMode: Boolean = false,
     val customUserAgent: String? = null,
     val customSearchEngines: String? = null // Stored as JSON: List<Pair<String, String>>
 )
