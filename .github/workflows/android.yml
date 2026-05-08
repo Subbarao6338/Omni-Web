@@ -71,6 +71,7 @@ jobs:
       with:
         name: ${{ steps.version-info.outputs.APK_NAME }}
         path: ${{ steps.version-info.outputs.APK_NAME }}
+        retention-days: 7
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
