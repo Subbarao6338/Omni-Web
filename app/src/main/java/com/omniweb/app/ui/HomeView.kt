@@ -260,14 +260,19 @@ fun HomeView(
 
             if (mostVisited.isNotEmpty()) {
                 item {
-                    SectionHeader("Most Visited")
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        items(mostVisited.take(8)) { entry ->
-                            val tabInfo = tabs.find { it.url == entry.url }
-                            MostVisitedCard(entry, tabInfo?.faviconBitmap) { onNavigate(entry.url) }
+                    SectionHeader("Top Sites")
+                    Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(5),
+                            modifier = Modifier.heightIn(max = 200.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            userScrollEnabled = false
+                        ) {
+                            items(mostVisited.take(5)) { entry ->
+                                val tabInfo = tabs.find { it.url == entry.url }
+                                MostVisitedCard(entry, tabInfo?.faviconBitmap) { onNavigate(entry.url) }
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(32.dp))

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.DownloadTask
+import com.omniweb.app.util.LogUtils
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -168,7 +169,7 @@ fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
                                         Toast.makeText(context, "File not found or not accessible", Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    e.printStackTrace()
+                                    LogUtils.e("Failed to open downloaded file", e)
                                     Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }
                             } else {

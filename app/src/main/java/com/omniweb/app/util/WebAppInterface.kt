@@ -31,7 +31,7 @@ class WebAppInterface(
             }
             handler.post { onMediaDetected(list) }
         } catch (e: Exception) {
-            e.printStackTrace()
+            LogUtils.e("Error parsing media items in WebAppInterface", e)
         }
     }
 

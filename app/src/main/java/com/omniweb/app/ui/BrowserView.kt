@@ -141,6 +141,8 @@ fun BrowserView(
     var isReaderMode by remember { mutableStateOf(false) }
     var readerContent by remember { mutableStateOf("") }
 
+    var isInspectMode by remember { mutableStateOf(false) }
+
     var showPrivacyReport by remember { mutableStateOf(false) }
     var showSiteSettings by remember { mutableStateOf(false) }
 
@@ -178,7 +180,33 @@ fun BrowserView(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = {
+            Column {
+                if (isInspectMode) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.BugReport, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Inspect Mode Active: Tap an element", fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(onClick = {
+                                isInspectMode = false
+                                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                                    (function() {
+                                        if (window.omniInspector) window.omniInspector.stop();
+                                    })();
+                                """.trimIndent(), null)
+                            }) { Text("Exit") }
+                        }
+                    }
+                }
+                SnackbarHost(hostState = snackbarHostState)
+            }
+        },
         topBar = {
             Column {
                 if (activeTab.isLoading && !isFindMode) {
@@ -279,7 +307,15 @@ fun BrowserView(
                 showAddBookmarkletDialog = url
             },
             onTextExtracted = { text ->
-                if (tab.id == activeTab.id) pageText = text
+                if (tab.id == activeTab.id) {
+                    if (text.startsWith("INSPECT:")) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+                        }
+                    } else {
+                        pageText = text
+                    }
+                }
             },
             onScrollChanged = { x, y ->
                 viewModel.updateTabScroll(tab.id, x, y)
@@ -451,6 +487,49 @@ fun BrowserView(
                     item { ToolButton(Icons.Default.Javascript, "Bookmarklets", Color(0xFFFACC15)) {
                         showBookmarklets = true
                         showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.BugReport, "Inspect", Color(0xFFEF4444)) {
+                        isInspectMode = true
+                        showTools = false
+                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                            (function() {
+                                if (window.omniInspector) {
+                                    window.omniInspector.start();
+                                    return;
+                                }
+                                window.omniInspector = {
+                                    style: null,
+                                    lastEl: null,
+                                    start: function() {
+                                        if (!this.style) {
+                                            this.style = document.createElement('style');
+                                            this.style.innerHTML = '.omni-inspect-highlight { outline: 2px solid #ef4444 !important; outline-offset: -2px !important; }';
+                                            document.head.appendChild(this.style);
+                                        }
+                                        document.addEventListener('click', this.handler, true);
+                                    },
+                                    stop: function() {
+                                        document.removeEventListener('click', this.handler, true);
+                                        if (this.lastEl) this.lastEl.classList.remove('omni-inspect-highlight');
+                                    },
+                                    handler: function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (window.omniInspector.lastEl) window.omniInspector.lastEl.classList.remove('omni-inspect-highlight');
+                                        window.omniInspector.lastEl = e.target;
+                                        e.target.classList.add('omni-inspect-highlight');
+                                        const info = {
+                                            tag: e.target.tagName.toLowerCase(),
+                                            id: e.target.id,
+                                            class: e.target.className,
+                                            text: e.target.innerText.substring(0, 50)
+                                        };
+                                        Android.postText("INSPECT:" + JSON.stringify(info));
+                                    }
+                                };
+                                window.omniInspector.start();
+                            })();
+                        """.trimIndent(), null)
                     }}
                 }
 

@@ -156,6 +156,21 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                         )
                     }
                 )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Strict Privacy Mode") },
+                    supportingContent = { Text("Anti-fingerprinting and generic User-Agent") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.strictPrivacyMode,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(strictPrivacyMode = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
                 ListItem(
                     headlineContent = { Text("Restore tabs on start") },
                     supportingContent = { Text("Continue where you left off") },
