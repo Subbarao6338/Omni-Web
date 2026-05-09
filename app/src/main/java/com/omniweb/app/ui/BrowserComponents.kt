@@ -45,6 +45,7 @@ import com.omniweb.app.util.UrlUtils
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BrowserAddressBar(
+    modifier: Modifier = Modifier,
     urlInput: String,
     onUrlChange: (String) -> Unit,
     onGo: () -> Unit,
@@ -62,6 +63,7 @@ fun BrowserAddressBar(
     findMatchStatus: String = "",
     onCloseFind: () -> Unit,
     onHomeClick: () -> Unit,
+    onVoiceClick: () -> Unit = {},
     suggestions: List<Suggestion>,
     onSuggestionClick: (Suggestion) -> Unit,
     blockedCount: Int = 0
@@ -84,7 +86,7 @@ fun BrowserAddressBar(
         }
     }
 
-    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = Modifier.statusBarsPadding()) {
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp, modifier = modifier.statusBarsPadding()) {
         Column {
             if (isFindMode) {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,6 +173,9 @@ fun BrowserAddressBar(
                                                     Text(blockedCount.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                                 }
                                             }
+                                        }
+                                        if (urlInput.isEmpty()) {
+                                            IconButton(onClick = onVoiceClick) { Icon(Icons.Default.Mic, contentDescription = "Voice Search", modifier = Modifier.size(16.dp)) }
                                         }
                                         if (urlInput.isNotEmpty()) {
                                             IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }

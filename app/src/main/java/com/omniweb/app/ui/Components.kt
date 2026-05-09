@@ -99,24 +99,24 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Uni
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(8.dp)
     ) {
         ElevatedCard(
             modifier = Modifier.size(64.dp),
             shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp, pressedElevation = 6.dp),
             colors = CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surface
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.size(44.dp)
                 ) {
@@ -134,12 +134,13 @@ fun ShortcutItem(shortcut: Shortcut, onClick: () -> Unit, onLongClick: () -> Uni
         Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = shortcut.title,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 4.dp)
         )
     }
 }

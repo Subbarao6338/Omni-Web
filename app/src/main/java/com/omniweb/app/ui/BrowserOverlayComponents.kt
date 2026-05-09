@@ -196,10 +196,13 @@ fun ReaderModeView(
     onClose: () -> Unit
 ) {
     var fontSize by remember { mutableFloatStateOf(18f) }
-    var theme by remember { mutableStateOf("light") } // "light", "dark", "sepia"
+    var theme by remember { mutableStateOf("system") } // "light", "dark", "sepia", "system"
     var fontFamilyType by remember { mutableStateOf("serif") } // "serif", "sans", "mono"
 
-    val (backgroundColor, textColor) = when (theme) {
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val effectiveTheme = if (theme == "system") (if (isSystemDark) "dark" else "light") else theme
+
+    val (backgroundColor, textColor) = when (effectiveTheme) {
         "dark" -> Color(0xFF121212) to Color(0xFFE0E0E0)
         "sepia" -> Color(0xFFF4ECD8) to Color(0xFF5B4636)
         else -> Color(0xFFFFFFFF) to Color(0xFF1A1A1A)
@@ -217,15 +220,17 @@ fun ReaderModeView(
                 actions = {
                     IconButton(onClick = {
                         theme = when(theme) {
+                            "system" -> "light"
                             "light" -> "sepia"
                             "sepia" -> "dark"
-                            else -> "light"
+                            else -> "system"
                         }
                     }) {
                         val icon = when(theme) {
-                            "light" -> Icons.Default.MenuBook
-                            "sepia" -> Icons.Default.DarkMode
-                            else -> Icons.Default.LightMode
+                            "system" -> Icons.Default.SettingsSuggest
+                            "light" -> Icons.Default.LightMode
+                            "sepia" -> Icons.Default.MenuBook
+                            else -> Icons.Default.DarkMode
                         }
                         Icon(icon, contentDescription = "Toggle Theme")
                     }

@@ -25,6 +25,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
     private val webViewCache = mutableMapOf<String, WebView>()
+    private var prewarmedWebView: WebView? = null
     private val webViewStateCache = mutableMapOf<String, android.os.Bundle>()
     private val _searchQuery = MutableStateFlow("")
     private val suggestionCache = mutableMapOf<String, List<Suggestion>>()
@@ -85,7 +86,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun saveTabToDb(tab: TabInfo) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             database.tabDao().insertTab(TabEntry(
                 id = tab.id,
                 url = tab.url,
@@ -99,7 +100,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun updateTabInDb(tab: TabInfo) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val entry = TabEntry(
                 id = tab.id,
                 url = tab.url,
@@ -122,7 +123,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val now = System.currentTimeMillis()
             if (now - lastScrollUpdate > 2000) { // Throttled to every 2 seconds
                 lastScrollUpdate = now
-                viewModelScope.launch {
+                viewModelScope.launch(Dispatchers.IO) {
                     val entry = TabEntry(
                         id = tab.id,
                         url = tab.url,
@@ -139,17 +140,36 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun getOrCreateWebView(tabId: String, context: android.content.Context): WebView {
-        return webViewCache.getOrPut(tabId) {
-            WebView(context).apply {
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                webViewStateCache[tabId]?.let { state ->
-                    restoreState(state)
-                    webViewStateCache.remove(tabId)
-                }
+        val existing = webViewCache[tabId]
+        if (existing != null) return existing
+
+        val webView = prewarmedWebView ?: createWebView(context)
+        prewarmedWebView = null
+
+        webView.apply {
+            webViewStateCache[tabId]?.let { state ->
+                restoreState(state)
+                webViewStateCache.remove(tabId)
             }
+        }
+        webViewCache[tabId] = webView
+
+        // Prepare next prewarmed WebView
+        viewModelScope.launch(Dispatchers.Main) {
+            if (prewarmedWebView == null) {
+                prewarmedWebView = createWebView(context)
+            }
+        }
+
+        return webView
+    }
+
+    private fun createWebView(context: android.content.Context): WebView {
+        return WebView(context).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
     }
 
@@ -176,7 +196,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             recentlyClosedTabs.add(0, removedTab)
             if (recentlyClosedTabs.size > 10) recentlyClosedTabs.removeLast()
 
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.IO) {
                 database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))
             }
             webViewCache.remove(id)?.let { webView ->
@@ -262,17 +282,19 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun preloadPerSiteSettings(host: String) {
         if (host.isBlank()) return
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val settings = database.perSiteSettingsDao().getSettingsForHostSync(host)
             if (settings != null) {
-                perSiteSettingsCache[host] = settings
+                withContext(Dispatchers.Main) {
+                    perSiteSettingsCache[host] = settings
+                }
             }
         }
     }
 
     fun updatePerSiteSettings(settings: PerSiteSettings) {
         perSiteSettingsCache[settings.host] = settings
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             database.perSiteSettingsDao().insertSettings(settings)
         }
     }
