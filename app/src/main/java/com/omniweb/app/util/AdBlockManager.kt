@@ -32,7 +32,11 @@ object AdBlockManager {
         "taboola.com", "outbrain.com", "mgid.com", "revcontent.com", "popads.net",
         "popcash.net", "adcash.com", "propellerads.com", "adsterra.com", "exoclick.com",
         "cloclo.me", "mobicow.com", "juicyads.com", "ero-advertising.com", "plugrush.com",
-        "trafficstars.com", "adnium.com", "adxpansion.com", "twinred.com", "trafficjunky.com"
+        "trafficstars.com", "adnium.com", "adxpansion.com", "twinred.com", "trafficjunky.com",
+        "carbonads.net", "buysellads.com", "srv.buysellads.com", "adhigh.net", "adinall.com",
+        "popads.net", "popcash.net", "adcash.com", "propellerads.com", "adsterra.com",
+        "media.net", "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com",
+        "sharethrough.com", "sovrn.com", "indexww.com", "rubiconproject.com", "pubmatic.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -47,7 +51,8 @@ object AdBlockManager {
         "luckyorange.com", "clicktale.com", "sessionstack.com", "smartlook.com",
         "userway.org", "equalweb.com", "accessibe.com", "audioeye.com",
         "branch.io", "appsflyer.com", "adjust.com", "kochava.com", "singular.net",
-        "braze.com"
+        "braze.com", "mparticle.com", "tealiumiq.com", "qualtrics.com", "usercentrics.com",
+        "onetrust.com", "cookielaw.org", "trustarc.com", "didomi.io", "civiccomputing.com"
     )
 
     private val SOCIAL_DOMAINS = hashSetOf(
@@ -56,7 +61,8 @@ object AdBlockManager {
         "ads-api.twitter.com", "pixel.facebook.com", "connect.facebook.net",
         "snapads.com", "pinterest.com", "tiktok.com", "twimg.com", "t.co",
         "instagram.com", "lnkd.in", "redditstatic.com", "redditmedia.com",
-        "doubleclick.net", "snapchat.com", "whatsapp.com"
+        "doubleclick.net", "snapchat.com", "whatsapp.com", "truthsocial.com",
+        "gab.com", "parler.com", "gettr.com", "rumble.com", "bitchute.com"
     )
 
     fun getCategory(host: String): String? {

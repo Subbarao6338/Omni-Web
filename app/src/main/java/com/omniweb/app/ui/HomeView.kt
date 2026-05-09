@@ -444,6 +444,7 @@ fun SectionHeader(title: String, onAction: (() -> Unit)? = null, actionIcon: and
     }
 }
 
+
 @Composable
 fun MostVisitedCard(entry: com.omniweb.app.data.MostVisitedEntry, favicon: android.graphics.Bitmap?, onClick: () -> Unit) {
     Column(
@@ -452,13 +453,12 @@ fun MostVisitedCard(entry: com.omniweb.app.data.MostVisitedEntry, favicon: andro
             .width(64.dp)
             .clickable { onClick() }
     ) {
-        Surface(
+        ElevatedCard(
             modifier = Modifier.size(56.dp),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 2.dp
+            colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 if (favicon != null) {
                     androidx.compose.foundation.Image(
                         bitmap = favicon.asImageBitmap(),

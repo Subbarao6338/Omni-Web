@@ -2,7 +2,9 @@ package com.omniweb.app.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
+import android.speech.RecognizerIntent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.Bitmap
@@ -77,6 +79,8 @@ import kotlinx.coroutines.runBlocking
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -166,6 +170,19 @@ fun BrowserView(
         }
     }
 
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+            if (!spokenText.isNullOrBlank()) {
+                urlInput = spokenText
+                val target = UrlUtils.resolveUrl(spokenText, settings.searchEngine)
+                if (target == "about:home") onBackToHome() else viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+            }
+        }
+    }
+
     LaunchedEffect(activeTab.id) {
         urlInput = activeTab.url
     }
@@ -218,6 +235,24 @@ fun BrowserView(
                     )
                 }
                 BrowserAddressBar(
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures { change, dragAmount ->
+                            change.consume()
+                            if (dragAmount > 50) {
+                                scope.launch {
+                                    if (pagerState.currentPage > 0) {
+                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                }
+                            } else if (dragAmount < -50) {
+                                scope.launch {
+                                    if (pagerState.currentPage < tabs.size - 1) {
+                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                }
+                            }
+                        }
+                    },
                     urlInput = urlInput,
                     onUrlChange = {
                         urlInput = it
@@ -261,6 +296,16 @@ fun BrowserView(
                         viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
                     },
                     onHomeClick = onBackToHome,
+                    onVoiceClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        }
+                        try {
+                            voiceLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Voice search not available", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -296,6 +341,22 @@ fun BrowserView(
         userScrollEnabled = false
     ) { pageIndex ->
         val tab = tabs[pageIndex]
+        val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
+        DisposableEffect(isFindMode) {
+            if (isFindMode && tab.id == activeTab.id) {
+                currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                    if (isDoneCounting) {
+                        findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
+                    }
+                }
+            } else {
+                currentWebView.setFindListener(null)
+            }
+            onDispose {
+                currentWebView.setFindListener(null)
+            }
+        }
+
         WebViewContainer(
             tab = tab,
             viewModel = viewModel,
