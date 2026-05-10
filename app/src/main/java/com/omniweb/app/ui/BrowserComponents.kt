@@ -134,15 +134,15 @@ fun BrowserAddressBar(
                                         Image(
                                             bitmap = pageFavicon.asImageBitmap(),
                                             contentDescription = null,
-                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)).clickable { onPrivacyClick() }
+                                            modifier = Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).clickable { onPrivacyClick() }
                                         )
                                     } else {
-                                        val icon = if (urlInput.startsWith("https")) Icons.Default.Lock else Icons.Default.Info
+                                        val isSecure = urlInput.startsWith("https")
                                         Icon(
-                                            icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(16.dp).clickable { onPrivacyClick() },
-                                            tint = if (urlInput.startsWith("https")) Color(0xFF10B981) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            if (isSecure) Icons.Default.Lock else Icons.Default.Info,
+                                            contentDescription = if (isSecure) "Secure" else "Insecure",
+                                            modifier = Modifier.size(20.dp).clickable { onPrivacyClick() },
+                                            tint = if (isSecure) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                                         )
                                     }
                                 },
@@ -185,16 +185,16 @@ fun BrowserAddressBar(
                                 supportingText = {
                                     androidx.compose.animation.AnimatedVisibility(
                                         visible = isLoading,
-                                        enter = fadeIn(),
-                                        exit = fadeOut()
+                                        enter = fadeIn() + androidx.compose.animation.expandVertically(),
+                                        exit = fadeOut() + androidx.compose.animation.shrinkVertically()
                                     ) {
                                         LinearProgressIndicator(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(2.dp)
-                                                .clip(RoundedCornerShape(1.dp)),
+                                                .height(3.dp)
+                                                .clip(RoundedCornerShape(1.5.dp)),
                                             color = MaterialTheme.colorScheme.primary,
-                                            trackColor = Color.Transparent
+                                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                                         )
                                     }
                                 },

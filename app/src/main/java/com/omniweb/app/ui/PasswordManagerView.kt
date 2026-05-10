@@ -10,6 +10,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
     val passwords by database.passwordDao().getAllPasswords().collectAsState(initial = emptyList())
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredPasswords = passwords.filter {
+        it.site.contains(searchQuery, ignoreCase = true) || it.username.contains(searchQuery, ignoreCase = true)
+    }
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(
         topBar = {
@@ -39,13 +46,23 @@ fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        if (passwords.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Text("No saved passwords")
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                items(passwords) { entry ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                placeholder = { Text("Search passwords") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+
+            if (filteredPasswords.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Text(if (searchQuery.isEmpty()) "No saved passwords" else "No matching passwords")
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(filteredPasswords) { entry ->
                     var showPassword by remember { mutableStateOf(false) }
                     val decryptedPassword = remember(entry, showPassword) {
                         if (showPassword) {
@@ -77,6 +94,16 @@ fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
                                     )
                                 }
                                 IconButton(onClick = {
+                                    val password = try { CryptoUtils.decrypt(entry.encryptedPassword, entry.iv) } catch (e: Exception) { "" }
+                                    if (password.isNotEmpty()) {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Password", password))
+                                        android.widget.Toast.makeText(context, "Password copied", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }) {
+                                    Icon(Icons.Default.ContentCopy, contentDescription = "Copy Password")
+                                }
+                                IconButton(onClick = {
                                     scope.launch { database.passwordDao().deletePassword(entry) }
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Delete")
@@ -84,6 +111,7 @@ fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
                             }
                         }
                     )
+                }
                 }
             }
         }

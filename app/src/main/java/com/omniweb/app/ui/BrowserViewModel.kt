@@ -24,7 +24,26 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
-    private val webViewCache = mutableMapOf<String, WebView>()
+    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
+            if (size > 5) {
+                eldest?.let { entry ->
+                    val webView = entry.value
+                    val state = android.os.Bundle()
+                    webView.saveState(state)
+                    webViewStateCache[entry.key] = state
+                    webView.stopLoading()
+                    webView.webChromeClient = null
+                    webView.webViewClient = WebViewClient()
+                    webView.clearHistory()
+                    webView.removeAllViews()
+                    webView.destroy()
+                }
+                return true
+            }
+            return false
+        }
+    }
     private var prewarmedWebView: WebView? = null
     private val webViewStateCache = mutableMapOf<String, android.os.Bundle>()
     private val _searchQuery = MutableStateFlow("")
@@ -121,7 +140,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             tab.scrollY = y
 
             val now = System.currentTimeMillis()
-            if (now - lastScrollUpdate > 2000) { // Throttled to every 2 seconds
+            if (now - lastScrollUpdate > 5000) { // Throttled to every 5 seconds
                 lastScrollUpdate = now
                 viewModelScope.launch(Dispatchers.IO) {
                     val entry = TabEntry(
