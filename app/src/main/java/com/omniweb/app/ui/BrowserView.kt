@@ -264,7 +264,10 @@ fun BrowserView(
                         val input = urlInput.trim()
                         if (input.isNotEmpty()) {
                             val target = UrlUtils.resolveUrl(input, settings.searchEngine)
-                            if (target == "about:home") onBackToHome() else viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                            if (target == "about:home") onBackToHome() else {
+                                activeTab.url = target
+                                viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                            }
                         }
                         viewModel.updateSuggestions("")
                     },
@@ -313,6 +316,7 @@ fun BrowserView(
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
                         if (target == "about:home") onBackToHome() else {
                             urlInput = target
+                            activeTab.url = target
                             viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
                         }
                         viewModel.updateSuggestions("")

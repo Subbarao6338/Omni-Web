@@ -66,8 +66,8 @@ fun WebViewContainer(
     }
 
     val pullToRefreshState = rememberPullToRefreshState()
-    if (pullToRefreshState.isRefreshing) {
-        LaunchedEffect(true) {
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
             currentWebView.reload()
             delay(500)
             while (tab.isLoading) { delay(100) }
@@ -205,6 +205,7 @@ fun WebViewContainer(
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             tab.isLoading = true
                             url?.let {
+                                tab.url = it
                                 val uri = Uri.parse(it)
                                 val host = uri.host ?: ""
                                 viewModel.preloadPerSiteSettings(host)
