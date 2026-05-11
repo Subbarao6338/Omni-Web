@@ -111,4 +111,30 @@ object PageUtils {
             Toast.makeText(context, "Failed to take full screenshot: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
+
+    suspend fun generateSummary(html: String): String {
+        // Placeholder for Gemini API integration
+        val text = extractArticleContent(html).take(2000)
+        if (text.length < 100) return "Not enough content to summarize."
+
+        return "Summary (AI Generated):\n\nThis page discusses ${text.take(150)}... [AI Summarization would happen here using Gemini API]"
+    }
+
+    fun generateQRCode(url: String): Bitmap? {
+        try {
+            val size = 512
+            val hints = java.util.HashMap<com.google.zxing.EncodeHintType, Any>()
+            hints[com.google.zxing.EncodeHintType.MARGIN] = 1
+            val bitMatrix = com.google.zxing.qrcode.QRCodeWriter().encode(url, com.google.zxing.BarcodeFormat.QR_CODE, size, size, hints)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+            for (x in 0 until size) {
+                for (y in 0 until size) {
+                    bitmap.setPixel(x, y, if (bitMatrix.get(x, y)) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+                }
+            }
+            return bitmap
+        } catch (e: Exception) {
+            return null
+        }
+    }
 }

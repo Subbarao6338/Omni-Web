@@ -144,6 +144,8 @@ fun BrowserView(
     var isDesktopMode by remember { mutableStateOf(false) }
     var isReaderMode by remember { mutableStateOf(false) }
     var readerContent by remember { mutableStateOf("") }
+    var summaryContent by remember { mutableStateOf<String?>(null) }
+    var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     var isInspectMode by remember { mutableStateOf(false) }
 
@@ -483,6 +485,19 @@ fun BrowserView(
                         currentWebView.reload()
                         showTools = false
                     }}
+                    item { ToolButton(Icons.Default.AutoAwesome, "Summarize", Color(0xFF8B5CF6)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                            scope.launch {
+                                summaryContent = PageUtils.generateSummary(source ?: "")
+                            }
+                        }
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.QrCode, "QR Code", Color(0xFF10B981)) {
+                        qrBitmap = PageUtils.generateQRCode(activeTab.url)
+                        showTools = false
+                    }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
                         val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -756,6 +771,32 @@ fun BrowserView(
             dismissButton = {
                 TextButton(onClick = { showAddBookmarkletDialog = null }) { Text("Cancel") }
             }
+        )
+    }
+
+    if (summaryContent != null) {
+        AlertDialog(
+            onDismissRequest = { summaryContent = null },
+            title = { Text("AI Page Summary") },
+            text = { Text(summaryContent!!) },
+            confirmButton = { TextButton(onClick = { summaryContent = null }) { Text("Close") } }
+        )
+    }
+
+    if (qrBitmap != null) {
+        AlertDialog(
+            onDismissRequest = { qrBitmap = null },
+            title = { Text("Share via QR") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    androidx.compose.foundation.Image(
+                        bitmap = qrBitmap!!.asImageBitmap(),
+                        contentDescription = "QR Code",
+                        modifier = Modifier.size(200.dp)
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { qrBitmap = null }) { Text("Close") } }
         )
     }
 

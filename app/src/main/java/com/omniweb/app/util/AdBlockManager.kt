@@ -36,7 +36,22 @@ object AdBlockManager {
         "carbonads.net", "buysellads.com", "srv.buysellads.com", "adhigh.net", "adinall.com",
         "popads.net", "popcash.net", "adcash.com", "propellerads.com", "adsterra.com",
         "media.net", "yieldmo.com", "mediavine.com", "adthrive.com", "monetizemore.com",
-        "sharethrough.com", "sovrn.com", "indexww.com", "rubiconproject.com", "pubmatic.com"
+        "sharethrough.com", "sovrn.com", "indexww.com", "rubiconproject.com", "pubmatic.com",
+        "popads.net", "popcash.net", "adcash.com", "propellerads.com", "adsterra.com",
+        "exoclick.com", "cloclo.me", "mobicow.com", "juicyads.com", "ero-advertising.com",
+        "plugrush.com", "trafficstars.com", "adnium.com", "adxpansion.com", "twinred.com",
+        "trafficjunky.com", "carbonads.net", "buysellads.com", "srv.buysellads.com",
+        "adhigh.net", "adinall.com", "adinplay.com", "ad-maven.com", "clickadu.com",
+        "hilltopads.com", "evadav.com", "activerevenue.com", "shorte.st", "adf.ly",
+        "bitly.com", "tinyurl.com", "t.co", "yieldmo.com", "mediavine.com",
+        "adthrive.com", "monetizemore.com", "ezoic.com", "buysellads.com", "srv.buysellads.com",
+        "exponential.com", "dotomi.com", "quantcount.com", "ad-api.com", "ad-score.com",
+        "ad-target.com", "ad-tracker.com", "ad-vent.com", "ad-zone.com", "ad.cx",
+        "ad.gt", "ad.style", "ad120m.com", "ad127m.com", "taboola.com", "outbrain.com",
+        "mgid.com", "revcontent.com", "popads.net", "popcash.net", "adcash.com",
+        "propellerads.com", "adsterra.com", "exoclick.com", "cloclo.me", "mobicow.com",
+        "juicyads.com", "ero-advertising.com", "plugrush.com", "trafficstars.com",
+        "adnium.com", "adxpansion.com", "twinred.com", "trafficjunky.com", "carbonads.net"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -95,6 +110,7 @@ object AdBlockManager {
                     "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad",
                     ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
                     "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
+                    "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
                     "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
                     "img[src*='pixel']", "div[class*='tracker']", "div[id*='tracker']",
                     "[aria-label*='Advertisement']", "[title*='Advertisement']", "[id*='AdFrame']",

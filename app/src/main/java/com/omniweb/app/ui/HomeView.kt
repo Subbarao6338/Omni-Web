@@ -129,7 +129,31 @@ fun HomeView(
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(48.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
+            item {
+                val lastTab = tabs.find { it.id == activeTabId }
+                if (lastTab != null && lastTab.url != "about:home") {
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 24.dp)
+                            .fillMaxWidth()
+                            .clickable { onNavigate(lastTab.url) },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Continue browsing", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Text(lastTab.title, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
             }
 
             item {
@@ -219,38 +243,36 @@ fun HomeView(
                 item {
                     SectionHeader("Shortcuts", onAction = { showAddShortcutDialog = true }, actionIcon = Icons.Default.Add)
                     Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                        val rowCount = (shortcuts.size + 1 + 3) / 4
+                        val itemsToDisplay = shortcuts + null // null represents the 'Add' button
+                        val columns = 4
+                        val rows = (itemsToDisplay.size + columns - 1) / columns
+
                         Column {
-                            for (i in 0 until rowCount) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly
-                                ) {
-                                    for (j in 0 until 4) {
-                                        val index = i * 4 + j
-                                        if (index < shortcuts.size) {
-                                            val shortcut = shortcuts[index]
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                ShortcutItem(
-                                                    shortcut,
-                                                    onClick = { onNavigate(shortcut.url) },
-                                                    onLongClick = {
-                                                        scope.launch {
-                                                            database.shortcutDao().deleteShortcut(shortcut)
+                            for (row in 0 until rows) {
+                                Row(modifier = Modifier.fillMaxWidth()) {
+                                    for (col in 0 until columns) {
+                                        val index = row * columns + col
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            if (index < itemsToDisplay.size) {
+                                                val shortcut = itemsToDisplay[index]
+                                                if (shortcut != null) {
+                                                    ShortcutItem(
+                                                        shortcut,
+                                                        onClick = { onNavigate(shortcut.url) },
+                                                        onLongClick = {
+                                                            scope.launch {
+                                                                database.shortcutDao().deleteShortcut(shortcut)
+                                                            }
                                                         }
-                                                    }
-                                                )
+                                                    )
+                                                } else {
+                                                    AddShortcutItem(onClick = { showAddShortcutDialog = true })
+                                                }
                                             }
-                                        } else if (index == shortcuts.size) {
-                                            Box(modifier = Modifier.weight(1f)) {
-                                                AddShortcutItem(onClick = { showAddShortcutDialog = true })
-                                            }
-                                        } else {
-                                            Spacer(modifier = Modifier.weight(1f))
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
                         }
                     }

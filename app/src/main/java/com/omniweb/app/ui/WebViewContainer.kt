@@ -124,6 +124,12 @@ fun WebViewContainer(
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
                     }
 
+                    setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                        intent.data = android.net.Uri.parse(url)
+                        context.startActivity(intent)
+                    }
+
                     addJavascriptInterface(WebAppInterface(
                         onMediaDetected = {
                             tab.detectedMedia.clear()
