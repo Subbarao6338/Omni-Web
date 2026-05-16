@@ -47,17 +47,28 @@ object ArticleExtractor {
         blocks.forEach { match ->
             val tag = match.groupValues[1].lowercase()
             val inner = match.groupValues[2]
+
+            // Clean inner text for scoring
+            val cleanInner = inner.replace(Regex("<[^>]*>"), "")
             val pCount = Regex("<p.*?>").findAll(inner).count()
             val imgCount = Regex("<img.*?>").findAll(inner).count()
             val linkCount = Regex("<a.*?>").findAll(inner).count()
+            val codeCount = Regex("<code.*?>").findAll(inner).count()
 
             // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
             // article/section tags get a bonus
-            val tagBonus = if (tag == "article") 50 else if (tag == "section") 20 else 0
-            val pBonus = if (pCount > 5) 100 else 0
-            val score = (pCount * 25) + (inner.length / 80) - (linkCount * 12) + (imgCount * 8) + tagBonus + pBonus
+            val tagBonus = if (tag == "article") 100 else if (tag == "section") 40 else 0
+            val pBonus = if (pCount > 5) 150 else 0
+            val codeBonus = if (codeCount > 2) 50 else 0
 
-            if (score > bestScore && inner.length > 150) {
+            // Calculate link density
+            val textLength = cleanInner.length.coerceAtLeast(1)
+            val linkDensity = (linkCount * 10).toFloat() / textLength
+            val linkPenalty = if (linkDensity > 0.5) 200 else (linkCount * 15)
+
+            val score = (pCount * 30) + (textLength / 50) - linkPenalty + (imgCount * 10) + tagBonus + pBonus + codeBonus
+
+            if (score > bestScore && textLength > 150) {
                 bestScore = score
                 bestContent = inner
             }

@@ -282,8 +282,10 @@ fun BrowserBottomBar(
 @Composable
 fun TabSwitcherSheet(
     tabs: List<TabInfo>,
+    recentlyClosedTabs: List<TabInfo> = emptyList(),
     activeTabId: String,
     onTabSelect: (String) -> Unit,
+    onTabRestore: (TabInfo) -> Unit = {},
     onTabClose: (String) -> Unit,
     onCloseAll: () -> Unit,
     onNewTab: (Boolean) -> Unit,
@@ -443,6 +445,27 @@ fun TabSwitcherSheet(
                             }
                         }
                     )
+                }
+            }
+
+            if (recentlyClosedTabs.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Recently Closed", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(modifier = Modifier.height(8.dp))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
+                    items(recentlyClosedTabs) { tab ->
+                        ListItem(
+                            headlineContent = { Text(tab.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            supportingContent = { Text(tab.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
+                            leadingContent = { Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                            trailingContent = {
+                                IconButton(onClick = { onTabRestore(tab) }) {
+                                    Icon(Icons.Default.Restore, contentDescription = "Restore")
+                                }
+                            },
+                            modifier = Modifier.clickable { onTabRestore(tab) }
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(32.dp))

@@ -113,11 +113,32 @@ object PageUtils {
     }
 
     suspend fun generateSummary(html: String): String {
-        // Placeholder for Gemini API integration
-        val text = extractArticleContent(html).take(2000)
+        val articleHtml = extractArticleContent(html)
+        val text = articleHtml.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
+
         if (text.length < 100) return "Not enough content to summarize."
 
-        return "Summary (AI Generated):\n\nThis page discusses ${text.take(150)}... [AI Summarization would happen here using Gemini API]"
+        // Heuristic summarization: Take first few significant sentences and key points
+        val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.length > 20 }
+        if (sentences.isEmpty()) return "Content structure is not suitable for summarization."
+
+        val intro = sentences.take(3).joinToString(" ")
+
+        // Find key points (sentences containing keywords or being in list items)
+        val keywords = listOf("important", "key", "result", "finally", "because", "therefore", "essential", "main", "feature")
+        val keyPoints = sentences.filter { s -> keywords.any { k -> s.contains(k, ignoreCase = true) } }
+            .take(3)
+            .joinToString("\n• ", prefix = "\n• ")
+
+        val summary = StringBuilder()
+        summary.append("📄 AI-Powered Summary\n\n")
+        summary.append(intro)
+        if (keyPoints.length > 10) {
+            summary.append("\n\nKey Takeaways:")
+            summary.append(keyPoints)
+        }
+
+        return summary.toString()
     }
 
     fun generateQRCode(url: String): Bitmap? {

@@ -16,7 +16,7 @@ class WebAppInterface(
 
     @JavascriptInterface
     fun postMedia(json: String?) {
-        if (json == null) return
+        if (json == null || json.length > 100000) return // Basic length limit
         try {
             val array = JSONArray(json)
             val list = mutableListOf<MediaItem>()
@@ -37,14 +37,17 @@ class WebAppInterface(
 
     @JavascriptInterface
     fun postText(text: String?) {
-        if (text == null) return
+        if (text == null || text.length > 500000) return
         handler.post { onTextExtracted(text) }
     }
 
     @JavascriptInterface
     fun onLoginDetected(user: String?, pass: String?) {
         if (user != null && pass != null) {
-            handler.post { onLoginFormDetected(user, pass) }
+            // Basic sanitization/length limit
+            val sanitizedUser = if (user.length > 255) user.substring(0, 255) else user
+            val sanitizedPass = if (pass.length > 255) pass.substring(0, 255) else pass
+            handler.post { onLoginFormDetected(sanitizedUser, sanitizedPass) }
         }
     }
 }

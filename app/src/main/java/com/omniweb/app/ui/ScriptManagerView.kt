@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -87,6 +88,16 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
                     database.userScriptDao().insertScript(UserScript(name = name, script = code, matchPattern = pattern, type = type, runAt = runAt))
                 }
                 showAddDialog = false
+            },
+            onLibraryRequest = {
+                val library = listOf(
+                    UserScript(name = "Dark Reader Light", script = "document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';", matchPattern = "*", type = "userscript"),
+                    UserScript(name = "Block Popups", script = "window.open = function() { return null; };", matchPattern = "*", type = "userscript"),
+                    UserScript(name = "Force Zoom", script = "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');", matchPattern = "*", type = "userscript")
+                )
+                scope.launch {
+                    library.forEach { database.userScriptDao().insertScript(it) }
+                }
             }
         )
     }
@@ -133,7 +144,7 @@ fun ScriptItem(script: UserScript, onDelete: () -> Unit, onEdit: () -> Unit, onT
 }
 
 @Composable
-fun AddScriptDialog(script: UserScript? = null, onDismiss: () -> Unit, onConfirm: (String, String, String, String, String) -> Unit) {
+fun AddScriptDialog(script: UserScript? = null, onDismiss: () -> Unit, onConfirm: (String, String, String, String, String) -> Unit, onLibraryRequest: () -> Unit = {}) {
     var name by remember { mutableStateOf(script?.name ?: "") }
     var code by remember { mutableStateOf(script?.script ?: "") }
     var pattern by remember { mutableStateOf(script?.matchPattern ?: "*") }
@@ -198,6 +209,14 @@ fun AddScriptDialog(script: UserScript? = null, onDismiss: () -> Unit, onConfirm
                     modifier = Modifier.fillMaxWidth().height(200.dp),
                     maxLines = 15
                 )
+
+                if (script == null) {
+                    TextButton(onClick = { onLibraryRequest(); onDismiss() }) {
+                        Icon(Icons.Default.LibraryAdd, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Import from Library")
+                    }
+                }
             }
         },
         confirmButton = {

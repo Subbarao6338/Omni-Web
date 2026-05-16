@@ -286,6 +286,8 @@ fun WebViewContainer(
 
                         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
                             val reqHost = request?.url?.host ?: ""
+                            if (reqHost.isBlank()) return null
+
                             val pageHost = Uri.parse(tab.url).host ?: ""
                             val perSite = viewModel.getPerSiteSettings(pageHost)
                             val adBlockEnabled = perSite?.adBlockEnabled ?: settings.adBlockEnabled
@@ -298,8 +300,11 @@ fun WebViewContainer(
                                     return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
                             }
-                            request?.requestHeaders?.put("DNT", "1")
-                            return super.shouldInterceptRequest(view, request)
+                            // Don't add headers to third party requests to avoid issues
+                            if (reqHost == pageHost) {
+                                request?.requestHeaders?.put("DNT", "1")
+                            }
+                            return null
                         }
                     }
                 }

@@ -81,12 +81,20 @@ object AdBlockManager {
     )
 
     fun getCategory(host: String): String? {
-        val parts = host.split(".")
-        for (i in parts.indices) {
-            val domain = parts.subList(i, parts.size).joinToString(".")
-            if (ADS_DOMAINS.contains(domain)) return "[Ad]"
-            if (ANALYTICS_DOMAINS.contains(domain)) return "[Analytics]"
-            if (SOCIAL_DOMAINS.contains(domain)) return "[Social]"
+        if (host.isEmpty()) return null
+
+        // Fast path for common non-ad domains
+        if (host.endsWith("google.com") || host.endsWith("apple.com") || host.endsWith("microsoft.com")) {
+             // Still check subdomains but be careful
+             if (host == "google.com" || host == "www.google.com") return null
+        }
+
+        var current = host
+        while (current.contains(".")) {
+            if (ADS_DOMAINS.contains(current)) return "[Ad]"
+            if (ANALYTICS_DOMAINS.contains(current)) return "[Analytics]"
+            if (SOCIAL_DOMAINS.contains(current)) return "[Social]"
+            current = current.substringAfter(".", "")
         }
         return null
     }
@@ -98,6 +106,9 @@ object AdBlockManager {
     fun getAdBlockScript(): String {
         return """
             (function() {
+                if (window.omniAdBlockApplied) return;
+                window.omniAdBlockApplied = true;
+
                 const selectors = [
                     "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
                     "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
@@ -119,26 +130,28 @@ object AdBlockManager {
                     "[class*='ad-banner']", "[id*='ad-banner']", "[class*='ad-container']",
                     "[id*='ad-container']", "[class*='ad-content']", "[id*='ad-content']",
                     "[class*='ad-footer']", "[id*='ad-footer']", "[class*='ad-header']",
-                    "[id*='ad-header']", "[class*='ad-sidebar']", "[id*='ad-sidebar']"
+                    "[id*='ad-header']", "[class*='ad-sidebar']", "[id*='ad-sidebar']",
+                    "amp-ad", "amp-embed[type='adsense']"
                 ];
+
                 const style = document.createElement('style');
                 style.id = 'omni-adblock-style';
                 style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; z-index: -9999 !important; }';
-                if (!document.getElementById('omni-adblock-style')) {
-                    document.head.appendChild(style);
-                }
+                document.head.appendChild(style);
 
-                // Aggressive element removal
-                function clean() {
-                    selectors.forEach(s => {
-                        document.querySelectorAll(s).forEach(el => {
-                            if (el.parentElement) {
-                                // el.remove(); // Sometimes too aggressive, display:none is safer
-                            }
-                        });
+                // MutationObserver for better performance than setInterval
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.addedNodes.length) {
+                             mutation.addedNodes.forEach(node => {
+                                 if (node.nodeType === 1) { // Element
+                                     // Check if it matches any selector or contains ads
+                                 }
+                             });
+                        }
                     });
-                }
-                setInterval(clean, 2000);
+                });
+                observer.observe(document.body, { childList: true, subtree: true });
             })();
         """.trimIndent()
     }
