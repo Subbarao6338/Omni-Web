@@ -16,6 +16,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
 import org.json.JSONArray
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
@@ -35,6 +36,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     webView.stopLoading()
                     webView.webChromeClient = null
                     webView.webViewClient = WebViewClient()
+                    webView.clearCache(true)
                     webView.clearHistory()
                     webView.removeAllViews()
                     webView.destroy()
@@ -222,6 +224,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 webView.stopLoading()
                 webView.webChromeClient = null
                 webView.webViewClient = WebViewClient()
+                webView.clearCache(true)
                 webView.clearHistory()
                 webView.removeAllViews()
                 webView.destroy()
@@ -262,7 +265,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun restoreLastClosedTab() {
         if (recentlyClosedTabs.isNotEmpty()) {
             val tab = recentlyClosedTabs.removeAt(0)
+            restoreTab(tab)
+        }
+    }
+
+    fun restoreTab(tab: TabInfo) {
+        if (!tabs.any { it.id == tab.id }) {
             tabs.add(tab)
+            recentlyClosedTabs.remove(tab)
             _activeTabId.value = tab.id
             saveTabToDb(tab)
         }
@@ -282,6 +292,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                         webView.stopLoading()
                         webView.webChromeClient = null
                         webView.webViewClient = WebViewClient()
+                        webView.clearCache(true)
                         webView.clearHistory()
                         webView.removeAllViews()
                         webView.destroy()
@@ -318,18 +329,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private suspend fun fetchSuggestionsInternal(query: String) {
-        val history = (database.historyDao().getAllHistory().firstOrNull() ?: emptyList()).filter {
-            it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
-        }.take(5).map { Suggestion(it.title, it.url, isHistory = true) }
+    private suspend fun fetchSuggestionsInternal(query: String) = withContext(Dispatchers.IO) {
+        val historyDeferred = async {
+            (database.historyDao().getAllHistory().firstOrNull() ?: emptyList()).filter {
+                it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
+            }.take(5).map { Suggestion(it.title, it.url, isHistory = true) }
+        }
 
-        val bookmarks = (database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()).filter {
-            it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
-        }.take(5).map { Suggestion(it.title, it.url, isHistory = false) }
+        val bookmarksDeferred = async {
+            (database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()).filter {
+                it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
+            }.take(5).map { Suggestion(it.title, it.url, isHistory = false) }
+        }
 
-        val liveSuggestions = fetchLiveSuggestions(query)
+        val liveDeferred = async { fetchLiveSuggestions(query) }
 
-        _searchSuggestions.value = (bookmarks + history + liveSuggestions).distinctBy { it.url }
+        val history = historyDeferred.await()
+        val bookmarks = bookmarksDeferred.await()
+        val liveSuggestions = liveDeferred.await()
+
+        withContext(Dispatchers.Main) {
+            _searchSuggestions.value = (bookmarks + history + liveSuggestions).distinctBy { it.url }
+        }
     }
 
     private suspend fun fetchLiveSuggestions(query: String): List<Suggestion> = withContext(Dispatchers.IO) {

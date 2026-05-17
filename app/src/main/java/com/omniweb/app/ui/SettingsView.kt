@@ -121,7 +121,8 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                         "Google" to "https://www.google.com/search?q=",
                         "DuckDuckGo" to "https://duckduckgo.com/?q=",
                         "Bing" to "https://www.bing.com/search?q=",
-                        "Yahoo" to "https://search.yahoo.com/search?p="
+                        "Yahoo" to "https://search.yahoo.com/search?p=",
+                        "Baidu" to "https://www.baidu.com/s?wd="
                     ) + customEngines
 
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

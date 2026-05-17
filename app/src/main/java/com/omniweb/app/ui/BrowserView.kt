@@ -416,8 +416,12 @@ fun BrowserView(
         val activeId by viewModel.activeTabId.collectAsState()
         TabSwitcherSheet(
             tabs = viewModel.tabs,
+            recentlyClosedTabs = viewModel.recentlyClosedTabs,
             activeTabId = activeId,
             onTabSelect = { viewModel.selectTab(it) },
+            onTabRestore = { tab ->
+                viewModel.restoreTab(tab)
+            },
             onTabClose = { id ->
                 viewModel.closeTab(id)
                 scope.launch {
