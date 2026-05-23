@@ -359,6 +359,23 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Google Gemini API Key", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.geminiApiKey ?: "",
+                        onValueChange = {
+                            scope.launch {
+                                database.settingsDao().updateSettings(settings.copy(geminiApiKey = it.ifBlank { null }))
+                            }
+                        },
+                        placeholder = { Text("Enter Gemini API Key for AI features") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text("Custom User Agent", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(

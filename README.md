@@ -1,30 +1,30 @@
-# 🌐 Omni Web Browser
+# 🌐 Omni Web Browser (Android)
 
-A powerful, feature-rich web browser built entirely in the browser using React, TypeScript, and the Google Gemini API. Browse the web, extract content, and leverage AI capabilities—all in one unified interface.
-
-**Live Demo:** [https://omni-web-five.vercel.app](https://omni-web-five.vercel.app)
+A powerful, feature-rich web browser for Android built using Kotlin, Jetpack Compose, and the Google Gemini API. Browse the web, extract content, and leverage AI capabilities—all in a modern mobile interface.
 
 ## ✨ Features
 
-- **🔍 Web Browsing** - Full-featured web proxy with support for most websites
-- **🤖 AI-Powered Analysis** - Leverage Google Gemini API for intelligent content analysis
+- **🔍 Web Browsing** - High-performance browsing powered by Android System WebView
+- **🤖 AI-Powered Analysis** - Leverage Google Gemini API for intelligent content analysis and summarization
 - **📄 Multiple View Modes**:
   - 🌍 Normal browsing mode
   - 📖 Reader mode for distraction-free reading
   - 💻 Source code viewer
   - 🔄 Markdown conversion
-- **🎯 Media Detection** - Automatically detect and extract images, videos, and audio
-- **🚫 Ad Blocking** - Built-in ad blocker to enhance browsing experience
-- **📸 Screenshot & PDF Export** - Capture web pages and export as PDF
-- **⚡ High Performance** - Built with Vite for lightning-fast development and production builds
-- **🎨 Beautiful UI** - Modern, responsive interface with Tailwind CSS and Motion animations
-- **🔒 Privacy-Focused** - All processing happens in your browser
+- **🎯 Media Detection** - Automatically detect and extract images, videos, and audio (Media Grabber)
+- **🚫 Ad Blocking** - Built-in domain-based ad and tracker blocker
+- **📸 Screenshot & PDF Export** - Capture web pages and export as PDF or Full Page Screenshots
+- **⚡ High Performance** - Modern Jetpack Compose UI with efficient state management
+- **🎨 Beautiful UI** - Modern, responsive interface with Material 3 and custom accent colors
+- **🔒 Privacy-Focused** - Strict Privacy Mode, Incognito tabs, and Cookie management
+- **📑 Tab Management** - Multiple tabs, recently closed tabs restoration, and tab hibernation
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 16+ 
-- npm or yarn
+- Android Studio Ladybug | 2024.2.1 or newer
+- JDK 17
+- Android SDK 35 (API 35)
 
 ### Installation
 
@@ -34,188 +34,73 @@ git clone https://github.com/Subbarao6338/Omni-Web.git
 cd Omni-Web
 ```
 
-2. **Install dependencies**
+2. **Generate Debug Keystore**
+The app requires a debug keystore for signing. You can generate one using:
 ```bash
-npm install
+keytool -genkey -v -keystore app/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 ```
 
-3. **Set up environment variables**
+3. **Build the project**
 ```bash
-cp .env.example .env.local
+./gradlew assembleDebug
 ```
 
-Edit `.env.local` and add your Gemini API key:
-```
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-4. **Run the development server**
+4. **Run on Device/Emulator**
+Open the project in Android Studio and click the "Run" button, or use:
 ```bash
-npm run dev
-```
-
-The application will start at `http://localhost:3000`
-
-## 📦 Available Scripts
-
-```bash
-# Start development server with hot reload
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build locally
-npm run preview
-
-# Start production server
-npm start
-
-# Clean build artifacts
-npm clean
-
-# Type checking (without emitting)
-npm run lint
+./gradlew installDebug
 ```
 
 ## 🏗️ Project Structure
 
 ```
 Omni-Web/
-├── src/                    # React components and frontend logic
-├── server.ts              # Express server with proxy and API endpoints
-├── public/                # Static assets
-├── index.html             # Entry HTML file
-├── vite.config.ts         # Vite configuration
-├── tsconfig.json          # TypeScript configuration
-├── package.json           # Dependencies and scripts
-└── README.md              # This file
+├── app/
+│   ├── src/main/java/com/omniweb/app/
+│   │   ├── data/           # Room Database, Entities, and DAOs
+│   │   ├── ui/             # Jetpack Compose Screens and ViewModels
+│   │   └── util/           # AdBlocker, Download Manager, and Utilities
+│   └── src/main/res/       # Android resources (drawables, layouts, values)
+├── build.gradle            # Project-level build configuration
+├── settings.gradle         # Project settings
+└── variables.gradle        # Version management for dependencies
 ```
 
 ## 🔧 Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS
-- **Backend**: Express.js, Vite
-- **AI**: Google Generative AI (@google/genai)
-- **Web Processing**: 
-  - Cheerio - HTML parsing
-  - Axios - HTTP client
-  - Turndown - HTML to Markdown conversion
-- **Export**: 
-  - html2canvas - Screenshot capture
-  - jsPDF - PDF generation
-- **UI/UX**: 
-  - Lucide React - Icons
-  - Motion - Animations
-  - clsx - Utility class management
-- **Performance**: Vercel Speed Insights
-
-## 🌟 Key Endpoints
-
-### API Routes
-- `GET /api/proxy?url=<URL>` - Proxy any website with frame-busting prevention and ad blocking
-- `GET /api/reader?url=<URL>` - Reader mode for clean article reading
-- `GET /api/source?url=<URL>` - View page source code
-- `GET /api/markdown?url=<URL>` - Extract and convert content to markdown
+- **UI Framework**: Jetpack Compose (Material 3)
+- **Language**: Kotlin
+- **Database**: Room Persistence Library
+- **Navigation**: Jetpack Navigation Compose
+- **Network/Web**: Android WebView, OkHttp
+- **AI**: Google Generative AI SDK
+- **Media**: youtube-dl-android for video extraction support
+- **Export**: Zxing for QR Codes, Android Print Framework for PDF
 
 ## 🎮 Usage
 
-1. **Enter a URL** - Type any website URL in the address bar
+1. **Enter a URL** - Type any website URL or search query in the address bar
 2. **Choose View Mode**:
-   - Normal: Full website browsing
-   - Reader: Clean reading experience
-   - Source: View HTML source
-3. **Extract Media** - Auto-detected media files appear in sidebar
-4. **Use AI Tools** - Analyze page content with Gemini AI
-5. **Export** - Screenshot or save as PDF
+   - Access Reader Mode, Source Viewer, or Markdown converter via the "Page Tools" menu
+3. **Extract Media** - Use the Media Grabber icon in the bottom bar to see detected media
+4. **Use AI Tools** - Tap "Summarize" in Page Tools to analyze content with Gemini AI
+5. **Customization** - Change themes, accent colors, and search engines in Settings
 
 ## 🛡️ Security & Privacy
 
-- All browsing happens in your browser
-- No data is stored on servers (except temporary processing)
-- Ad blocker removes tracking scripts
-- CSP and framing controls are bypassed for usability
-- User scripts are sandboxed and executed safely
-
-## 🚀 Deployment
-
-### Deploy to Vercel (Recommended)
-
-```bash
-npm install -g vercel
-vercel
-```
-
-### Deploy to Other Platforms
-
-The app can be deployed to any Node.js hosting platform:
-- Heroku
-- Railway
-- Render
-- AWS
-- DigitalOcean
-
-Build command: `npm run build`
-Start command: `npm start`
-
-## 📝 Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_GEMINI_API_KEY` | Google Gemini API key | Yes |
-
-## 🐛 Troubleshooting
-
-### "API key not found" error
-- Ensure `.env.local` file exists in root directory
-- Verify `VITE_GEMINI_API_KEY` is set correctly
-- Restart dev server after changing env variables
-
-### Page doesn't load in proxy
-- Some websites may have additional security measures
-- Try Reader mode instead
-- Check browser console for error details
-
-### Build fails
-```bash
-npm clean
-npm install
-npm run build
-```
+- **Incognito Mode**: Browsing data is not saved
+- **Strict Privacy**: generic User-Agent and anti-fingerprinting measures
+- **Ad Blocker**: Blocks known ad and tracking domains
+- **Password Manager**: Securely store credentials locally using Android Keystore encryption
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## 📄 License
 
 This project is open source and available under the MIT License.
 
-## 🙏 Acknowledgments
-
-- [Google Generative AI](https://ai.google.dev/) - AI capabilities
-- [Vercel](https://vercel.com/) - Hosting and deployment
-- [React](https://react.dev/) - UI framework
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- All the open-source libraries that make this possible
-
-## 📞 Support
-
-If you encounter any issues or have questions:
-- 📧 Email: subbarao6338@gmail.com
-- 🐛 [GitHub Issues](https://github.com/Subbarao6338/Omni-Web/issues)
-- 💬 [GitHub Discussions](https://github.com/Subbarao6338/Omni-Web/discussions)
-
 ---
 
 **Made with ❤️ by [Subbarao6338](https://github.com/Subbarao6338)**
-
-⭐ If you find this project helpful, please consider giving it a star!

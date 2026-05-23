@@ -497,7 +497,7 @@ fun BrowserView(
                         val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
                             scope.launch {
-                                summaryContent = PageUtils.generateSummary(source ?: "")
+                                summaryContent = PageUtils.generateSummary(source ?: "", settings.geminiApiKey)
                             }
                         }
                         showTools = false

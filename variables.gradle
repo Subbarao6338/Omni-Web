@@ -19,4 +19,5 @@ ext {
     roomVersion = '2.6.1'
     navVersion = '2.8.5'
     lifecycleVersion = '2.8.7'
+    geminiVersion = '0.9.0'
 }

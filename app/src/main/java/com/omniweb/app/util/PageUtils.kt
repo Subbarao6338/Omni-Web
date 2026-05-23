@@ -8,6 +8,7 @@ import android.print.PrintAttributes
 import android.print.PrintManager
 import android.webkit.WebView
 import android.widget.Toast
+import com.google.ai.client.generativeai.GenerativeModel
 import java.io.File
 import java.io.FileOutputStream
 
@@ -112,11 +113,26 @@ object PageUtils {
         }
     }
 
-    suspend fun generateSummary(html: String): String {
+    suspend fun generateSummary(html: String, apiKey: String? = null): String {
         val articleHtml = extractArticleContent(html)
         val text = articleHtml.replace(Regex("<[^>]*>"), " ").replace(Regex("\\s+"), " ").trim()
 
         if (text.length < 100) return "Not enough content to summarize."
+
+        if (!apiKey.isNullOrBlank()) {
+            try {
+                val generativeModel = GenerativeModel(
+                    modelName = "gemini-1.5-flash",
+                    apiKey = apiKey
+                )
+                val prompt = "Summarize the following web page content in a concise way, focusing on the main points. Use bullet points for key takeaways:\n\n$text"
+                val response = generativeModel.generateContent(prompt)
+                return response.text ?: "AI failed to generate a summary."
+            } catch (e: Exception) {
+                LogUtils.e("Gemini summary failed", e)
+                // Fallback to heuristic
+            }
+        }
 
         // Heuristic summarization: Take first few significant sentences and key points
         val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.length > 20 }
@@ -131,7 +147,7 @@ object PageUtils {
             .joinToString("\n• ", prefix = "\n• ")
 
         val summary = StringBuilder()
-        summary.append("📄 AI-Powered Summary\n\n")
+        summary.append("📄 AI-Powered Summary (Local)\n\n")
         summary.append(intro)
         if (keyPoints.length > 10) {
             summary.append("\n\nKey Takeaways:")
