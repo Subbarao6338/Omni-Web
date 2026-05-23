@@ -327,124 +327,135 @@ fun TabSwitcherSheet(
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(tabs, key = { it.id }) { tab ->
-                    val isSelected = tab.id == activeTabId
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = {
-                            if (it == SwipeToDismissBoxValue.EndToStart || it == SwipeToDismissBoxValue.StartToEnd) {
-                                onTabClose(tab.id)
-                                true
-                            } else false
-                        }
-                    )
+            androidx.compose.animation.AnimatedContent(
+                targetState = tabs.isEmpty(),
+                label = "TabListAnimation"
+            ) { isEmpty ->
+                if (isEmpty) {
+                    Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                        Text("No open tabs", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(tabs, key = { it.id }) { tab ->
+                            val isSelected = tab.id == activeTabId
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = {
+                                    if (it == SwipeToDismissBoxValue.EndToStart || it == SwipeToDismissBoxValue.StartToEnd) {
+                                        onTabClose(tab.id)
+                                        true
+                                    } else false
+                                }
+                            )
 
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        backgroundContent = {
-                            val color = when (dismissState.dismissDirection) {
-                                SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.2f)
-                                SwipeToDismissBoxValue.StartToEnd -> Color.Red.copy(alpha = 0.2f)
-                                else -> Color.Transparent
-                            }
-                            Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(color))
-                        },
-                        content = {
-                            ElevatedCard(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                                    .clickable {
-                                        onTabSelect(tab.id)
-                                        onDismiss()
-                                    },
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.elevatedCardColors(
-                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
-                                ),
-                                elevation = CardDefaults.elevatedCardElevation(
-                                    defaultElevation = if (isSelected) 8.dp else 2.dp
-                                )
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                            Surface(
-                                                color = if (tab.isIncognito) Color(0xFF6366F1).copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                                shape = CircleShape,
-                                                modifier = Modifier.size(20.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(12.dp),
-                                                        tint = if (tab.isIncognito) Color(0xFF6366F1) else MaterialTheme.colorScheme.primary
-                                                    )
-                                                }
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = tab.title,
-                                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                                                fontSize = 12.sp,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                            )
-                                        }
-                                        Surface(
-                                            onClick = { onTabClose(tab.id) },
-                                            shape = CircleShape,
-                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
-                                            }
-                                        }
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {
+                                    val color = when (dismissState.dismissDirection) {
+                                        SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.2f)
+                                        SwipeToDismissBoxValue.StartToEnd -> Color.Red.copy(alpha = 0.2f)
+                                        else -> Color.Transparent
                                     }
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    Box(
+                                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(color))
+                                },
+                                content = {
+                                    ElevatedCard(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
-                                        contentAlignment = Alignment.Center
+                                            .height(180.dp)
+                                            .clickable {
+                                                onTabSelect(tab.id)
+                                                onDismiss()
+                                            },
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = CardDefaults.elevatedCardColors(
+                                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
+                                        ),
+                                        elevation = CardDefaults.elevatedCardElevation(
+                                            defaultElevation = if (isSelected) 8.dp else 2.dp
+                                        )
                                     ) {
-                                        if (tab.faviconBitmap != null) {
-                                            Image(
-                                                bitmap = tab.faviconBitmap!!.asImageBitmap(),
-                                                contentDescription = null,
-                                                modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
-                                            )
-                                        } else {
-                                            Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), modifier = Modifier.size(32.dp))
-                                        }
+                                        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                    Surface(
+                                                        color = if (tab.isIncognito) Color(0xFF6366F1).copy(alpha = 0.1f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                                        shape = CircleShape,
+                                                        modifier = Modifier.size(20.dp)
+                                                    ) {
+                                                        Box(contentAlignment = Alignment.Center) {
+                                                            Icon(
+                                                                if (tab.isIncognito) Icons.Default.VisibilityOff else Icons.Default.Language,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.size(12.dp),
+                                                                tint = if (tab.isIncognito) Color(0xFF6366F1) else MaterialTheme.colorScheme.primary
+                                                            )
+                                                        }
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = tab.title,
+                                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
+                                                        fontSize = 12.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                                Surface(
+                                                    onClick = { onTabClose(tab.id) },
+                                                    shape = CircleShape,
+                                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(14.dp))
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .weight(1f)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (tab.faviconBitmap != null) {
+                                                    Image(
+                                                        bitmap = tab.faviconBitmap!!.asImageBitmap(),
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                                                    )
+                                                } else {
+                                                    Icon(Icons.Default.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), modifier = Modifier.size(32.dp))
+                                                }
 
-                                        if (isSelected) {
-                                            Box(modifier = Modifier.fillMaxSize().border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)))
+                                                if (isSelected) {
+                                                    Box(modifier = Modifier.fillMaxSize().border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)))
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = tab.url,
+                                                fontSize = 10.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 4.dp)
+                                            )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = tab.url,
-                                        fontSize = 10.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.padding(horizontal = 4.dp)
-                                    )
                                 }
-                            }
+                            )
                         }
-                    )
+                    }
                 }
             }
 

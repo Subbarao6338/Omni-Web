@@ -829,6 +829,12 @@ fun BrowserView(
                     Toast.makeText(context, "Added to bookmarklets", Toast.LENGTH_SHORT).show()
                 }
             },
+            onSearchText = { text ->
+                viewModel.createTab("https://www.google.com/search?q=${Uri.encode(text)}")
+            },
+            onOpenInIncognito = { url ->
+                viewModel.createTab(url, isIncognito = true)
+            },
             onDismiss = { showContextMenu = false }
         )
     }

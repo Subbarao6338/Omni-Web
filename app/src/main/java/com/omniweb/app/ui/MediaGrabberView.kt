@@ -79,45 +79,48 @@ fun MediaGrabberView(
                     }
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(filteredItems) { item ->
-                        ListItem(
-                            headlineContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    val ext = item.src.substringAfterLast(".", "").uppercase().take(4)
-                                    if (ext.isNotEmpty()) {
-                                        Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(4.dp)) {
-                                            Text(ext, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                        ElevatedCard(
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().clickable { onDownload(item) }
+                        ) {
+                            ListItem(
+                                headlineContent = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        val ext = item.src.substringAfterLast(".", "").uppercase().take(4)
+                                        if (ext.isNotEmpty()) {
+                                            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(4.dp)) {
+                                                Text(ext, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                                            }
                                         }
                                     }
+                                },
+                                supportingContent = { Text(item.src, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
+                                leadingContent = {
+                                    Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            when (item.type) {
+                                                "video" -> Icons.Default.Movie
+                                                "audio" -> Icons.Default.MusicNote
+                                                "image" -> Icons.Default.Image
+                                                else -> Icons.Default.InsertDriveFile
+                                            },
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                },
+                                trailingContent = {
+                                    IconButton(onClick = { onDownload(item) }) {
+                                        Icon(Icons.Default.Download, contentDescription = "Download", tint = MaterialTheme.colorScheme.primary)
+                                    }
                                 }
-                            },
-                            supportingContent = { Text(item.src, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
-                            leadingContent = {
-                                Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        when (item.type) {
-                                            "video" -> Icons.Default.Movie
-                                            "audio" -> Icons.Default.MusicNote
-                                            "image" -> Icons.Default.Image
-                                            else -> Icons.Default.InsertDriveFile
-                                        },
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            },
-                            trailingContent = {
-                                IconButton(onClick = { onDownload(item) }) {
-                                    Icon(Icons.Default.Download, contentDescription = "Download", tint = MaterialTheme.colorScheme.primary)
-                                }
-                            },
-                            modifier = Modifier.clickable { onDownload(item) }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                            )
+                        }
                     }
                 }
             }

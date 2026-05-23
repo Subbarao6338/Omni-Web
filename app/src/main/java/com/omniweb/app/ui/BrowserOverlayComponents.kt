@@ -145,43 +145,70 @@ fun ContextMenuSheet(
     onCopyAddress: (String) -> Unit,
     onDownload: (String) -> Unit,
     onAddBookmarklet: (String) -> Unit,
+    onSearchText: (String) -> Unit,
+    onOpenInIncognito: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
+        Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState())) {
             val extra = result.extra
-            when (result.type) {
-                WebView.HitTestResult.SRC_ANCHOR_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
-                    Text("Link Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+            val isLink = result.type == WebView.HitTestResult.SRC_ANCHOR_TYPE || result.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+            val isImage = result.type == WebView.HitTestResult.IMAGE_TYPE || result.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+
+            if (isLink) {
+                Text("Link Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+                ListItem(
+                    headlineContent = { Text("Open in New Tab") },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onOpenInNewTab); onDismiss() }
+                )
+                ListItem(
+                    headlineContent = { Text("Open in Background") },
+                    leadingContent = { Icon(Icons.Default.Tab, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onOpenInBackground); onDismiss() }
+                )
+                ListItem(
+                    headlineContent = { Text("Open in Incognito") },
+                    leadingContent = { Icon(Icons.Default.VisibilityOff, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onOpenInIncognito); onDismiss() }
+                )
+                if (extra != null && com.omniweb.app.util.UrlUtils.isBookmarklet(extra)) {
                     ListItem(
-                        headlineContent = { Text("Open in New Tab") },
-                        leadingContent = { Icon(Icons.Default.OpenInNew, contentDescription = null) },
-                        modifier = Modifier.clickable { extra?.let(onOpenInNewTab); onDismiss() }
-                    )
-                    ListItem(
-                        headlineContent = { Text("Open in Background") },
-                        leadingContent = { Icon(Icons.Default.Tab, contentDescription = null) },
-                        modifier = Modifier.clickable { extra?.let(onOpenInBackground); onDismiss() }
-                    )
-                    ListItem(
-                        headlineContent = { Text("Copy Link Address") },
-                        leadingContent = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
-                        modifier = Modifier.clickable { extra?.let(onCopyAddress); onDismiss() }
-                    )
-                }
-                WebView.HitTestResult.IMAGE_TYPE -> {
-                    Text("Image Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
-                    ListItem(
-                        headlineContent = { Text("Download Image") },
-                        leadingContent = { Icon(Icons.Default.Download, contentDescription = null) },
-                        modifier = Modifier.clickable { extra?.let(onDownload); onDismiss() }
-                    )
-                    ListItem(
-                        headlineContent = { Text("Open Image in New Tab") },
-                        leadingContent = { Icon(Icons.Default.Image, contentDescription = null) },
-                        modifier = Modifier.clickable { extra?.let(onOpenInNewTab); onDismiss() }
+                        headlineContent = { Text("Add Bookmarklet") },
+                        leadingContent = { Icon(Icons.Default.BookmarkAdd, contentDescription = null) },
+                        modifier = Modifier.clickable { onAddBookmarklet(extra); onDismiss() }
                     )
                 }
+                ListItem(
+                    headlineContent = { Text("Search Google for Link") },
+                    leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onSearchText); onDismiss() }
+                )
+                ListItem(
+                    headlineContent = { Text("Copy Link Address") },
+                    leadingContent = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onCopyAddress); onDismiss() }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            if (isImage) {
+                Text("Image Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
+                ListItem(
+                    headlineContent = { Text("Download Image") },
+                    leadingContent = { Icon(Icons.Default.Download, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onDownload); onDismiss() }
+                )
+                ListItem(
+                    headlineContent = { Text("Open Image in New Tab") },
+                    leadingContent = { Icon(Icons.Default.Image, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let(onOpenInNewTab); onDismiss() }
+                )
+                ListItem(
+                    headlineContent = { Text("Search Image on Google") },
+                    leadingContent = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.clickable { extra?.let { onSearchText("https://www.google.com/searchbyimage?image_url=$it") }; onDismiss() }
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
         }

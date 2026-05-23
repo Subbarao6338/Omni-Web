@@ -23,6 +23,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val database = AppDatabase.getDatabase(application)
 
     val tabs = mutableStateListOf<TabInfo>()
+    private val tabAccessOrder = LinkedHashMap<String, Long>(16, 0.75f, true)
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
     private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(16, 0.75f, true) {
@@ -258,7 +259,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun selectTab(id: String) {
         _activeTabId.value = id
-        tabLastActive[id] = System.currentTimeMillis()
+        val now = System.currentTimeMillis()
+        tabLastActive[id] = now
+        tabAccessOrder[id] = now
         hibernateTabsIfNeeded()
     }
 
@@ -280,23 +283,32 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        val timeout = if (force) 0 else 30 * 1000 // 30 seconds
-        tabs.forEach { tab ->
-            if (tab.id != _activeTabId.value) {
-                val lastActive = tabLastActive[tab.id] ?: 0L
-                if ((force || (now - lastActive > timeout)) && webViewCache.containsKey(tab.id)) {
-                    webViewCache.remove(tab.id)?.let { webView ->
-                        val state = android.os.Bundle()
-                        webView.saveState(state)
-                        webViewStateCache[tab.id] = state
-                        webView.stopLoading()
-                        webView.webChromeClient = null
-                        webView.webViewClient = WebViewClient()
-                        webView.clearCache(true)
-                        webView.clearHistory()
-                        webView.removeAllViews()
-                        webView.destroy()
-                    }
+        val timeout = if (force) 0 else 60 * 1000 // 60 seconds
+
+        // Strategy: Hibernate if inactive for too long OR if we have too many active WebViews
+        val activeWebViews = webViewCache.size
+        val maxActive = 3
+
+        val sortedTabs = tabs.filter { it.id != _activeTabId.value }
+            .sortedBy { tabAccessOrder[it.id] ?: 0L }
+
+        sortedTabs.forEachIndexed { index, tab ->
+            val lastActive = tabLastActive[tab.id] ?: 0L
+            val isTooOld = now - lastActive > timeout
+            val isBeyondThreshold = (sortedTabs.size - index) > maxActive
+
+            if ((force || isTooOld || isBeyondThreshold) && webViewCache.containsKey(tab.id)) {
+                webViewCache.remove(tab.id)?.let { webView ->
+                    val state = android.os.Bundle()
+                    webView.saveState(state)
+                    webViewStateCache[tab.id] = state
+                    webView.stopLoading()
+                    webView.webChromeClient = null
+                    webView.webViewClient = WebViewClient()
+                    webView.clearCache(true)
+                    webView.clearHistory()
+                    webView.removeAllViews()
+                    webView.destroy()
                 }
             }
         }

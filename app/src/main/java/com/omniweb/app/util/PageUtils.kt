@@ -73,12 +73,17 @@ object PageUtils {
         md = md.replace(Regex("<img.*?src=\"(.*?)\".*?alt=\"(.*?)\".*?>", RegexOption.IGNORE_CASE), "![$2]($1)")
         md = md.replace(Regex("<img.*?src=\"(.*?)\".*?>", RegexOption.IGNORE_CASE), "![]($1)")
         md = md.replace(Regex("<li.*?>(.*?)</li>", RegexOption.IGNORE_CASE), "- $1\n")
+        md = md.replace(Regex("<ul.*?>\\s*<ul.*?>", RegexOption.IGNORE_CASE), "\n    ")
         md = md.replace(Regex("<ul.*?>", RegexOption.IGNORE_CASE), "\n")
         md = md.replace(Regex("</ul>", RegexOption.IGNORE_CASE), "\n")
         md = md.replace(Regex("<code.*?>(.*?)</code>", RegexOption.IGNORE_CASE), "`$1`")
         md = md.replace(Regex("<pre.*?>(.*?)</pre>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "```\n$1\n```\n\n")
-        md = md.replace(Regex("<tr.*?>(.*?)</tr>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "|$1|\n")
-        md = md.replace(Regex("<t[dh].*?>(.*?)</t[dh]>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " $1 |")
+        md = md.replace(Regex("<tr.*?>\\s*(<t[dh].*?>.*?</t[dh]>)+\\s*</tr>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))) { match ->
+            val cells = match.value
+            val cellContent = Regex("<t[dh].*?>(.*?)</t[dh]>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+                .findAll(cells).map { it.groupValues[1].trim() }.joinToString(" | ", prefix = "| ") + " |\n"
+            cellContent
+        }
         md = md.replace(Regex("<br.*?>", RegexOption.IGNORE_CASE), "\n")
         md = md.replace(Regex("<[^>]*>", RegexOption.IGNORE_CASE), "") // Strip remaining tags
         return md.trim()

@@ -67,7 +67,8 @@ object AdBlockManager {
         "userway.org", "equalweb.com", "accessibe.com", "audioeye.com",
         "branch.io", "appsflyer.com", "adjust.com", "kochava.com", "singular.net",
         "braze.com", "mparticle.com", "tealiumiq.com", "qualtrics.com", "usercentrics.com",
-        "onetrust.com", "cookielaw.org", "trustarc.com", "didomi.io", "civiccomputing.com"
+        "onetrust.com", "cookielaw.org", "trustarc.com", "didomi.io", "civiccomputing.com",
+        "collector.github.com", "api.segment.io", "ping.chartbeat.net"
     )
 
     private val SOCIAL_DOMAINS = hashSetOf(
@@ -80,16 +81,26 @@ object AdBlockManager {
         "gab.com", "parler.com", "gettr.com", "rumble.com", "bitchute.com"
     )
 
+    private val PRECOMPUTED_DOMAINS = ADS_DOMAINS + ANALYTICS_DOMAINS + SOCIAL_DOMAINS
+
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
 
-        // Fast path for common non-ad domains
-        if (host.endsWith("google.com") || host.endsWith("apple.com") || host.endsWith("microsoft.com")) {
-             // Still check subdomains but be careful
-             if (host == "google.com" || host == "www.google.com") return null
+        // Fast path check
+        var foundInSet = false
+        var current = host
+        while (current.contains(".")) {
+            if (PRECOMPUTED_DOMAINS.contains(current)) {
+                foundInSet = true
+                break
+            }
+            current = current.substringAfter(".", "")
         }
 
-        var current = host
+        if (!foundInSet) return null
+
+        // Re-check to get category
+        current = host
         while (current.contains(".")) {
             if (ADS_DOMAINS.contains(current)) return "[Ad]"
             if (ANALYTICS_DOMAINS.contains(current)) return "[Analytics]"
@@ -139,19 +150,27 @@ object AdBlockManager {
                 style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; z-index: -9999 !important; }';
                 document.head.appendChild(style);
 
-                // MutationObserver for better performance than setInterval
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.addedNodes.length) {
-                             mutation.addedNodes.forEach(node => {
-                                 if (node.nodeType === 1) { // Element
-                                     // Check if it matches any selector or contains ads
-                                 }
-                             });
+                let timeout = null;
+                const observer = new MutationObserver(() => {
+                    if (timeout) return;
+                    timeout = setTimeout(() => {
+                        const cleanup = () => {
+                            selectors.forEach(s => {
+                                document.querySelectorAll(s).forEach(el => {
+                                    el.style.display = 'none';
+                                    el.style.setProperty('display', 'none', 'important');
+                                });
+                            });
+                        };
+                        if (window.requestIdleCallback) {
+                            requestIdleCallback(cleanup);
+                        } else {
+                            cleanup();
                         }
-                    });
+                        timeout = null;
+                    }, 500);
                 });
-                observer.observe(document.body, { childList: true, subtree: true });
+                observer.observe(document.documentElement, { childList: true, subtree: true });
             })();
         """.trimIndent()
     }

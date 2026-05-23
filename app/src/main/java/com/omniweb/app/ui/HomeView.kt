@@ -187,7 +187,8 @@ fun HomeView(
                         placeholder = { Text("Search or type URL", fontSize = 16.sp) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp),
+                            .height(60.dp)
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), RoundedCornerShape(20.dp)),
                         shape = RoundedCornerShape(20.dp),
                         leadingIcon = {
                             val icon = when {

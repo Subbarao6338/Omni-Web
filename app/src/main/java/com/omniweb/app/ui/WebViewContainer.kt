@@ -362,12 +362,25 @@ private fun antiFingerprintScript() = """
         hideProperty(navigator, 'webdriver', false);
         hideProperty(navigator, 'plugins', []);
         hideProperty(navigator, 'languages', ['en-US', 'en']);
+        hideProperty(navigator, 'hardwareConcurrency', 8);
+        hideProperty(navigator, 'deviceMemory', 8);
 
-        // Minimize canvas fingerprinting by adding slight noise (placeholder logic)
+        // Minimize canvas fingerprinting by adding slight noise
+        const originalMeasureText = CanvasRenderingContext2D.prototype.measureText;
+        CanvasRenderingContext2D.prototype.measureText = function() {
+            const metrics = originalMeasureText.apply(this, arguments);
+            const noise = (Math.random() * 0.01) - 0.005;
+            // We can't easily modify the read-only properties of TextMetrics,
+            // but we can return a proxy or just leave as is for complex cases.
+            return metrics;
+        };
+
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
         CanvasRenderingContext2D.prototype.getImageData = function() {
             const imageData = originalGetImageData.apply(this, arguments);
-            // Could add subtle noise here
+            for (let i = 0; i < imageData.data.length; i += 4) {
+                imageData.data[i] = imageData.data[i] + (Math.random() > 0.5 ? 1 : 0);
+            }
             return imageData;
         };
     })();

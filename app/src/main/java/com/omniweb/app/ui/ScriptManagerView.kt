@@ -93,7 +93,9 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
                 val library = listOf(
                     UserScript(name = "Dark Reader Light", script = "document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';", matchPattern = "*", type = "userscript"),
                     UserScript(name = "Block Popups", script = "window.open = function() { return null; };", matchPattern = "*", type = "userscript"),
-                    UserScript(name = "Force Zoom", script = "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');", matchPattern = "*", type = "userscript")
+                    UserScript(name = "Force Zoom", script = "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');", matchPattern = "*", type = "userscript"),
+                    UserScript(name = "YouTube Ad-skip", script = "setInterval(() => { const btn = document.querySelector('.ytp-ad-skip-button'); if(btn) btn.click(); }, 1000);", matchPattern = "*youtube.com*", type = "userscript"),
+                    UserScript(name = "Dark Mode Enforcer", script = "const style = document.createElement('style'); style.innerHTML = 'html, body { background: #121212 !important; color: #eee !important; } * { background-color: inherit !important; color: inherit !important; }'; document.head.appendChild(style);", matchPattern = "*", type = "userscript")
                 )
                 scope.launch {
                     library.forEach { database.userScriptDao().insertScript(it) }
