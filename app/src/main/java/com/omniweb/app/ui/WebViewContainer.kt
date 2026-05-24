@@ -17,7 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
 import com.omniweb.app.data.Settings
@@ -79,13 +79,12 @@ fun WebViewContainer(
         AndroidView(
             factory = { _ ->
                 currentWebView.apply {
-                    val host = Uri.parse(tab.url).host ?: ""
-                    val perSite = viewModel.getPerSiteSettings(host)
+                    val initialHost = Uri.parse(tab.url).host ?: ""
+                    val initialPerSite = viewModel.getPerSiteSettings(initialHost)
 
                     this.settings.apply {
-                        javaScriptEnabled = perSite?.javaScriptEnabled ?: settings.javaScriptEnabled
+                        javaScriptEnabled = initialPerSite?.javaScriptEnabled ?: settings.javaScriptEnabled
                         domStorageEnabled = true
-                        databaseEnabled = true
                         setGeolocationEnabled(true)
                         mediaPlaybackRequiresUserGesture = false
                         loadWithOverviewMode = true
@@ -98,9 +97,8 @@ fun WebViewContainer(
                         setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         allowContentAccess = true
                         allowFileAccess = true
-                        setRenderPriority(WebSettings.RenderPriority.HIGH)
 
-                        val ua = if (perSite?.desktopMode == true) {
+                        val ua = if (initialPerSite?.desktopMode == true) {
                             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                         } else if (settings.strictPrivacyMode) {
                             "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -116,7 +114,6 @@ fun WebViewContainer(
 
                     if (tab.isIncognito) {
                         CookieManager.getInstance().setAcceptCookie(false)
-                        this.settings.databaseEnabled = false
                         this.settings.domStorageEnabled = false
                         this.settings.cacheMode = WebSettings.LOAD_NO_CACHE
                     } else {
@@ -124,7 +121,7 @@ fun WebViewContainer(
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
                     }
 
-                    setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+                    setDownloadListener { url, _, _, _, _ ->
                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
                         intent.data = android.net.Uri.parse(url)
                         context.startActivity(intent)
@@ -319,15 +316,19 @@ fun WebViewContainer(
                 }
 
                 val cm = context.getSystemService(ConnectivityManager::class.java)
-                val activeNetwork = cm.activeNetworkInfo
-                val isSlowConnection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
-                    capabilities != null && (capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) || capabilities.linkDownstreamBandwidthKbps < 2000)
-                } else {
-                    activeNetwork?.type == ConnectivityManager.TYPE_MOBILE
-                }
+                val network = cm.activeNetwork
+                val capabilities = cm.getNetworkCapabilities(network)
+                val isSlowConnection = capabilities != null && (
+                    capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.linkDownstreamBandwidthKbps < 2000
+                )
 
-                view.settings.cacheMode = if (activeNetwork?.isConnected == true) {
+                val isConnected = capabilities != null && (
+                    capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                    capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                )
+
+                view.settings.cacheMode = if (isConnected) {
                     if (isSlowConnection) WebSettings.LOAD_CACHE_ELSE_NETWORK else WebSettings.LOAD_DEFAULT
                 } else {
                     WebSettingsCompat.setSafeBrowsingEnabled(view.settings, false)

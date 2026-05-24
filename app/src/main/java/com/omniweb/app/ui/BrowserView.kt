@@ -58,7 +58,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Bookmark
 import com.omniweb.app.data.HistoryEntry
@@ -823,12 +823,6 @@ fun BrowserView(
                 Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             },
             onDownload = { url -> downloadManager.startDownload(url, "Image") },
-            onAddBookmarklet = { script ->
-                scope.launch {
-                    database.userScriptDao().insertScript(com.omniweb.app.data.UserScript(name = "Saved Bookmarklet", script = script.substringAfter("javascript:"), type = "bookmarklet", enabled = true))
-                    Toast.makeText(context, "Added to bookmarklets", Toast.LENGTH_SHORT).show()
-                }
-            },
             onDismiss = { showContextMenu = false }
         )
     }

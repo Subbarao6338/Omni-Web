@@ -215,7 +215,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (index != -1) {
             val removedTab = tabs.removeAt(index)
             recentlyClosedTabs.add(0, removedTab)
-            if (recentlyClosedTabs.size > 10) recentlyClosedTabs.removeLast()
+            if (recentlyClosedTabs.size > 10) recentlyClosedTabs.removeAt(recentlyClosedTabs.lastIndex)
 
             viewModelScope.launch(Dispatchers.IO) {
                 database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))

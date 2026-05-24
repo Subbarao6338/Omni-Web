@@ -95,9 +95,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val appContext = androidx.compose.ui.platform.LocalContext.current
     val isInPiP = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-        (context as? android.app.Activity)?.isInPictureInPictureMode ?: false
+        (appContext as? android.app.Activity)?.isInPictureInPictureMode ?: false
     } else false
 
     val settingsState by viewModel.settings.collectAsState()
@@ -189,32 +189,28 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     }
                 }
                 composable("settings") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     SettingsView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onBack = { navController.popBackStack() },
                         onOpenScripts = { navController.navigate("scripts") },
                         onOpenPasswords = { navController.navigate("passwords") }
                     )
                 }
                 composable("passwords") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     PasswordManagerView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onBack = { navController.popBackStack() }
                     )
                 }
                 composable("scripts") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     ScriptManagerView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onBack = { navController.popBackStack() }
                     )
                 }
                 composable("bookmarks") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     BookmarksView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onNavigate = { url ->
                             activeTab.url = url
                             navController.navigate("browser") {
@@ -225,9 +221,8 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("history") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     HistoryView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onNavigate = { url ->
                             activeTab.url = url
                             navController.navigate("browser") {
@@ -238,9 +233,8 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                     )
                 }
                 composable("downloads") {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     DownloadsView(
-                        database = AppDatabase.getDatabase(context),
+                        database = AppDatabase.getDatabase(appContext),
                         onBack = { navController.popBackStack() }
                     )
                 }

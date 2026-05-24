@@ -59,6 +59,26 @@ jobs:
           echo ""
         fi
 
+    - name: Run Unit Tests
+      run: ./gradlew test
+
+    - name: Run Lint
+      run: ./gradlew lintDebug
+
+    - name: Upload Test Reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-reports
+        path: app/build/reports/tests/
+
+    - name: Upload Lint Reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lint-reports
+        path: app/build/reports/lint-results-debug.html
+
     - name: Build with Gradle
       env:
         APP_VERSION_NAME: ${{ steps.get_version.outputs.TAG_NAME }}
@@ -80,7 +100,7 @@ jobs:
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
-      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+      if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
       with:
         tag_name: ${{ steps.get_version.outputs.TAG_NAME }}
         name: Omni Web ${{ steps.get_version.outputs.TAG_NAME }}

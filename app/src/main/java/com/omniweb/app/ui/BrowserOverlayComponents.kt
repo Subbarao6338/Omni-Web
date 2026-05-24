@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material3.*
@@ -144,7 +144,6 @@ fun ContextMenuSheet(
     onOpenInBackground: (String) -> Unit,
     onCopyAddress: (String) -> Unit,
     onDownload: (String) -> Unit,
-    onAddBookmarklet: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -155,7 +154,7 @@ fun ContextMenuSheet(
                     Text("Link Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                     ListItem(
                         headlineContent = { Text("Open in New Tab") },
-                        leadingContent = { Icon(Icons.Default.OpenInNew, contentDescription = null) },
+                        leadingContent = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
                         modifier = Modifier.clickable { extra?.let(onOpenInNewTab); onDismiss() }
                     )
                     ListItem(
@@ -229,7 +228,7 @@ fun ReaderModeView(
                         val icon = when(theme) {
                             "system" -> Icons.Default.SettingsSuggest
                             "light" -> Icons.Default.LightMode
-                            "sepia" -> Icons.Default.MenuBook
+                            "sepia" -> Icons.AutoMirrored.Filled.MenuBook
                             else -> Icons.Default.DarkMode
                         }
                         Icon(icon, contentDescription = "Toggle Theme")
