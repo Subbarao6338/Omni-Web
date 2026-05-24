@@ -61,7 +61,7 @@ jobs:
 
     - name: Build with Gradle
       env:
-        APP_VERSION_NAME: ${{ steps.get_version.outputs.VERSION_NAME }}
+        APP_VERSION_NAME: ${{ steps.get_version.outputs.TAG_NAME }}
         APP_VERSION_CODE: ${{ steps.get_version.outputs.VERSION_CODE }}
       run: |
         chmod +x gradlew
