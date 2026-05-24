@@ -7,7 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -102,7 +102,7 @@ fun MediaGrabberView(
                                             "video" -> Icons.Default.Movie
                                             "audio" -> Icons.Default.MusicNote
                                             "image" -> Icons.Default.Image
-                                            else -> Icons.Default.InsertDriveFile
+                                            else -> Icons.AutoMirrored.Filled.InsertDriveFile
                                         },
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.primary,

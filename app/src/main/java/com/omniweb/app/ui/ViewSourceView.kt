@@ -58,7 +58,6 @@ fun ViewSourceView(source: String, onBack: () -> Unit) {
                     var currentPos = 0
                     val tagRegex = Regex("<(/?[a-zA-Z0-9]+)([^>]*)>")
                     val attrRegex = Regex("([a-zA-Z0-9-]+)=\"([^\"]*)\"")
-                    val commentRegex = Regex("<!--.*?-->")
 
                     // Simple syntax highlighting logic
                     val matches = tagRegex.findAll(line)
