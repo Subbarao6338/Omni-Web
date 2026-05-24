@@ -3,12 +3,33 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
 
 def getAppVersionName() {
-    return System.getenv("APP_VERSION_NAME") ?: rootProject.ext.appVersionName
+    def stdout = new ByteArrayOutputStream()
+    try {
+        exec {
+            commandLine 'git', 'describe', '--tags', '--always'
+            standardOutput = stdout
+        }
+        return System.getenv("APP_VERSION_NAME") ?: stdout.toString().trim()
+    } catch (Exception ignored) {
+        return System.getenv("APP_VERSION_NAME") ?: rootProject.ext.appVersionName
+    }
 }
 
 def getAppVersionCode() {
     def code = System.getenv("APP_VERSION_CODE")
-    return code != null ? code.toInteger() : rootProject.ext.appVersionCode
+    if (code != null && code.isInteger()) {
+        return code.toInteger()
+    }
+    def stdout = new ByteArrayOutputStream()
+    try {
+        exec {
+            commandLine 'git', 'rev-list', '--count', 'HEAD'
+            standardOutput = stdout
+        }
+        return stdout.toString().trim().toInteger()
+    } catch (Exception ignored) {
+        return rootProject.ext.appVersionCode
+    }
 }
 
 android {
@@ -45,6 +66,7 @@ android {
     }
     buildFeatures {
         compose true
+        buildConfig true
     }
     composeOptions {
         kotlinCompilerExtensionVersion rootProject.ext.composeCompilerVersion

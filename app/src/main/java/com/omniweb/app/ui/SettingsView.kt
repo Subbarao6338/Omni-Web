@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.omniweb.app.BuildConfig
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.util.BackupManager
@@ -443,6 +444,18 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                             Icon(Icons.Default.ContentPaste, contentDescription = "Import")
                         }
                     }
+                )
+            }
+
+            SettingsSection("About", Icons.Default.Info) {
+                ListItem(
+                    headlineContent = { Text("Version") },
+                    supportingContent = { Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Developer") },
+                    supportingContent = { Text("Subbarao") }
                 )
             }
 
