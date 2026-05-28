@@ -138,7 +138,7 @@ class OmniDownloadManager(private val context: Context) {
             }
 
             // Move to destination
-            var finalPath: String? = null
+            val finalPath: String?
             if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
                 val treeUri = Uri.parse(settings.downloadPath)
                 val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
