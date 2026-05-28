@@ -4,9 +4,10 @@ on:
   push:
     branches:
       - "main"
-    tags:
-      - 'v*'
   workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -25,10 +26,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -38,16 +39,18 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          VERSION_NAME=$(grep 'appVersionName' variables.gradle | cut -d "'" -f 2)
-          VERSION_CODE=$(grep 'appVersionCode' variables.gradle | sed 's/[^0-9]//g')
+          VERSION_CODE=${GITHUB_RUN_NUMBER}
 
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-          else
-            TAG_NAME="v${VERSION_NAME}"
-          fi
+          MAJOR=1
+          MINOR=$(( VERSION_CODE / 10 ))
+          PATCH=$(( VERSION_CODE % 10 ))
+
+          VERSION_NAME="${MAJOR}.${MINOR}.${PATCH}"
+
+          TAG_NAME="v${VERSION_NAME}"
 
           BUILD_TYPE="debug"
+
           APK_PATH="app/build/outputs/apk/${BUILD_TYPE}/app-${BUILD_TYPE}.apk"
           APK_NAME="OmniWeb-${TAG_NAME}.apk"
 
@@ -58,9 +61,9 @@ jobs:
           echo "APK_PATH=${APK_PATH}" >> $GITHUB_OUTPUT
           echo "APK_NAME=${APK_NAME}" >> $GITHUB_OUTPUT
 
-          echo "Version Name: ${VERSION_NAME}"
-          echo "Version Code: ${VERSION_CODE}"
-          echo "Tag Name: ${TAG_NAME}"
+          echo "VERSION_NAME=${VERSION_NAME}"
+          echo "VERSION_CODE=${VERSION_CODE}"
+          echo "TAG_NAME=${TAG_NAME}"
 
       - name: Setup Debug Keystore
         shell: bash
@@ -82,14 +85,6 @@ jobs:
               -keysize 2048 \
               -validity 10000 \
               -dname "CN=Android Debug,O=Android,C=US"
-
-            echo "======================================================"
-            echo "SAVE THIS AS: ANDROID_DEBUG_KEYSTORE_B64"
-            echo "======================================================"
-
-            base64 ${KEYSTORE_PATH} | tr -d '\n'
-
-            echo ""
           fi
 
       - name: Grant Execute Permission
@@ -103,7 +98,7 @@ jobs:
 
       - name: Upload Test Reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-reports-${{ steps.get_version.outputs.TAG_NAME }}
           path: app/build/reports/tests/
@@ -111,7 +106,7 @@ jobs:
 
       - name: Upload Lint Reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: lint-reports-${{ steps.get_version.outputs.TAG_NAME }}
           path: app/build/reports/lint-results-debug.html
@@ -122,7 +117,7 @@ jobs:
           APP_VERSION_NAME: ${{ steps.get_version.outputs.VERSION_NAME }}
           APP_VERSION_CODE: ${{ steps.get_version.outputs.VERSION_CODE }}
         run: |
-          ./gradlew assemble${{ steps.get_version.outputs.BUILD_TYPE == 'debug' && 'Debug' || 'Release' }}
+          ./gradlew assembleDebug
 
       - name: Prepare APK
         run: |
@@ -134,14 +129,23 @@ jobs:
           test -f "${{ steps.get_version.outputs.APK_NAME }}"
 
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.get_version.outputs.APK_NAME }}
           path: ${{ steps.get_version.outputs.APK_NAME }}
           retention-days: ${{ env.RETENTION_DAYS }}
 
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create Git Tag
+        run: |
+          git tag ${{ steps.get_version.outputs.TAG_NAME }}
+          git push origin ${{ steps.get_version.outputs.TAG_NAME }}
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
