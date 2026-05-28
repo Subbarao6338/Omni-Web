@@ -281,7 +281,7 @@ fun BrowserView(
                             if (isBookmarked) {
                                 bookmarks.find { it.url == activeTab.url }?.let { database.bookmarkDao().deleteBookmark(it) }
                             } else {
-                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title ?: urlInput, url = urlInput))
+                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title, url = urlInput))
                             }
                         }
                     },
@@ -340,7 +340,6 @@ fun BrowserView(
             )
         }
     ) { padding ->
-    val lifecycleOwner = LocalLifecycleOwner.current
     HorizontalPager(
         state = pagerState,
         modifier = Modifier.padding(padding).fillMaxSize(),
@@ -526,16 +525,16 @@ fun BrowserView(
                 Spacer(modifier = Modifier.height(24.dp))
                 ToolCategory("Save & Print") {
                     item { ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
-                        PageUtils.takeFullPageScreenshot(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                        PageUtils.takeFullPageScreenshot(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                        PageUtils.saveAsPdf(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                        PageUtils.saveAsPdf(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
                         scope.launch {
-                            val path = PageUtils.saveAsMhtml(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title ?: "Page")
+                            val path = PageUtils.saveAsMhtml(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
                             database.readingListDao().insertEntry(com.omniweb.app.data.ReadingListEntry(title = activeTab.title, url = activeTab.url, filePath = path))
                         }
                         showTools = false
@@ -543,7 +542,7 @@ fun BrowserView(
                     item { ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
                         viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
                             val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
-                            PageUtils.saveAsMarkdown(context, clean, activeTab.title ?: "Page")
+                            PageUtils.saveAsMarkdown(context, clean, activeTab.title)
                         }
                         showTools = false
                     }}
@@ -677,7 +676,7 @@ fun BrowserView(
 
     if (isReaderMode) {
         ReaderModeView(
-            title = activeTab.title ?: "Reader Mode",
+            title = activeTab.title,
             content = readerContent,
             onClose = { isReaderMode = false }
         )

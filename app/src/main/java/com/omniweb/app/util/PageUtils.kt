@@ -89,6 +89,7 @@ object PageUtils {
         return ArticleExtractor.extractArticleContent(html)
     }
 
+    @Suppress("DEPRECATION")
     fun takeFullPageScreenshot(context: Context, webView: WebView, title: String) {
         try {
             val scale = webView.scale

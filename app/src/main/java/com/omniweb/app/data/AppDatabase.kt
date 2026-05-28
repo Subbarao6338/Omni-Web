@@ -32,87 +32,87 @@ abstract class AppDatabase : RoomDatabase() {
         private var INSTANCE: AppDatabase? = null
 
         private val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE userscripts ADD COLUMN type TEXT NOT NULL DEFAULT 'userscript'")
-                database.execSQL("ALTER TABLE userscripts ADD COLUMN runAt TEXT NOT NULL DEFAULT 'end'")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE userscripts ADD COLUMN type TEXT NOT NULL DEFAULT 'userscript'")
+                db.execSQL("ALTER TABLE userscripts ADD COLUMN runAt TEXT NOT NULL DEFAULT 'end'")
             }
         }
 
         private val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE tabs ADD COLUMN scrollX INTEGER NOT NULL DEFAULT 0")
-                database.execSQL("ALTER TABLE tabs ADD COLUMN scrollY INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE tabs ADD COLUMN scrollX INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE tabs ADD COLUMN scrollY INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE settings ADD COLUMN clearDataOnExit INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN clearDataOnExit INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE settings ADD COLUMN javaScriptEnabled INTEGER NOT NULL DEFAULT 1")
-                database.execSQL("ALTER TABLE settings ADD COLUMN blockThirdPartyCookies INTEGER NOT NULL DEFAULT 1")
-                database.execSQL("ALTER TABLE settings ADD COLUMN customUserAgent TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN javaScriptEnabled INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE settings ADD COLUMN blockThirdPartyCookies INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE settings ADD COLUMN customUserAgent TEXT")
             }
         }
 
         private val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE settings ADD COLUMN customSearchEngines TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE settings ADD COLUMN customSearchEngines TEXT")
             }
         }
 
         private val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("CREATE TABLE IF NOT EXISTS `passwords` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `site` TEXT NOT NULL, `username` TEXT NOT NULL, `password` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `passwords` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `site` TEXT NOT NULL, `username` TEXT NOT NULL, `password` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)")
             }
         }
 
         private val MIGRATION_10_11 = object : Migration(10, 11) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("CREATE TABLE IF NOT EXISTS `per_site_settings` (`host` TEXT NOT NULL, `desktopMode` INTEGER NOT NULL DEFAULT 0, `adBlockEnabled` INTEGER NOT NULL DEFAULT 1, `javaScriptEnabled` INTEGER NOT NULL DEFAULT 1, `zoomLevel` REAL NOT NULL DEFAULT 1.0, PRIMARY KEY(`host`))")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `per_site_settings` (`host` TEXT NOT NULL, `desktopMode` INTEGER NOT NULL DEFAULT 0, `adBlockEnabled` INTEGER NOT NULL DEFAULT 1, `javaScriptEnabled` INTEGER NOT NULL DEFAULT 1, `zoomLevel` REAL NOT NULL DEFAULT 1.0, PRIMARY KEY(`host`))")
             }
         }
 
         private val MIGRATION_11_12 = object : Migration(11, 12) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("CREATE TABLE IF NOT EXISTS `reading_list` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, `filePath` TEXT, `timestamp` INTEGER NOT NULL)")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `reading_list` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `title` TEXT NOT NULL, `url` TEXT NOT NULL, `filePath` TEXT, `timestamp` INTEGER NOT NULL)")
             }
         }
 
         private val MIGRATION_12_13 = object : Migration(12, 13) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `passwords` RENAME TO `passwords_old`")
-                database.execSQL("CREATE TABLE IF NOT EXISTS `passwords` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `site` TEXT NOT NULL, `username` TEXT NOT NULL, `encryptedPassword` TEXT NOT NULL, `iv` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)")
-                database.execSQL("INSERT INTO `passwords` (id, site, username, encryptedPassword, iv, timestamp) SELECT id, site, username, password, '', timestamp FROM `passwords_old`")
-                database.execSQL("DROP TABLE `passwords_old`")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `passwords` RENAME TO `passwords_old`")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `passwords` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `site` TEXT NOT NULL, `username` TEXT NOT NULL, `encryptedPassword` TEXT NOT NULL, `iv` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)")
+                db.execSQL("INSERT INTO `passwords` (id, site, username, encryptedPassword, iv, timestamp) SELECT id, site, username, password, '', timestamp FROM `passwords_old`")
+                db.execSQL("DROP TABLE `passwords_old`")
             }
         }
 
         private val MIGRATION_13_14 = object : Migration(13, 14) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `settings` ADD COLUMN `httpsOnlyMode` INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `httpsOnlyMode` INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_14_15 = object : Migration(14, 15) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `settings` ADD COLUMN `deepDarkMode` INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `deepDarkMode` INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_15_16 = object : Migration(15, 16) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `settings` ADD COLUMN `strictPrivacyMode` INTEGER NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `strictPrivacyMode` INTEGER NOT NULL DEFAULT 0")
             }
         }
 
         private val MIGRATION_16_17 = object : Migration(16, 17) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE `settings` ADD COLUMN `geminiApiKey` TEXT")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `geminiApiKey` TEXT")
             }
         }
 
