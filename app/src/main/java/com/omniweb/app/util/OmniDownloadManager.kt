@@ -189,6 +189,16 @@ class OmniDownloadManager(private val context: Context) {
         }
     }
 
+    fun retryDownload(id: Long) {
+        scope.launch {
+            db.downloadDao().getDownloadByIdSync(id)?.let { task ->
+                startDownload(task.url, task.title)
+                // Optionally remove the old failed task
+                db.downloadDao().deleteDownload(task)
+            }
+        }
+    }
+
     private fun pollDownloadStatus(downloadId: Long) {
         scope.launch {
             var isDownloading = true

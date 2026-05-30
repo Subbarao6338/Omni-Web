@@ -95,6 +95,7 @@ fun WebViewContainer(
                         builtInZoomControls = true
                         displayZoomControls = false
                         setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        setOffscreenPreRaster(true)
                         allowContentAccess = true
                         allowFileAccess = true
 
@@ -363,13 +364,26 @@ private fun antiFingerprintScript() = """
         hideProperty(navigator, 'webdriver', false);
         hideProperty(navigator, 'plugins', []);
         hideProperty(navigator, 'languages', ['en-US', 'en']);
+        hideProperty(navigator, 'deviceMemory', 8);
+        hideProperty(navigator, 'hardwareConcurrency', 8);
+        hideProperty(navigator, 'maxTouchPoints', 5);
 
-        // Minimize canvas fingerprinting by adding slight noise (placeholder logic)
+        // Minimize canvas fingerprinting by adding slight noise
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
         CanvasRenderingContext2D.prototype.getImageData = function() {
             const imageData = originalGetImageData.apply(this, arguments);
-            // Could add subtle noise here
+            if (imageData.data.length >= 4) {
+                imageData.data[0] = imageData.data[0] ^ 1;
+            }
             return imageData;
+        };
+
+        const originalMeasureText = CanvasRenderingContext2D.prototype.measureText;
+        CanvasRenderingContext2D.prototype.measureText = function() {
+            const metrics = originalMeasureText.apply(this, arguments);
+            const fakeMetrics = Object.create(metrics);
+            Object.defineProperty(fakeMetrics, 'width', { value: metrics.width + 0.01 * Math.random() });
+            return fakeMetrics;
         };
     })();
 """.trimIndent()

@@ -221,8 +221,8 @@ fun HomeView(
                             focusManager.clearFocus()
                         }),
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
                         )
@@ -257,6 +257,33 @@ fun HomeView(
                     }
                 }
                 Spacer(modifier = Modifier.height(32.dp))
+            }
+
+            if (viewModel.recentlyClosedTabs.isNotEmpty()) {
+                item {
+                    SectionHeader("Recently Closed")
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(viewModel.recentlyClosedTabs) { tab ->
+                            Card(
+                                modifier = Modifier
+                                    .width(160.dp)
+                                    .clickable { viewModel.restoreTab(tab); onNavigate(tab.url) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Restore, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(tab.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
             }
 
             if (shortcuts.isNotEmpty()) {

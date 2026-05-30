@@ -278,6 +278,8 @@ fun ReaderModeView(
                     else -> androidx.compose.ui.text.font.FontFamily.SansSerif
                 }
             )
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = textColor.copy(alpha = 0.2f))
             Spacer(modifier = Modifier.height(24.dp))
             val cleanContent = content
                 .replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "\n\n")

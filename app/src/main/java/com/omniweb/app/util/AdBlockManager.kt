@@ -15,9 +15,11 @@ object AdBlockManager {
         "adtechus.com", "adthor.com", "adthrive.com", "advertising.com", "advid.tv",
         "adxpansion.com", "adzerk.net", "affise.com", "amazon-adsystem.com", "applovin.com",
         "atdmt.com", "bidswitch.net", "bidtheatre.com", "bidvertiser.com", "bitly.com",
+        "byteoversea.com", "pstatp.com", "snssdk.com",
         "bluekai.com", "buysellads.com", "carbonads.net", "casalemedia.com", "chartboost.com",
         "clickadu.com", "cloclo.me", "contextweb.com", "criteo.com", "dotomi.com",
         "doubleclick.net", "ero-advertising.com", "evadav.com", "exoclick.com", "exponential.com",
+        "ib.adnxs.com", "secure.adnxs.com",
         "ezoic.com", "flurry.com", "fyber.com", "googleads.g.doubleclick.net", "googleadservices.com",
         "googlesyndication.com", "gumgum.com", "hilltopads.com", "indexww.com", "inmobi.com",
         "ironsrc.com", "juicyads.com", "lijit.com", "mail.ru", "media.net", "mediavine.com",
@@ -29,7 +31,7 @@ object AdBlockManager {
         "shorte.st", "smartadserver.com", "sovrn.com", "srv.buysellads.com", "t.co",
         "taboola.com", "tapjoy.com", "tinyurl.com", "trafficjunky.com", "trafficstars.com",
         "twinred.com", "unityads.unity3d.com", "vungle.com", "yandex.ru", "yieldmanager.com",
-        "yieldmo.com", "zedo.com"
+        "yieldmo.com", "zedo.com", "ads.yahoo.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
