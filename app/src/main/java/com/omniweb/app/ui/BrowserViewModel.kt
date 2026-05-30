@@ -62,6 +62,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         tabs.add(TabInfo(initialId, "about:home", "Home"))
         _activeTabId.value = initialId
 
+        // Immediate pre-warming
+        prewarmedWebView = createWebView(application)
+
         viewModelScope.launch {
             val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
             val savedTabs = database.tabDao().getAllTabs().firstOrNull() ?: emptyList()
@@ -175,11 +178,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         webViewCache[tabId] = webView
 
-        // Prepare next prewarmed WebView
-        viewModelScope.launch(Dispatchers.Main) {
-            if (prewarmedWebView == null) {
-                prewarmedWebView = createWebView(context)
-            }
+        // Prepare next prewarmed WebView on Main thread immediately
+        if (prewarmedWebView == null) {
+            prewarmedWebView = createWebView(context)
         }
 
         return webView

@@ -83,7 +83,7 @@ class MainActivity : ComponentActivity() {
             try {
                 YoutubeDL.getInstance().init(this@MainActivity)
             } catch (e: Exception) {
-                Log.e("YoutubeDL", "failed to initialize youtubedl-android", e)
+                com.omniweb.app.util.LogUtils.e("failed to initialize youtubedl-android", e)
             }
         }
 

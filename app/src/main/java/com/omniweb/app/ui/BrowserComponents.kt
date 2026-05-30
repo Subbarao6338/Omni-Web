@@ -30,7 +30,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
@@ -69,6 +71,7 @@ fun BrowserAddressBar(
     blockedCount: Int = 0
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val clipboardManager = remember { context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager }
     var clipboardContent by remember { mutableStateOf<String?>(null) }
 
@@ -151,6 +154,7 @@ fun BrowserAddressBar(
                                         if (clipboardContent != null && urlInput.isEmpty()) {
                                             TextButton(
                                                 onClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                     onUrlChange(clipboardContent!!)
                                                     onGo()
                                                 },
@@ -178,7 +182,10 @@ fun BrowserAddressBar(
                                             IconButton(onClick = onVoiceClick) { Icon(Icons.Default.Mic, contentDescription = "Voice Search", modifier = Modifier.size(16.dp)) }
                                         }
                                         if (urlInput.isNotEmpty()) {
-                                            IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                            IconButton(onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                onUrlChange("")
+                                            }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
                                         }
                                     }
                                 },
@@ -224,9 +231,16 @@ fun BrowserAddressBar(
                                 Column {
                                     suggestions.forEach { suggestion ->
                                         ListItem(
-                                            headlineContent = { Text(suggestion.title, maxLines = 1) },
+                                            headlineContent = {
+                                                Text(
+                                                    suggestion.title,
+                                                    maxLines = 1,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MaterialTheme.colorScheme.primary
+                                                )
+                                            },
                                             supportingContent = { Text(suggestion.url, maxLines = 1, fontSize = 12.sp) },
-                                            modifier = Modifier.clickable { onSuggestionClick(suggestion) }
+                                            modifier = Modifier.clickable { onSuggestionClick(suggestion) }.padding(vertical = 10.dp)
                                         )
                                     }
                                 }

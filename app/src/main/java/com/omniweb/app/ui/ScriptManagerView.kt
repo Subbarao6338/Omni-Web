@@ -93,7 +93,12 @@ fun ScriptManagerView(database: AppDatabase, onBack: () -> Unit) {
                 val library = listOf(
                     UserScript(name = "Dark Reader Light", script = "document.documentElement.style.filter = 'invert(1) hue-rotate(180deg)';", matchPattern = "*", type = "userscript"),
                     UserScript(name = "Block Popups", script = "window.open = function() { return null; };", matchPattern = "*", type = "userscript"),
-                    UserScript(name = "Force Zoom", script = "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');", matchPattern = "*", type = "userscript")
+                    UserScript(name = "Force Zoom", script = "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=yes');", matchPattern = "*", type = "userscript"),
+                    UserScript(name = "YouTube Ad-skip", script = "setInterval(() => { const btn = document.querySelector('.ytp-ad-skip-button'); if (btn) btn.click(); }, 1000);", matchPattern = "*youtube.com*", type = "userscript"),
+                    UserScript(name = "Instagram Video Downloader", script = "(function() { const v = document.querySelector('video'); if (v) window.open(v.src); })();", matchPattern = "*instagram.com*", type = "bookmarklet"),
+                    UserScript(name = "Wayback Machine", script = "window.location.href='https://web.archive.org/save/'+window.location.href;", matchPattern = "*", type = "bookmarklet"),
+                    UserScript(name = "Google Translate", script = "window.location.href='https://translate.google.com/translate?u='+encodeURIComponent(window.location.href);", matchPattern = "*", type = "bookmarklet"),
+                    UserScript(name = "View Cookies", script = "alert(document.cookie);", matchPattern = "*", type = "bookmarklet")
                 )
                 scope.launch {
                     library.forEach { database.userScriptDao().insertScript(it) }
