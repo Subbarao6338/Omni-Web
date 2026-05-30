@@ -59,6 +59,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Bookmark
 import com.omniweb.app.data.HistoryEntry
@@ -96,11 +97,11 @@ fun BrowserView(
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
-    val settingsState by viewModel.settings.collectAsState()
+    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
     val settings = settingsState ?: Settings()
-    val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsState(initial = emptyList())
+    val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsStateWithLifecycle(initialValue = emptyList())
     val isBookmarked = bookmarks.any { it.url == activeTab.url }
-    val userScripts by database.userScriptDao().getAllScripts().collectAsState(initial = emptyList())
+    val userScripts by database.userScriptDao().getAllScripts().collectAsStateWithLifecycle(initialValue = emptyList())
     val downloadManager = remember { OmniDownloadManager(context) }
 
     val tabs = viewModel.tabs
@@ -125,6 +126,12 @@ fun BrowserView(
     }
 
     var urlInput by remember { mutableStateOf(activeTab.url) }
+
+    LaunchedEffect(activeTab.url) {
+        if (urlInput != activeTab.url) {
+            urlInput = activeTab.url
+        }
+    }
 
     var showTools by remember { mutableStateOf(false) }
     var showTabs by remember { mutableStateOf(false) }
@@ -228,14 +235,6 @@ fun BrowserView(
         },
         topBar = {
             Column {
-                if (activeTab.isLoading && !isFindMode) {
-                    LinearProgressIndicator(
-                        progress = { activeTab.progress },
-                        modifier = Modifier.fillMaxWidth().height(2.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = Color.Transparent
-                    )
-                }
                 BrowserAddressBar(
                     modifier = Modifier.pointerInput(Unit) {
                         detectHorizontalDragGestures { change, dragAmount ->
@@ -412,7 +411,7 @@ fun BrowserView(
     }
 
     if (showTabs) {
-        val activeId by viewModel.activeTabId.collectAsState()
+        val activeId by viewModel.activeTabId.collectAsStateWithLifecycle()
         TabSwitcherSheet(
             tabs = viewModel.tabs,
             recentlyClosedTabs = viewModel.recentlyClosedTabs,
@@ -684,7 +683,7 @@ fun BrowserView(
 
     if (showSiteSettings) {
         val host = Uri.parse(activeTab.url).host ?: "Local"
-        val perSiteSettings by database.perSiteSettingsDao().getSettingsForHost(host).collectAsState(initial = null)
+        val perSiteSettings by database.perSiteSettingsDao().getSettingsForHost(host).collectAsStateWithLifecycle(initialValue = null)
         SiteSettingsDialog(
             host = host,
             settings = perSiteSettings,

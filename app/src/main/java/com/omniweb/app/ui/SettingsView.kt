@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omniweb.app.BuildConfig
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
@@ -43,7 +44,7 @@ import org.json.JSONArray
 @Composable
 fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}, onOpenPasswords: () -> Unit = {}) {
     val context = LocalContext.current
-    val settingsState by database.settingsDao().getSettings().collectAsState(initial = Settings())
+    val settingsState by database.settingsDao().getSettings().collectAsStateWithLifecycle(initialValue = Settings())
     val scope = rememberCoroutineScope()
     val settings = settingsState ?: Settings()
 
@@ -127,13 +128,38 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                     ) + customEngines
 
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        engines.forEach { (name, url) ->
-                            FilterChip(
+                        engines.forEachIndexed { index, (name, url) ->
+                            val isDefault = index < 5
+                            InputChip(
                                 selected = settings.searchEngine == url,
                                 onClick = {
                                     scope.launch { database.settingsDao().updateSettings(settings.copy(searchEngine = url)) }
                                 },
-                                label = { Text(name) }
+                                label = { Text(name) },
+                                trailingIcon = {
+                                    if (!isDefault) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Delete",
+                                            modifier = Modifier.size(14.dp).clickable {
+                                                scope.launch {
+                                                    val array = JSONArray(settings.customSearchEngines)
+                                                    val newArray = JSONArray()
+                                                    for (i in 0 until array.length()) {
+                                                        if (i != index - 5) {
+                                                            newArray.put(array.get(i))
+                                                        }
+                                                    }
+                                                    val nextEngine = if (settings.searchEngine == url) "https://www.google.com/search?q=" else settings.searchEngine
+                                                    database.settingsDao().updateSettings(settings.copy(
+                                                        customSearchEngines = newArray.toString(),
+                                                        searchEngine = nextEngine
+                                                    ))
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
                             )
                         }
                         AssistChip(

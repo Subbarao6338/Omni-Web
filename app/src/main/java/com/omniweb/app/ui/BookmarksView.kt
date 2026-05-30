@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Bookmark
 import kotlinx.coroutines.launch
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarksView(database: AppDatabase, onNavigate: (String) -> Unit, onBack: () -> Unit) {
-    val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsState(initial = emptyList())
+    val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
 

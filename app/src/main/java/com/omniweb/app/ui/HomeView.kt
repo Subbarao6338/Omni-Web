@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.Shortcut
@@ -51,14 +52,14 @@ fun HomeView(
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
-    val settingsState by viewModel.settings.collectAsState()
+    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
     val settings = settingsState ?: Settings()
-    val history by database.historyDao().getAllHistory().collectAsState(initial = emptyList())
-    val mostVisited by database.historyDao().getMostVisited().collectAsState(initial = emptyList())
+    val history by database.historyDao().getAllHistory().collectAsStateWithLifecycle(initialValue = emptyList())
+    val mostVisited by database.historyDao().getMostVisited().collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()
 
     val tabs = viewModel.tabs
-    val activeTabId by viewModel.activeTabId.collectAsState()
+    val activeTabId by viewModel.activeTabId.collectAsStateWithLifecycle()
 
     var query by remember { mutableStateOf("") }
     var showTabs by remember { mutableStateOf(false) }
@@ -66,7 +67,9 @@ fun HomeView(
     var newShortcutTitle by remember { mutableStateOf("") }
     var newShortcutUrl by remember { mutableStateOf("") }
 
-    val shortcutsState by database.shortcutDao().getAllShortcuts().collectAsState(initial = emptyList())
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+
+    val shortcutsState by database.shortcutDao().getAllShortcuts().collectAsStateWithLifecycle(initialValue = emptyList())
     val shortcuts = if (shortcutsState.isEmpty()) {
         listOf(
             Shortcut(title = "Google", url = "https://www.google.com"),
@@ -322,7 +325,7 @@ fun HomeView(
             }
 
             item {
-                val readingList by database.readingListDao().getAllEntries().collectAsState(initial = emptyList())
+                val readingList by database.readingListDao().getAllEntries().collectAsStateWithLifecycle(initialValue = emptyList())
                 if (readingList.isNotEmpty()) {
                     SectionHeader("Reading List")
                     LazyRow(
@@ -352,7 +355,7 @@ fun HomeView(
             if (history.isNotEmpty()) {
                 item {
                     SectionHeader("Recent Activity", onAction = {
-                        scope.launch { database.historyDao().clearHistory() }
+                        showClearHistoryDialog = true
                     }, actionIcon = Icons.Default.ClearAll)
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 24.dp),
@@ -379,6 +382,23 @@ fun HomeView(
                 }
             }
         }
+    }
+
+    if (showClearHistoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false },
+            title = { Text("Clear History?") },
+            text = { Text("Are you sure you want to clear your entire browsing history? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch { database.historyDao().clearHistory() }
+                    showClearHistoryDialog = false
+                }) { Text("Clear All", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearHistoryDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showAddShortcutDialog) {
