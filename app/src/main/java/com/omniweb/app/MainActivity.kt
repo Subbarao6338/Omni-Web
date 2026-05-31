@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -101,11 +102,11 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
         (appContext as? android.app.Activity)?.isInPictureInPictureMode ?: false
     } else false
 
-    val settingsState by viewModel.settings.collectAsState()
+    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
     val settings = settingsState ?: com.omniweb.app.data.Settings()
 
     val tabs = viewModel.tabs
-    val activeTabId by viewModel.activeTabId.collectAsState()
+    val activeTabId by viewModel.activeTabId.collectAsStateWithLifecycle()
     val activeTab = tabs.find { it.id == activeTabId } ?: tabs.firstOrNull() ?: com.omniweb.app.data.TabInfo("default", "about:home", "Home")
 
     val accentColor = try {

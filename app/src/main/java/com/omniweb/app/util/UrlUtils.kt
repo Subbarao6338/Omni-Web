@@ -33,7 +33,13 @@ object UrlUtils {
         val commonTlds = listOf(
             ".com", ".org", ".net", ".io", ".gov", ".edu", ".me", ".info", ".biz", ".ai",
             ".app", ".dev", ".xyz", ".tech", ".online", ".site", ".shop", ".cloud",
-            ".network", ".icu", ".buzz", ".top", ".vip", ".blog", ".store", ".co", ".uk", ".jp", ".de"
+            ".network", ".icu", ".buzz", ".top", ".vip", ".blog", ".store", ".co", ".uk",
+            ".jp", ".de", ".fr", ".br", ".it", ".ru", ".es", ".ca", ".au", ".in", ".nl",
+            ".no", ".se", ".dk", ".fi", ".pl", ".tr", ".mx", ".kr", ".cn", ".tw", ".hk",
+            ".sg", ".nz", ".ar", ".cl", ".za", ".mobi", ".tel", ".name", ".pro",
+            ".museum", ".aero", ".jobs", ".travel", ".post", ".education", ".services",
+            ".agency", ".expert", ".solutions", ".media", ".digital", ".global", ".center",
+            ".chat", ".today", ".world", ".news", ".life", ".group", ".company", ".tools"
         )
         val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
         val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)

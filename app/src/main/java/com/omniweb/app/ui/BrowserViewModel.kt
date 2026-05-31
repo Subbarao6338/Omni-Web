@@ -164,7 +164,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val existing = webViewCache[tabId]
         if (existing != null) return existing
 
-        val webView = prewarmedWebView ?: createWebView(context)
+        // Use applicationContext for pre-warmed WebView to avoid leaking Activities
+        val webView = prewarmedWebView ?: createWebView(context.applicationContext)
         prewarmedWebView = null
 
         webView.apply {
@@ -175,10 +176,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         webViewCache[tabId] = webView
 
-        // Prepare next prewarmed WebView
+        // Prepare next prewarmed WebView using applicationContext
         viewModelScope.launch(Dispatchers.Main) {
             if (prewarmedWebView == null) {
-                prewarmedWebView = createWebView(context)
+                prewarmedWebView = createWebView(context.applicationContext)
             }
         }
 

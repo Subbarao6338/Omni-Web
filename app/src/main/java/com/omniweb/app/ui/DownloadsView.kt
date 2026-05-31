@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.omniweb.app.data.AppDatabase
 import com.omniweb.app.data.DownloadTask
 import com.omniweb.app.util.LogUtils
@@ -30,7 +31,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DownloadsView(database: AppDatabase, onBack: () -> Unit) {
-    val downloads by database.downloadDao().getAllDownloads().collectAsState(initial = emptyList())
+    val downloads by database.downloadDao().getAllDownloads().collectAsStateWithLifecycle(initialValue = emptyList())
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     val scope = rememberCoroutineScope()
