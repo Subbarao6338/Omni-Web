@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.omniweb.app.util.CryptoUtils
@@ -26,7 +27,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PasswordManagerView(database: AppDatabase, onBack: () -> Unit) {
-    val passwords by database.passwordDao().getAllPasswords().collectAsState(initial = emptyList())
+    val passwords by database.passwordDao().getAllPasswords().collectAsStateWithLifecycle(initialValue = emptyList())
     var searchQuery by remember { mutableStateOf("") }
     val filteredPasswords = passwords.filter {
         it.site.contains(searchQuery, ignoreCase = true) || it.username.contains(searchQuery, ignoreCase = true)

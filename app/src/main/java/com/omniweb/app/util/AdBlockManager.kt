@@ -123,7 +123,14 @@ object AdBlockManager {
                         if (mutation.addedNodes.length) {
                              mutation.addedNodes.forEach(node => {
                                  if (node.nodeType === 1) { // Element
-                                     // Check if it matches any selector or contains ads
+                                     selectors.forEach(s => {
+                                         if (node.matches(s)) {
+                                             node.style.setProperty('display', 'none', 'important');
+                                         }
+                                         node.querySelectorAll(s).forEach(el => {
+                                             el.style.setProperty('display', 'none', 'important');
+                                         });
+                                     });
                                  }
                              });
                         }
