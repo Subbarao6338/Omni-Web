@@ -1,6 +1,7 @@
 package com.omniweb.app.ui
 
 import android.app.Application
+import android.content.MutableContextWrapper
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.mutableStateListOf
@@ -162,11 +163,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun getOrCreateWebView(tabId: String, context: android.content.Context): WebView {
         val existing = webViewCache[tabId]
-        if (existing != null) return existing
+        if (existing != null) {
+            (existing.context as? MutableContextWrapper)?.baseContext = context
+            return existing
+        }
 
         // Use applicationContext for pre-warmed WebView to avoid leaking Activities
         val webView = prewarmedWebView ?: createWebView(context.applicationContext)
         prewarmedWebView = null
+
+        (webView.context as? MutableContextWrapper)?.baseContext = context
 
         webView.apply {
             webViewStateCache[tabId]?.let { state ->
@@ -187,7 +193,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun createWebView(context: android.content.Context): WebView {
-        return WebView(context).apply {
+        return WebView(MutableContextWrapper(context)).apply {
             layoutParams = android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
