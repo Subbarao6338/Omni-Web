@@ -16,20 +16,25 @@ class WebAppInterface(
 
     @JavascriptInterface
     fun postMedia(json: String?) {
-        if (json == null || json.length > 100000) return // Basic length limit
+        if (json == null || json.isEmpty() || json.length > 100000) return // Basic length limit
         try {
             val array = JSONArray(json)
             val list = mutableListOf<MediaItem>()
             for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
+                val obj = array.optJSONObject(i) ?: continue
+                val src = obj.optString("src")
+                if (src.isNullOrBlank()) continue
+
                 list.add(MediaItem(
                     id = obj.optString("id", Math.random().toString()),
                     type = obj.optString("type", "video"),
-                    src = obj.getString("src"),
+                    src = src,
                     title = obj.optString("title", "Media File")
                 ))
             }
-            handler.post { onMediaDetected(list) }
+            if (list.isNotEmpty()) {
+                handler.post { onMediaDetected(list) }
+            }
         } catch (e: Exception) {
             LogUtils.e("Error parsing media items in WebAppInterface", e)
         }
@@ -43,10 +48,15 @@ class WebAppInterface(
 
     @JavascriptInterface
     fun onLoginDetected(user: String?, pass: String?) {
-        if (user != null && pass != null) {
+        if (!user.isNullOrBlank() && !pass.isNullOrBlank()) {
+            val trimmedUser = user.trim()
+            val trimmedPass = pass.trim()
+
+            if (trimmedUser.isEmpty() || trimmedPass.isEmpty()) return
+
             // Basic sanitization/length limit
-            val sanitizedUser = if (user.length > 255) user.substring(0, 255) else user
-            val sanitizedPass = if (pass.length > 255) pass.substring(0, 255) else pass
+            val sanitizedUser = if (trimmedUser.length > 255) trimmedUser.substring(0, 255) else trimmedUser
+            val sanitizedPass = if (trimmedPass.length > 255) trimmedPass.substring(0, 255) else trimmedPass
             handler.post { onLoginFormDetected(sanitizedUser, sanitizedPass) }
         }
     }

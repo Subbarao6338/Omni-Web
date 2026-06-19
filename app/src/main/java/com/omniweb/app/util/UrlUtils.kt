@@ -44,7 +44,9 @@ object UrlUtils {
         val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
         val portRegex = Regex(""".*:\d+$""")
         val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)
-        val hasCommonTld = commonTlds.any { trimmed.contains(it, ignoreCase = true) }
+        val hasCommonTld = commonTlds.any { tld ->
+            trimmed.endsWith(tld, ignoreCase = true) || trimmed.contains(tld + "/", ignoreCase = true)
+        }
 
         // Check if it's a valid URL - use a regex fallback for unit tests
         val isUrl = try {
@@ -56,10 +58,10 @@ object UrlUtils {
         }
 
         // A string is considered a URL if:
-        // 1. It matches the WEB_URL pattern OR is localhost OR has a common TLD
-        // 2. It contains a dot (for non-localhost)
-        // 3. It does not contain spaces
-        if ((isUrl || isLocalhost || hasCommonTld || portRegex.matches(trimmed)) && !trimmed.contains(" ")) {
+        // 1. It matches the WEB_URL pattern OR is localhost OR has a common TLD OR matches IP/Port
+        // 2. It does not contain spaces
+        if ((isUrl || isLocalhost || hasCommonTld || portRegex.matches(trimmed) || ipRegex.matches(trimmed)) && !trimmed.contains(" ")) {
+            // Further verify it's likely a URL (has a dot, is localhost, or has a port)
             if (trimmed.contains(".") || isLocalhost || portRegex.matches(trimmed)) {
                 val protocol = if (isLocalhost || portRegex.matches(trimmed) || trimmed.startsWith("127.")) "http://" else "https://"
                 return protocol + trimmed
