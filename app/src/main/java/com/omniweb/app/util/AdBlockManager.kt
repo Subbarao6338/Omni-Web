@@ -116,7 +116,29 @@ object AdBlockManager {
                     "[id*='ad-container']", "[class*='ad-content']", "[id*='ad-content']",
                     "[class*='ad-footer']", "[id*='ad-footer']", "[class*='ad-header']",
                     "[id*='ad-header']", "[class*='ad-sidebar']", "[id*='ad-sidebar']",
-                    "amp-ad", "amp-embed[type='adsense']"
+                    "amp-ad", "amp-embed[type='adsense']",
+                    "div[class*='ad_box']", "div[class*='ad_container']", "div[class*='ad_slot']",
+                    "div[class*='ad_unit']", "div[class*='ad_wrapper']", "div[class*='ad_wrapper_inner']",
+                    "div[id*='ad_box']", "div[id*='ad_container']", "div[id*='ad_slot']",
+                    "div[id*='ad_unit']", "div[id*='ad_wrapper']", "div[id*='ad_wrapper_inner']",
+                    "div[class*='adbox']", "div[class*='adcontainer']", "div[class*='adslot']",
+                    "div[class*='adunit']", "div[class*='adwrapper']", "div[class*='adwrapper_inner']",
+                    "div[id*='adbox']", "div[id*='adcontainer']", "div[id*='adslot']",
+                    "div[id*='adunit']", "div[id*='adwrapper']", "div[id*='adwrapper_inner']",
+                    "div[class*='ads_box']", "div[class*='ads_container']", "div[class*='ads_slot']",
+                    "div[class*='ads_unit']", "div[class*='ads_wrapper']", "div[class*='ads_wrapper_inner']",
+                    "div[id*='ads_box']", "div[id*='ads_container']", "div[id*='ads_slot']",
+                    "div[id*='ads_unit']", "div[id*='ads_wrapper']", "div[id*='ads_wrapper_inner']",
+                    "div[class*='adsbox']", "div[class*='adscontainer']", "div[class*='adsslot']",
+                    "div[class*='adsunit']", "div[class*='adswrapper']", "div[class*='adswrapper_inner']",
+                    "div[id*='adsbox']", "div[id*='adscontainer']", "div[id*='adsslot']",
+                    "div[id*='adsunit']", "div[id*='adswrapper']", "div[id*='adswrapper_inner']",
+                    "div[class*='advert']", "div[id*='advert']", "div[class*='adv']", "div[id*='adv']",
+                    "div[class*='advertisement']", "div[id*='advertisement']",
+                    "div[class*='ad-box']", "div[class*='ad-container']", "div[class*='ad-slot']",
+                    "div[class*='ad-unit']", "div[class*='ad-wrapper']", "div[class*='ad-wrapper-inner']",
+                    "div[id*='ad-box']", "div[id*='ad-container']", "div[id*='ad-slot']",
+                    "div[id*='ad-unit']", "div[id*='ad-wrapper']", "div[id*='ad-wrapper-inner']"
                 ];
 
                 const style = document.createElement('style');

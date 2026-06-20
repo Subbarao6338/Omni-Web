@@ -93,7 +93,8 @@ fun BrowserView(
     onOpenSettings: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenHistory: () -> Unit,
-    onOpenDownloads: () -> Unit
+    onOpenDownloads: () -> Unit,
+    onOpenScanner: () -> Unit
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
@@ -316,6 +317,7 @@ fun BrowserView(
                             Toast.makeText(context, "Voice search not available", Toast.LENGTH_SHORT).show()
                         }
                     },
+                    onScanClick = onOpenScanner,
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -870,9 +872,9 @@ fun BrowserView(
 
     if (showVideoSpeed) {
         VideoSpeedController(
-            currentSpeed = currentVideoSpeed,
+            currentSpeed = activeTab.playbackSpeed,
             onSpeedChange = { speed ->
-                currentVideoSpeed = speed
+                activeTab.playbackSpeed = speed
                 viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
                     (function() {
                         document.querySelectorAll('video').forEach(v => v.playbackRate = $speed);

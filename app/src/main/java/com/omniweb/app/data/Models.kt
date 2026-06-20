@@ -19,6 +19,7 @@ class TabInfo(
     var scrollY by mutableStateOf(initialScrollY)
     var isLoading by mutableStateOf(false)
     var progress by mutableFloatStateOf(0f)
+    var playbackSpeed by mutableFloatStateOf(1.0f)
     val detectedMedia = mutableStateListOf<MediaItem>()
 }
 

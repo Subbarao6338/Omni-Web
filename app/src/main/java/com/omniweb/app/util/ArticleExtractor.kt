@@ -1,85 +1,81 @@
 package com.omniweb.app.util
 
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+
 object ArticleExtractor {
     fun extractArticleContent(html: String): String {
-        val bodyMatch = Regex("<body.*?>(.*?)</body>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).find(html)
-        var content = bodyMatch?.groupValues?.get(1) ?: html
+        try {
+            val doc: Document = Jsoup.parse(html)
 
-        // Pre-emptively remove common structural elements that usually don't contain the main article
-        content = content.replace(Regex("<header.*?>.*?</header>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-        content = content.replace(Regex("<footer.*?>.*?</footer>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-        content = content.replace(Regex("<nav.*?>.*?</nav>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+            // 1. Remove obvious junk
+            val tagsToRemove = listOf(
+                "script", "style", "aside", "iframe", "noscript", "svg", "form",
+                "button", "canvas", "video", "audio", "nav", "header", "footer",
+                ".ads", ".ad-container", "#comments", ".social-share", ".related-posts"
+            )
+            tagsToRemove.forEach { doc.select(it).remove() }
 
-        // Remove non-content elements aggressively
-        val tagsToRemove = listOf("script", "style", "aside", "iframe", "noscript", "svg", "form", "button", "canvas", "video", "audio")
-        tagsToRemove.forEach { tag ->
-            content = content.replace(Regex("<$tag.*?>.*?</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
-        }
+            // 2. Identify candidate
+            val prioritySelectors = listOf("article", "main", "[role='main']", "#content", ".content", ".post", ".article", "#main", ".main")
+            var bestCandidate: Element? = null
 
-        // Priority tags
-        val priorityTags = listOf("article", "main", "[role='main']", "div#content", "div.content", "div.post", "div.article", "div#main", "div.main")
-        for (tag in priorityTags) {
-            val pattern = if (tag.contains("#") || tag.contains(".") || tag.contains("[")) {
-                val parts = tag.split("#", ".", "[")
-                val part = parts.first().ifEmpty { "div" }
-                val attrValue = if (tag.contains("#")) tag.split("#").last()
-                               else if (tag.contains(".")) tag.split(".").last()
-                               else tag.split("[").last().split("=").last().replace("]", "").replace("\"", "").replace("'", "")
-
-                Regex("<$part[^>]*?(?:id|class|role)\\s*=\\s*['\"]\\s*[^'\"]*?$attrValue[^'\"]*?\\s*['\"][^>]*?>(.*?)</$part>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
-            } else {
-                Regex("<$tag.*?>(.*?)</$tag>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL))
+            for (selector in prioritySelectors) {
+                val element = doc.select(selector).maxByOrNull { it.text().length }
+                if (element != null && element.text().length > 500) {
+                    bestCandidate = element
+                    break
+                }
             }
 
-            val matches = pattern.findAll(content)
-            val bestMatch = matches.maxByOrNull { it.groupValues[1].length }
-            if (bestMatch != null && bestMatch.groupValues[1].length > 400) {
-                content = bestMatch.groupValues[1]
-                break
+            if (bestCandidate == null) {
+                // Scoring fallback
+                var maxScore = 0
+                doc.select("div, section").forEach { el ->
+                    val text = el.ownText()
+                    val pCount = el.select("p").size
+                    val linkDensity = calculateLinkDensity(el)
+                    val score = (pCount * 20) + (text.length / 50)
+                    val finalScore = (score * (1 - linkDensity)).toInt()
+
+                    if (finalScore > maxScore) {
+                        maxScore = finalScore
+                        bestCandidate = el
+                    }
+                }
             }
-        }
 
-        // Density-based scoring system for paragraphs and structural elements
-        val blocks = Regex("<(div|section|article).*?>(.*?)</\\1>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)).findAll(content)
-        var bestScore = 0
-        var bestContent = content
+            val finalElement = bestCandidate ?: doc.body()
 
-        blocks.forEach { match ->
-            val tag = match.groupValues[1].lowercase()
-            val inner = match.groupValues[2]
-
-            // Clean inner text for scoring
-            val cleanInner = inner.replace(Regex("<[^>]*>"), "")
-            val pCount = Regex("<p.*?>").findAll(inner).count()
-            val imgCount = Regex("<img.*?>").findAll(inner).count()
-            val linkCount = Regex("<a.*?>").findAll(inner).count()
-            val codeCount = Regex("<code.*?>").findAll(inner).count()
-
-            // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
-            // article/section tags get a bonus
-            val tagBonus = if (tag == "article" || tag == "main") 250 else if (tag == "section") 80 else 0
-            val pBonus = if (pCount > 5) 200 else 0
-            val codeBonus = if (codeCount > 2) 100 else 0
-
-            // Calculate link density
-            val textLength = cleanInner.length.coerceAtLeast(1)
-            val linkDensity = (linkCount * 10).toFloat() / textLength
-            val linkPenalty = if (linkDensity > 0.5) 200 else (linkCount * 15)
-
-            val score = (pCount * 30) + (textLength / 50) - linkPenalty + (imgCount * 10) + tagBonus + pBonus + codeBonus
-
-            if (score > bestScore && textLength > 150) {
-                bestScore = score
-                bestContent = inner
+            // 3. Clean and format the result
+            val result = StringBuilder()
+            val title = doc.title()
+            if (title.isNotEmpty()) {
+                result.append("<h1>").append(title).append("</h1>")
             }
+
+            // Only keep certain tags in the final output
+            val allowedTags = setOf("p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "img", "blockquote", "pre", "code")
+
+            finalElement.allElements.forEach { el ->
+                if (allowedTags.contains(el.tagName())) {
+                    // Avoid nested repetitions
+                    if (el.parent() == finalElement || !allowedTags.contains(el.parent().tagName())) {
+                         result.append(el.outerHtml())
+                    }
+                }
+            }
+
+            return result.toString()
+        } catch (e: Exception) {
+            return html // Fallback to raw if Jsoup fails
         }
-        content = bestContent
+    }
 
-        // Formatting cleanup
-        content = content.replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "<p>")
-        content = content.replace(Regex("<h([1-6]).*?>", RegexOption.IGNORE_CASE), "<h$1>")
-        content = content.replace(Regex("<div.*?>", RegexOption.IGNORE_CASE), "<div>")
-
-        return content.trim()
+    private fun calculateLinkDensity(el: Element): Float {
+        val linkTextLength = el.select("a").sumOf { it.text().length }
+        val totalTextLength = el.text().length.coerceAtLeast(1)
+        return linkTextLength.toFloat() / totalTextLength
     }
 }

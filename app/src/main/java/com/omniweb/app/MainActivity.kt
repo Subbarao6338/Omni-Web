@@ -192,7 +192,8 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                             onOpenSettings = { navController.navigate("settings") },
                             onOpenBookmarks = { navController.navigate("bookmarks") },
                             onOpenHistory = { navController.navigate("history") },
-                            onOpenDownloads = { navController.navigate("downloads") }
+                            onOpenDownloads = { navController.navigate("downloads") },
+                            onOpenScanner = { navController.navigate("qr_scanner") }
                         )
                     }
                 }
@@ -201,7 +202,14 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                         database = AppDatabase.getDatabase(appContext),
                         onBack = { navController.popBackStack() },
                         onOpenScripts = { navController.navigate("scripts") },
-                        onOpenPasswords = { navController.navigate("passwords") }
+                        onOpenPasswords = { navController.navigate("passwords") },
+                        onOpenSearchEngines = { navController.navigate("search_engines") }
+                    )
+                }
+                composable("search_engines") {
+                    SearchEngineManagerView(
+                        database = AppDatabase.getDatabase(appContext),
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("passwords") {
@@ -244,6 +252,17 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                 composable("downloads") {
                     DownloadsView(
                         database = AppDatabase.getDatabase(appContext),
+                        onBack = { navController.popBackStack() }
+                    )
+                }
+                composable("qr_scanner") {
+                    QRScannerView(
+                        onScan = { url ->
+                            activeTab.url = url
+                            navController.navigate("browser") {
+                                popUpTo("home")
+                            }
+                        },
                         onBack = { navController.popBackStack() }
                     )
                 }
