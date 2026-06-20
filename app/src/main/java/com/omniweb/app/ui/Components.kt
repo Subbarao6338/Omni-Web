@@ -24,6 +24,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.foundation.shape.CircleShape
 import com.omniweb.app.data.Shortcut
 
 @Composable
@@ -38,6 +40,62 @@ fun NavButton(icon: ImageVector, label: String, badge: Int = 0, onClick: () -> U
             }
         }
         Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+fun VideoSpeedController(
+    currentSpeed: Float,
+    onSpeedChange: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Popup(onDismissRequest = onDismiss, alignment = Alignment.Center) {
+        Card(
+            modifier = Modifier
+                .padding(24.dp)
+                .wrapContentSize(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Video Playback Speed",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf(0.5f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    if (speed == currentSpeed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    CircleShape
+                                )
+                                .clickable { onSpeedChange(speed) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "${speed}x",
+                                color = if (speed == currentSpeed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        }
     }
 }
 

@@ -20,7 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.omniweb.app.ui.*
-import com.omniweb.app.data.AppDatabase
+import com.omniweb.app.data.*
 import com.yausername.youtubedl_android.YoutubeDL
 import android.util.Log
 import android.webkit.CookieManager
@@ -73,6 +73,12 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         // Adjust UI if needed, e.g., hide controls in PiP mode
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+        viewModel.stopSpeaking()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -219,7 +225,8 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                                 popUpTo("home")
                             }
                         },
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        viewModel = viewModel
                     )
                 }
                 composable("history") {

@@ -2,6 +2,15 @@ package com.omniweb.app.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.ForeignKey
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Delete
+import androidx.room.Update
+import androidx.room.Query
+import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "bookmarks")
 data class Bookmark(
@@ -66,7 +75,10 @@ data class Settings(
     val strictPrivacyMode: Boolean = false,
     val geminiApiKey: String? = null,
     val customUserAgent: String? = null,
-    val customSearchEngines: String? = null // Stored as JSON: List<Pair<String, String>>
+    val customSearchEngines: String? = null, // Stored as JSON: List<Pair<String, String>>
+    val torEnabled: Boolean = false,
+    val torProxyHost: String = "127.0.0.1",
+    val torProxyPort: Int = 9050
 )
 
 @Entity(tableName = "tabs")
@@ -111,5 +123,47 @@ data class Shortcut(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
     val url: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "named_sessions")
+data class NamedSession(
+    @PrimaryKey val name: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "named_session_tabs",
+    foreignKeys = [
+        ForeignKey(
+            entity = NamedSession::class,
+            parentColumns = ["name"],
+            childColumns = ["sessionName"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class NamedSessionTab(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val sessionName: String,
+    val url: String,
+    val title: String
+)
+
+@Entity(tableName = "annotations")
+data class AnnotationEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val url: String,
+    val text: String,
+    val note: String? = null,
+    val timestamp: Long = System.currentTimeMillis(),
+    val color: Int = 0xFF57CC99.toInt() // Nature green default
+)
+
+@Entity(tableName = "custom_redirects")
+data class CustomRedirectEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val source: String,
+    val target: String,
     val timestamp: Long = System.currentTimeMillis()
 )

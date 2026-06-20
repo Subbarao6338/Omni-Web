@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 @Database(
-    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class, PerSiteSettings::class, ReadingListEntry::class],
-    version = 17,
+    entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class, PerSiteSettings::class, ReadingListEntry::class, NamedSession::class, NamedSessionTab::class, AnnotationEntity::class, CustomRedirectEntry::class],
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,6 +26,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun passwordDao(): PasswordDao
     abstract fun perSiteSettingsDao(): PerSiteSettingsDao
     abstract fun readingListDao(): ReadingListDao
+    abstract fun namedSessionDao(): NamedSessionDao
+    abstract fun annotationDao(): AnnotationDao
+    abstract fun customRedirectDao(): CustomRedirectDao
 
     companion object {
         @Volatile
@@ -116,6 +119,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS `named_sessions` (`name` TEXT NOT NULL, `timestamp` INTEGER NOT NULL, PRIMARY KEY(`name`))")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `named_session_tabs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionName` TEXT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, FOREIGN KEY(`sessionName`) REFERENCES `named_sessions`(`name`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `annotations` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `url` TEXT NOT NULL, `text` TEXT NOT NULL, `note` TEXT, `timestamp` INTEGER NOT NULL, `color` INTEGER NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `custom_redirects` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `source` TEXT NOT NULL, `target` TEXT NOT NULL, `timestamp` INTEGER NOT NULL)")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `torEnabled` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `torProxyHost` TEXT NOT NULL DEFAULT '127.0.0.1'")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `torProxyPort` INTEGER NOT NULL DEFAULT 9050")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -123,12 +138,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "omni_browser_db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, httpsOnlyMode, deepDarkMode, strictPrivacyMode, geminiApiKey, customUserAgent, customSearchEngines) " +
-                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, 0, 0, 0, NULL, NULL, NULL)")
+                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, httpsOnlyMode, deepDarkMode, strictPrivacyMode, geminiApiKey, customUserAgent, customSearchEngines, torEnabled, torProxyHost, torProxyPort) " +
+                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, 0, 0, 0, NULL, NULL, NULL, 0, '127.0.0.1', 9050)")
                     }
                 })
                 .fallbackToDestructiveMigration()

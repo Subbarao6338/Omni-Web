@@ -105,6 +105,9 @@ fun BrowserView(
     val downloadManager = remember { OmniDownloadManager(context) }
 
     val tabs = viewModel.tabs
+    val isSplitScreen by viewModel.isSplitScreen.collectAsStateWithLifecycle()
+    val splitTabId by viewModel.splitTabId.collectAsStateWithLifecycle()
+
     val pagerState = rememberPagerState(
         initialPage = tabs.indexOfFirst { it.id == activeTab.id }.coerceAtLeast(0),
         pageCount = { tabs.size }
@@ -158,8 +161,11 @@ fun BrowserView(
 
     var showPrivacyReport by remember { mutableStateOf(false) }
     var showSiteSettings by remember { mutableStateOf(false) }
+    var showAiChat by remember { mutableStateOf(false) }
 
     var passwordToSave by remember { mutableStateOf<Triple<String, String, String>?>(null) } // site, user, pass
+    var showVideoSpeed by remember { mutableStateOf(false) }
+    var currentVideoSpeed by remember { mutableStateOf(1.0f) }
 
     var showAddBookmarkletDialog by remember { mutableStateOf<String?>(null) }
 
@@ -339,75 +345,101 @@ fun BrowserView(
             )
         }
     ) { padding ->
-    HorizontalPager(
-        state = pagerState,
-        modifier = Modifier.padding(padding).fillMaxSize(),
-        userScrollEnabled = false
-    ) { pageIndex ->
-        val tab = tabs[pageIndex]
-        val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
-        DisposableEffect(isFindMode) {
-            if (isFindMode && tab.id == activeTab.id) {
-                currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
-                    if (isDoneCounting) {
-                        findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
-                    }
-                }
-            } else {
-                currentWebView.setFindListener(null)
+    if (isSplitScreen && splitTabId != null) {
+        val splitTab = viewModel.tabs.find { it.id == splitTabId }
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) {
+                WebViewContainer(
+                    tab = activeTab,
+                    viewModel = viewModel,
+                    settings = settings,
+                    onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                    onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                    onTextExtracted = { if (activeTab.id == viewModel.activeTabId.value) pageText = it },
+                    onScrollChanged = { x, y -> viewModel.updateTabScroll(activeTab.id, x, y) },
+                    onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                    onProgressChanged = { activeTab.progress = it },
+                    onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
+                    onIconReceived = { activeTab.faviconBitmap = it },
+                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                )
             }
-            onDispose {
-                currentWebView.setFindListener(null)
+            Box(modifier = Modifier.height(4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.primary))
+            Box(modifier = Modifier.weight(1f)) {
+                if (splitTab != null) {
+                    WebViewContainer(
+                        tab = splitTab,
+                        viewModel = viewModel,
+                        settings = settings,
+                        onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                        onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                        onTextExtracted = { },
+                        onScrollChanged = { x, y -> viewModel.updateTabScroll(splitTab.id, x, y) },
+                        onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                        onProgressChanged = { splitTab.progress = it },
+                        onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
+                        onIconReceived = { splitTab.faviconBitmap = it },
+                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                    )
+                }
             }
         }
-
-        WebViewContainer(
-            tab = tab,
-            viewModel = viewModel,
-            settings = settings,
-            onLoginDetected = { site, user, pass ->
-                passwordToSave = Triple(site, user, pass)
-            },
-            onBookmarkletDetected = { url ->
-                showAddBookmarkletDialog = url
-            },
-            onTextExtracted = { text ->
-                if (tab.id == activeTab.id) {
-                    if (text.startsWith("INSPECT:")) {
-                        scope.launch {
-                            snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+    } else {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            userScrollEnabled = false
+        ) { pageIndex ->
+            val tab = tabs[pageIndex]
+            val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
+            DisposableEffect(isFindMode) {
+                if (isFindMode && tab.id == activeTab.id) {
+                    currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                        if (isDoneCounting) {
+                            findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
                         }
-                    } else {
-                        pageText = text
                     }
+                } else {
+                    currentWebView.setFindListener(null)
                 }
-            },
-            onScrollChanged = { x, y ->
-                viewModel.updateTabScroll(tab.id, x, y)
-            },
-            onContextMenu = { result ->
-                contextMenuResult = result
-                showContextMenu = true
-            },
-            onProgressChanged = { progress ->
-                tab.progress = progress
-            },
-            onTitleReceived = { title ->
-                tab.title = title
-                viewModel.updateTabInDb(tab)
-                if (!tab.isIncognito) {
-                    scope.launch {
-                        database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
-                    }
+                onDispose {
+                    currentWebView.setFindListener(null)
                 }
-            },
-            onIconReceived = { icon ->
-                tab.faviconBitmap = icon
-            },
-            onConsoleLog = { msg, level ->
-                consoleLogs.add(ConsoleLog(msg, level))
             }
-        )
+
+            WebViewContainer(
+                tab = tab,
+                viewModel = viewModel,
+                settings = settings,
+                onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                onTextExtracted = { text ->
+                    if (tab.id == activeTab.id) {
+                        if (text.startsWith("INSPECT:")) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+                            }
+                        } else {
+                            pageText = text
+                        }
+                    }
+                },
+                onScrollChanged = { x, y -> viewModel.updateTabScroll(tab.id, x, y) },
+                onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                onProgressChanged = { tab.progress = it },
+                onTitleReceived = { title ->
+                    tab.title = title
+                    viewModel.updateTabInDb(tab)
+                    if (!tab.isIncognito) {
+                        scope.launch {
+                            database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
+                        }
+                    }
+                },
+                onIconReceived = { tab.faviconBitmap = it },
+                onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+            )
+        }
     }
 
     if (showTabs) {
@@ -449,6 +481,10 @@ fun BrowserView(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 ToolCategory("Page Actions") {
+                    item { ToolButton(if (isSplitScreen) Icons.Default.Fullscreen else Icons.Default.VerticalSplit, if (isSplitScreen) "Single Screen" else "Split Screen", Color(0xFFF59E0B)) {
+                        viewModel.toggleSplitScreen()
+                        showTools = false
+                    }}
                     item { ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
                         val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         currentWebView.url?.let {
@@ -458,6 +494,10 @@ fun BrowserView(
                             }
                             context.startActivity(Intent.createChooser(intent, "Share Link"))
                         }
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Chat, "AI Chat", Color(0xFF8B5CF6)) {
+                        showAiChat = true
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.ContentCopy, "Copy Link", Color(0xFF8B5CF6)) {
@@ -502,6 +542,10 @@ fun BrowserView(
                     }}
                     item { ToolButton(Icons.Default.QrCode, "QR Code", Color(0xFF10B981)) {
                         qrBitmap = PageUtils.generateQRCode(activeTab.url)
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.SlowMotionVideo, "Video Speed", Color(0xFFEA580C)) {
+                        showVideoSpeed = true
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
@@ -555,6 +599,14 @@ fun BrowserView(
 
                 Spacer(modifier = Modifier.height(24.dp))
                 ToolCategory("Developer Tools") {
+                    item { ToolButton(Icons.Default.RecordVoiceOver, "Speak", Color(0xFF10B981)) {
+                        viewModel.speak(pageText)
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.VoiceOverOff, "Stop Voice", Color(0xFFEF4444)) {
+                        viewModel.stopSpeaking()
+                        showTools = false
+                    }}
                     item { ToolButton(Icons.Default.Code, "Source", Color(0xFFEA580C)) {
                         viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
                             pageSource = source ?: ""
@@ -697,10 +749,37 @@ fun BrowserView(
         val blockedTrackers = synchronized(viewModel.blockedTrackersByTab) {
             viewModel.blockedTrackersByTab[activeTab.id]?.toList() ?: emptyList()
         }
-        PrivacyReportDialog(
+        PrivacyReportView(
             blockedTrackers = blockedTrackers,
-            onDismiss = { showPrivacyReport = false }
+            onBack = { showPrivacyReport = false }
         )
+    }
+
+    if (showAiChat) {
+        var chatInput by remember { mutableStateOf("") }
+        val chatMessages = remember { mutableStateListOf<Pair<String, String>>() }
+        ModalBottomSheet(onDismissRequest = { showAiChat = false }) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth().navigationBarsPadding()) {
+                Text("Chat with Page", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                LazyColumn(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    items(chatMessages) { msg ->
+                        Text("${msg.first}: ${msg.second}", modifier = Modifier.padding(vertical = 4.dp))
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextField(value = chatInput, onValueChange = { chatInput = it }, modifier = Modifier.weight(1f), placeholder = { Text("Ask anything...") })
+                    IconButton(onClick = {
+                        val msg = chatInput
+                        chatMessages.add("You" to msg)
+                        chatInput = ""
+                        scope.launch {
+                            val response = viewModel.chatWithPage(activeTab.url, pageText, msg, settings.geminiApiKey)
+                            chatMessages.add("AI" to response)
+                        }
+                    }) { Icon(Icons.Default.Send, null) }
+                }
+            }
+        }
     }
 
     if (showQuickActions) {
@@ -789,6 +868,21 @@ fun BrowserView(
         )
     }
 
+    if (showVideoSpeed) {
+        VideoSpeedController(
+            currentSpeed = currentVideoSpeed,
+            onSpeedChange = { speed ->
+                currentVideoSpeed = speed
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                    (function() {
+                        document.querySelectorAll('video').forEach(v => v.playbackRate = $speed);
+                    })();
+                """.trimIndent(), null)
+            },
+            onDismiss = { showVideoSpeed = false }
+        )
+    }
+
     if (qrBitmap != null) {
         AlertDialog(
             onDismissRequest = { qrBitmap = null },
@@ -821,6 +915,38 @@ fun BrowserView(
                 Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             },
             onDownload = { url -> downloadManager.startDownload(url, "Image") },
+            onHighlight = {
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function() { return window.getSelection().toString(); })();") { selection ->
+                    val text = selection?.trim()?.removeSurrounding("\"") ?: ""
+                    if (text.isNotEmpty()) {
+                        viewModel.saveAnnotation(activeTab.url, text)
+                        // Trigger JS to highlight immediately using safe range-based method
+                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                            (function() {
+                                const text = `${text.replace("`", "\\`")}`;
+                                function highlight(node) {
+                                    if (node.nodeType === 3) {
+                                        const index = node.data.indexOf(text);
+                                        if (index >= 0) {
+                                            const range = document.createRange();
+                                            range.setStart(node, index);
+                                            range.setEnd(node, index + text.length);
+                                            const mark = document.createElement('mark');
+                                            mark.style.backgroundColor = 'yellow';
+                                            range.surroundContents(mark);
+                                        }
+                                    } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
+                                        for (let i = 0; i < node.childNodes.length; i++) {
+                                            highlight(node.childNodes[i]);
+                                        }
+                                    }
+                                }
+                                highlight(document.body);
+                            })();
+                        """.trimIndent(), null)
+                    }
+                }
+            },
             onDismiss = { showContextMenu = false }
         )
     }

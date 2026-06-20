@@ -10,7 +10,8 @@ import android.os.Looper
 class WebAppInterface(
     private val onMediaDetected: (List<MediaItem>) -> Unit,
     private val onTextExtracted: (String) -> Unit,
-    private val onLoginFormDetected: (String, String) -> Unit = { _, _ -> }
+    private val onLoginFormDetected: (String, String) -> Unit = { _, _ -> },
+    private val onGetAnnotations: () -> String = { "[]" }
 ) {
     private val handler = Handler(Looper.getMainLooper())
 
@@ -44,6 +45,11 @@ class WebAppInterface(
     fun postText(text: String?) {
         if (text == null || text.length > 500000) return
         handler.post { onTextExtracted(text) }
+    }
+
+    @JavascriptInterface
+    fun getAnnotations(): String {
+        return onGetAnnotations()
     }
 
     @JavascriptInterface

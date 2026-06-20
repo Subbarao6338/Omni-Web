@@ -2,6 +2,7 @@ package com.omniweb.app.ui
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
@@ -30,6 +31,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -70,6 +72,16 @@ fun BrowserAddressBar(
 ) {
     val context = LocalContext.current
     val clipboardManager = remember { context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager }
+    val infiniteTransition = rememberInfiniteTransition(label = "breathing")
+    val leafScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "leafScale"
+    )
     var clipboardContent by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(urlInput) {
@@ -139,9 +151,9 @@ fun BrowserAddressBar(
                                     } else {
                                         val isSecure = urlInput.startsWith("https")
                                         Icon(
-                                            if (isSecure) Icons.Default.Lock else Icons.Default.Info,
+                                            if (isSecure) Icons.Default.Eco else Icons.Default.Info,
                                             contentDescription = if (isSecure) "Secure" else "Insecure",
-                                            modifier = Modifier.size(20.dp).clickable { onPrivacyClick() },
+                                            modifier = Modifier.size(20.dp).scale(if (isLoading) leafScale else 1f).clickable { onPrivacyClick() },
                                             tint = if (isSecure) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                                         )
                                     }
