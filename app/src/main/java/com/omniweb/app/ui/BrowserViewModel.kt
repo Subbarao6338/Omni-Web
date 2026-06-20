@@ -1,6 +1,7 @@
 package com.omniweb.app.ui
 
 import android.app.Application
+import android.content.MutableContextWrapper
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.mutableStateListOf
@@ -162,11 +163,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun getOrCreateWebView(tabId: String, context: android.content.Context): WebView {
         val existing = webViewCache[tabId]
-        if (existing != null) return existing
+        if (existing != null) {
+            (existing.context as? MutableContextWrapper)?.baseContext = context
+            return existing
+        }
 
         // Use applicationContext for pre-warmed WebView to avoid leaking Activities
         val webView = prewarmedWebView ?: createWebView(context.applicationContext)
         prewarmedWebView = null
+
+        (webView.context as? MutableContextWrapper)?.baseContext = context
 
         webView.apply {
             webViewStateCache[tabId]?.let { state ->
@@ -187,7 +193,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun createWebView(context: android.content.Context): WebView {
-        return WebView(context).apply {
+        return WebView(MutableContextWrapper(context)).apply {
             layoutParams = android.view.ViewGroup.LayoutParams(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -253,6 +259,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             webView.destroy()
         }
         webViewCache.clear()
+
+        prewarmedWebView?.let { webView ->
+            webView.stopLoading()
+            webView.webChromeClient = null
+            webView.webViewClient = WebViewClient()
+            webView.removeAllViews()
+            webView.destroy()
+            prewarmedWebView = null
+        }
+
         webViewStateCache.clear()
         blockedTrackersByTab.clear()
     }
@@ -282,23 +298,27 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
         val timeout = if (force) 0 else 30 * 1000 // 30 seconds
-        tabs.forEach { tab ->
-            if (tab.id != _activeTabId.value) {
-                val lastActive = tabLastActive[tab.id] ?: 0L
-                if ((force || (now - lastActive > timeout)) && webViewCache.containsKey(tab.id)) {
-                    webViewCache.remove(tab.id)?.let { webView ->
-                        val state = android.os.Bundle()
-                        webView.saveState(state)
-                        webViewStateCache[tab.id] = state
-                        webView.stopLoading()
-                        webView.webChromeClient = null
-                        webView.webViewClient = WebViewClient()
-                        webView.clearCache(true)
-                        webView.clearHistory()
-                        webView.removeAllViews()
-                        webView.destroy()
-                    }
-                }
+        val activeId = _activeTabId.value
+
+        // Use a list to avoid ConcurrentModificationException if we were modifying the cache during iteration
+        val tabsToHibernate = webViewCache.keys.filter { it != activeId }.filter { tabId ->
+            val lastActive = tabLastActive[tabId] ?: 0L
+            force || (now - lastActive > timeout)
+        }
+
+        tabsToHibernate.forEach { tabId ->
+            webViewCache.remove(tabId)?.let { webView ->
+                val state = android.os.Bundle()
+                webView.saveState(state)
+                webViewStateCache[tabId] = state
+
+                webView.stopLoading()
+                webView.webChromeClient = null
+                webView.webViewClient = WebViewClient()
+                webView.clearCache(false) // Don't clear disk cache during hibernation
+                webView.clearHistory()
+                webView.removeAllViews()
+                webView.destroy()
             }
         }
     }

@@ -29,7 +29,12 @@ object AdBlockManager {
         "shorte.st", "smartadserver.com", "sovrn.com", "srv.buysellads.com", "t.co",
         "taboola.com", "tapjoy.com", "tinyurl.com", "trafficjunky.com", "trafficstars.com",
         "twinred.com", "unityads.unity3d.com", "vungle.com", "yandex.ru", "yieldmanager.com",
-        "yieldmo.com", "zedo.com"
+        "yieldmo.com", "zedo.com", "a.buysellads.com", "ad-delivery.net", "ad.doubleclick.net",
+        "ad.yieldlab.net", "adform.net", "adservice.google.com", "ads.pubmatic.com",
+        "ads.stickyadstv.com", "amazon-adsystem.com", "bid.g.doubleclick.net",
+        "cdn.doubleclick.net", "googleads.g.doubleclick.net", "pagead2.googlesyndication.com",
+        "partnerad.l.doubleclick.net", "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",
+        "static.doubleclick.net", "tpc.googlesyndication.com"
     )
 
     private val ANALYTICS_DOMAINS = hashSetOf(
@@ -45,7 +50,9 @@ object AdBlockManager {
         "userway.org", "equalweb.com", "accessibe.com", "audioeye.com",
         "branch.io", "appsflyer.com", "adjust.com", "kochava.com", "singular.net",
         "braze.com", "mparticle.com", "tealiumiq.com", "qualtrics.com", "usercentrics.com",
-        "onetrust.com", "cookielaw.org", "trustarc.com", "didomi.io", "civiccomputing.com"
+        "onetrust.com", "cookielaw.org", "trustarc.com", "didomi.io", "civiccomputing.com",
+        "api-global.mixpanel.com", "api.mixpanel.com", "collect.doubleclick.net",
+        "stats.g.doubleclick.net", "telemetry.mozilla.org", "telemetry.sdk.appcenter.ms"
     )
 
     private val SOCIAL_DOMAINS = hashSetOf(
@@ -117,6 +124,12 @@ object AdBlockManager {
                 style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; z-index: -9999 !important; }';
                 document.head.appendChild(style);
 
+                function hideElement(el) {
+                    el.style.setProperty('display', 'none', 'important');
+                    el.style.setProperty('visibility', 'hidden', 'important');
+                    el.style.setProperty('pointer-events', 'none', 'important');
+                }
+
                 // MutationObserver for better performance than setInterval
                 const observer = new MutationObserver((mutations) => {
                     mutations.forEach((mutation) => {
@@ -125,10 +138,10 @@ object AdBlockManager {
                                  if (node.nodeType === 1) { // Element
                                      selectors.forEach(s => {
                                          if (node.matches(s)) {
-                                             node.style.setProperty('display', 'none', 'important');
+                                             hideElement(node);
                                          }
                                          node.querySelectorAll(s).forEach(el => {
-                                             el.style.setProperty('display', 'none', 'important');
+                                             hideElement(el);
                                          });
                                      });
                                  }

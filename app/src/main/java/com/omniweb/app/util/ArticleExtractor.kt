@@ -57,9 +57,9 @@ object ArticleExtractor {
 
             // Heuristic: Paragraphs are good, too many links relative to text is bad (navigation), images are okay
             // article/section tags get a bonus
-            val tagBonus = if (tag == "article") 100 else if (tag == "section") 40 else 0
-            val pBonus = if (pCount > 5) 150 else 0
-            val codeBonus = if (codeCount > 2) 50 else 0
+            val tagBonus = if (tag == "article" || tag == "main") 250 else if (tag == "section") 80 else 0
+            val pBonus = if (pCount > 5) 200 else 0
+            val codeBonus = if (codeCount > 2) 100 else 0
 
             // Calculate link density
             val textLength = cleanInner.length.coerceAtLeast(1)
