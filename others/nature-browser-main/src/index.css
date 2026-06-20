@@ -1,0 +1,60 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-nature-50: #fdfcfb;
+  --color-nature-100: #f5f2ed;
+  --color-nature-200: #e9e4d9;
+  --color-nature-300: #d2c8b8;
+  --color-nature-400: #b1a18c;
+  --color-nature-500: #8c7a65;
+  --color-nature-600: #73614d;
+  --color-nature-700: #5a4b3c;
+  --color-nature-800: #42382c;
+  --color-nature-900: #2e271f;
+
+  --color-forest-50: #f1f8f1;
+  --color-forest-500: #2d5a27;
+  --color-forest-900: #0d210a;
+
+  --color-water-50: #eff6ff;
+  --color-water-500: #3b82f6;
+  --color-water-900: #1e3a8a;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Abstract Nature Vars */
+  --nature-bg: var(--color-nature-100);
+  --nature-accent: var(--color-forest-500);
+}
+
+@layer base {
+  body {
+    @apply antialiased text-nature-900 bg-nature-100;
+  }
+
+  .theme-forest { --nature-accent: var(--color-forest-500); }
+  .theme-water { --nature-accent: var(--color-water-500); }
+  .theme-earth { --nature-accent: var(--color-nature-500); }
+  .theme-sand { --nature-accent: #c29d6d; }
+  .theme-sun { --nature-accent: #f59e0b; }
+  .theme-lava { --nature-accent: #ef4444; }
+  .theme-arctic { --nature-accent: #0ea5e9; }
+  .theme-moss { --nature-accent: #65a30d; }
+  .theme-midnight { --nature-accent: #6366f1; }
+  .theme-bloom { --nature-accent: #ec4899; }
+  .theme-savanna { --nature-accent: #f97316; }
+
+  .dark {
+    --color-nature-100: #1a1a1a;
+    --color-nature-900: #e5e5e5;
+    background-color: #121212;
+    color: #e5e5e5;
+  }
+
+  .text-size-small { font-size: 0.875rem; }
+  .text-size-medium { font-size: 1rem; }
+  .text-size-large { font-size: 1.125rem; }
+}

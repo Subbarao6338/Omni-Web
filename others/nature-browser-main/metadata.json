@@ -1,0 +1,10 @@
+{
+  "name": "Nature Browser",
+  "description": "A feature-rich, privacy-focused browser dashboard with customizable themes, secure sync, media downloading, and advanced privacy tools.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

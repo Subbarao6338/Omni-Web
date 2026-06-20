@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Nature Browser</string>
+    <string name="go_button">Follow the Stream</string>
+    <string name="back_button">Upstream</string>
+    <string name="forward_button">Downstream</string>
+    <string name="reload_button">Refresh the Spring</string>
+    <string name="url_placeholder">Explore the stream...</string>
+    <string name="tabs_button">Floating Lily Pads</string>
+    <string name="new_tab">New Lily Pad</string>
+    <string name="close_tab">Sink Lily Pad</string>
+    <string name="bookmarks">Bookmarks</string>
+    <string name="history">History</string>
+    <string name="desktop_mode">Desktop Mode</string>
+    <string name="dark_mode">Nightfall Mode</string>
+    <string name="ad_block">Clear Stream Filtering</string>
+    <string name="incognito_message">You’re in the deep forest — no tracks left behind 🌲</string>
+    <string name="retry_stream">The spring is blocked. Retry the stream?</string>
+    <string name="gathering_started">A leaf has been gathered from the stream for your offline reading.</string>
+    <string name="storm_encountered">The stream encountered a storm. Recovering...</string>
+    <string name="obstacle_encountered">The stream is blocked by an obstacle. Check your connection to the forest.</string>
+    <string name="murky_waters">This stream\'s waters look murky. Security risk detected.</string>
+</resources>

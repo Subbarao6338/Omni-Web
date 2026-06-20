@@ -1,0 +1,53 @@
+name: Debug APK Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Get Version Info
+        id: version
+        run: |
+          VERSION_NAME=$(./gradlew -q :app:printVersion | grep "VERSION_NAME=" | cut -d'=' -f2)
+          VERSION_CODE=$(./gradlew -q :app:printVersion | grep "VERSION_CODE=" | cut -d'=' -f2)
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION_NAME }}-${{ steps.version.outputs.VERSION_CODE }}
+          name: Build ${{ steps.version.outputs.VERSION_NAME }} (${{ steps.version.outputs.VERSION_CODE }})
+          files: app/build/outputs/apk/debug/app-debug.apk
+          body: |
+            Automatic build from main branch.
+            Version: ${{ steps.version.outputs.VERSION_NAME }}
+            Build Code: ${{ steps.version.outputs.VERSION_CODE }}
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

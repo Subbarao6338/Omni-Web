@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "BrowserSettings": {
+      "title": "Browser Settings",
+      "description": "User preferences and browser configuration",
+      "type": "object",
+      "properties": {
+        "theme": { "type": "string", "enum": ["earth", "forest", "water", "sand", "dark"] },
+        "fontSize": { "type": "string", "enum": ["small", "medium", "large"] },
+        "layout": { "type": "string", "enum": ["standard", "focused", "grid"] },
+        "privacyMode": { "type": "boolean" },
+        "trackerBlocking": { "type": "boolean" },
+        "vpnEnabled": { "type": "boolean" },
+        "startPageWidgets": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["theme", "fontSize", "layout", "privacyMode"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A saved website link",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "icon": { "type": "string" },
+        "folder": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "title", "url"]
+    },
+    "HistoryItem": {
+      "title": "History Item",
+      "description": "A record of a visited website",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "url", "timestamp"]
+    },
+    "DownloadItem": {
+      "title": "Download Item",
+      "description": "A record of a downloaded file",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "filename": { "type": "string" },
+        "url": { "type": "string" },
+        "progress": { "type": "number" },
+        "status": { "type": "string", "enum": ["downloading", "completed", "failed"] },
+        "size": { "type": "string" },
+        "mimeType": { "type": "string" }
+      },
+      "required": ["id", "filename", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "BrowserSettings",
+      "description": "Individual user settings"
+    },
+    "/users/{userId}/bookmarks/{id}": {
+      "schema": "Bookmark",
+      "description": "User's saved bookmarks"
+    },
+    "/users/{userId}/history/{id}": {
+      "schema": "HistoryItem",
+      "description": "User's browsing history"
+    },
+    "/users/{userId}/downloads/{id}": {
+      "schema": "DownloadItem",
+      "description": "User's download records"
+    }
+  }
+}

@@ -1,0 +1,115 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: /users/{userId}
+// Document ID: userId (UID)
+// Fields:
+//   - theme: string (earth, forest, water, sand, dark)
+//   - fontSize: string (small, medium, large)
+//   - layout: string (standard, focused, grid)
+//   - privacyMode: boolean
+//   - trackerBlocking: boolean
+//   - vpnEnabled: boolean
+//   - startPageWidgets: list of strings
+//
+// Collection: /users/{userId}/bookmarks/{id}
+// Fields: id, title, url, icon?, folder?, tags (list)
+//
+// Collection: /users/{userId}/history/{id}
+// Fields: id, title, url, timestamp (number)
+//
+// Collection: /users/{userId}/downloads/{id}
+// Fields: id, filename, url, progress, status, size, mimeType
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^nature://.*"));
+    }
+
+    // Domain Validators
+    function isValidSettings(data) {
+      return hasOnlyAllowedFields(['theme', 'fontSize', 'layout', 'privacyMode', 'trackerBlocking', 'vpnEnabled', 'startPageWidgets']) &&
+             data.theme in ['earth', 'forest', 'water', 'sand', 'dark'] &&
+             data.fontSize in ['small', 'medium', 'large'] &&
+             data.layout in ['standard', 'focused', 'grid'] &&
+             data.privacyMode is bool &&
+             data.trackerBlocking is bool &&
+             data.vpnEnabled is bool &&
+             data.startPageWidgets is list;
+    }
+
+    function isValidBookmark(data) {
+      return hasOnlyAllowedFields(['id', 'title', 'url', 'icon', 'folder', 'tags']) &&
+             data.id is string && data.id.size() < 100 &&
+             data.title is string && data.title.size() < 200 &&
+             isValidUrl(data.url) &&
+             ( !('tags' in data) || data.tags is list );
+    }
+
+    function isValidHistory(data) {
+      return hasOnlyAllowedFields(['id', 'title', 'url', 'timestamp']) &&
+             data.id is string &&
+             data.url is string &&
+             data.timestamp is number;
+    }
+
+    function isValidDownload(data) {
+       return hasOnlyAllowedFields(['id', 'filename', 'url', 'progress', 'status', 'size', 'mimeType']) &&
+              data.id is string &&
+              data.filename is string &&
+              data.status in ['downloading', 'completed', 'failed'] &&
+              data.progress is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) && (request.method == 'delete' || isValidSettings(request.resource.data));
+      
+      match /bookmarks/{id} {
+        allow read, write: if isOwner(userId) && (request.method == 'delete' || isValidBookmark(request.resource.data));
+      }
+      
+      match /history/{id} {
+        allow read, write: if isOwner(userId) && (request.method == 'delete' || isValidHistory(request.resource.data));
+      }
+      
+      match /downloads/{id} {
+        allow read, write: if isOwner(userId) && (request.method == 'delete' || isValidDownload(request.resource.data));
+      }
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

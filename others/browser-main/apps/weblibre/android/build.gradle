@@ -1,0 +1,37 @@
+//Required by background_fetch build
+ext {
+    compileSdkVersion   = 36
+    targetSdkVersion    = 36
+}
+
+buildscript {
+    ext.kotlin_version = '2.3.10'
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        //Required by background_fetch build
+        maven { url "${project(':background_fetch').projectDir}/libs" }
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    afterEvaluate {
+        if (it.hasProperty("android")) {
+            android {
+                compileSdkVersion 36
+            }
+        }
+    }
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
