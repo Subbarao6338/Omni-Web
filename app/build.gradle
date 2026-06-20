@@ -124,5 +124,13 @@ dependencies {
     // Gemini
     implementation "com.google.ai.client.generativeai:generativeai:$geminiVersion"
 
+    // CameraX
+    implementation "androidx.camera:camera-camera2:$cameraxVersion"
+    implementation "androidx.camera:camera-lifecycle:$cameraxVersion"
+    implementation "androidx.camera:camera-view:$cameraxVersion"
+
+    // Jsoup
+    implementation "org.jsoup:jsoup:$jsoupVersion"
+
     testImplementation "junit:junit:$junitVersion"
 }

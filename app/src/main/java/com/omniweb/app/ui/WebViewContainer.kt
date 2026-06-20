@@ -311,6 +311,13 @@ fun WebViewContainer(
                             // Sniffer injection
                             view?.evaluateJavascript(mediaSnifferScript(), null)
 
+                            // Apply playback speed
+                            view?.evaluateJavascript("""
+                                (function() {
+                                    document.querySelectorAll('video').forEach(v => v.playbackRate = ${tab.playbackSpeed});
+                                })();
+                            """.trimIndent(), null)
+
                             // Anti-fingerprinting injection
                             if (settings.strictPrivacyMode) {
                                 view?.evaluateJavascript(antiFingerprintScript(), null)

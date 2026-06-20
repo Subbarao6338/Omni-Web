@@ -66,6 +66,7 @@ fun BrowserAddressBar(
     onCloseFind: () -> Unit,
     onHomeClick: () -> Unit,
     onVoiceClick: () -> Unit = {},
+    onScanClick: () -> Unit = {},
     suggestions: List<Suggestion>,
     onSuggestionClick: (Suggestion) -> Unit,
     blockedCount: Int = 0
@@ -187,6 +188,7 @@ fun BrowserAddressBar(
                                             }
                                         }
                                         if (urlInput.isEmpty()) {
+                                            IconButton(onClick = onScanClick) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR", modifier = Modifier.size(16.dp)) }
                                             IconButton(onClick = onVoiceClick) { Icon(Icons.Default.Mic, contentDescription = "Voice Search", modifier = Modifier.size(16.dp)) }
                                         }
                                         if (urlInput.isNotEmpty()) {

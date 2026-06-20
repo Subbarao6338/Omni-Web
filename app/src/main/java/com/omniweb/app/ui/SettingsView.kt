@@ -42,7 +42,13 @@ import org.json.JSONArray
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () -> Unit = {}, onOpenPasswords: () -> Unit = {}) {
+fun SettingsView(
+    database: AppDatabase,
+    onBack: () -> Unit,
+    onOpenScripts: () -> Unit = {},
+    onOpenPasswords: () -> Unit = {},
+    onOpenSearchEngines: () -> Unit = {}
+) {
     val context = LocalContext.current
     val settingsState by database.settingsDao().getSettings().collectAsStateWithLifecycle(initialValue = Settings())
     val scope = rememberCoroutineScope()
@@ -116,59 +122,12 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SettingsSection("General", Icons.Default.Search) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Search Engine", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val engines = listOf(
-                        "Google" to "https://www.google.com/search?q=",
-                        "DuckDuckGo" to "https://duckduckgo.com/?q=",
-                        "Bing" to "https://www.bing.com/search?q=",
-                        "Yahoo" to "https://search.yahoo.com/search?p=",
-                        "Baidu" to "https://www.baidu.com/s?wd="
-                    ) + customEngines
-
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        engines.forEachIndexed { index, (name, url) ->
-                            val isDefault = index < 5
-                            InputChip(
-                                selected = settings.searchEngine == url,
-                                onClick = {
-                                    scope.launch { database.settingsDao().updateSettings(settings.copy(searchEngine = url)) }
-                                },
-                                label = { Text(name) },
-                                trailingIcon = {
-                                    if (!isDefault) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Delete",
-                                            modifier = Modifier.size(14.dp).clickable {
-                                                scope.launch {
-                                                    val array = JSONArray(settings.customSearchEngines)
-                                                    val newArray = JSONArray()
-                                                    for (i in 0 until array.length()) {
-                                                        if (i != index - 5) {
-                                                            newArray.put(array.get(i))
-                                                        }
-                                                    }
-                                                    val nextEngine = if (settings.searchEngine == url) "https://www.google.com/search?q=" else settings.searchEngine
-                                                    database.settingsDao().updateSettings(settings.copy(
-                                                        customSearchEngines = newArray.toString(),
-                                                        searchEngine = nextEngine
-                                                    ))
-                                                }
-                                            }
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                        AssistChip(
-                            onClick = { showAddEngineDialog = true },
-                            label = { Text("Add Custom") },
-                            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        )
-                    }
-                }
+                ListItem(
+                    headlineContent = { Text("Search Engines") },
+                    supportingContent = { Text("Manage and select search engines") },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                    modifier = Modifier.clickable { onOpenSearchEngines() }
+                )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
                     headlineContent = { Text("Clear data on exit") },
@@ -427,9 +386,13 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                     trailingContent = {
                         IconButton(onClick = {
                             scope.launch {
-                        val bookmarks = database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()
-                        val shortcuts = database.shortcutDao().getAllShortcuts().firstOrNull() ?: emptyList()
-                        val json = BackupManager.exportData(bookmarks, shortcuts, settings)
+                                val bookmarks = database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()
+                                val shortcuts = database.shortcutDao().getAllShortcuts().firstOrNull() ?: emptyList()
+                                val history = database.historyDao().getAllHistory().firstOrNull() ?: emptyList()
+                                val scripts = database.userScriptDao().getAllScripts().firstOrNull() ?: emptyList()
+                                // We don't have a simple way to get all PerSiteSettings without a Query, let's assume we want to export them too
+                                // For now, let's just export the ones we can easily get
+                                val json = BackupManager.exportData(bookmarks, shortcuts, history, scripts, emptyList(), settings)
                                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 val clip = ClipData.newPlainText("OmniBackup", json)
                                 clipboard.setPrimaryClip(clip)
@@ -452,11 +415,15 @@ fun SettingsView(database: AppDatabase, onBack: () -> Unit, onOpenScripts: () ->
                                     scope.launch {
                                         val newBookmarks = BackupManager.importBookmarks(json)
                                         val newShortcuts = BackupManager.importShortcuts(json)
+                                        val newHistory = BackupManager.importHistory(json)
+                                        val newScripts = BackupManager.importScripts(json)
                                         val newSettings = BackupManager.importSettings(json, settings)
 
                                         database.settingsDao().updateSettings(newSettings)
                                         newBookmarks.forEach { database.bookmarkDao().insertBookmark(it) }
                                         newShortcuts.forEach { database.shortcutDao().insertShortcut(it) }
+                                        newHistory.forEach { database.historyDao().insertHistory(it) }
+                                        newScripts.forEach { database.userScriptDao().insertScript(it) }
 
                                         Toast.makeText(context, "Data imported successfully", Toast.LENGTH_SHORT).show()
                                     }

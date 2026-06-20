@@ -487,7 +487,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private suspend fun fetchLiveSuggestions(query: String): List<Suggestion> = withContext(Dispatchers.IO) {
         suggestionCache[query]?.let { return@withContext it }
         try {
-            val url = URL("https://duckduckgo.com/ac/?q=${android.net.Uri.encode(query)}")
+            val engine = settings.value?.searchEngine ?: "https://www.google.com/search?q="
+            val baseUrl = if (engine.contains("google.com")) {
+                "https://suggestqueries.google.com/complete/search?client=firefox&q="
+            } else {
+                "https://duckduckgo.com/ac/?q="
+            }
+            val url = URL("$baseUrl${android.net.Uri.encode(query)}")
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             val response = connection.inputStream.bufferedReader().readText()
