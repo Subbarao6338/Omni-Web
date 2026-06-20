@@ -145,15 +145,63 @@ interface PasswordDao {
 }
 
 @Dao
+interface NamedSessionDao {
+    @Query("SELECT * FROM named_sessions ORDER BY timestamp DESC")
+    suspend fun getAllSessions(): List<NamedSession>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSession(session: NamedSession)
+
+    @Insert
+    suspend fun insertTabs(tabs: List<NamedSessionTab>)
+
+    @Query("SELECT * FROM named_session_tabs WHERE sessionName = :name")
+    suspend fun getTabsForSession(name: String): List<NamedSessionTab>
+
+    @Transaction
+    suspend fun saveSession(name: String, tabs: List<NamedSessionTab>) {
+        insertSession(NamedSession(name))
+        insertTabs(tabs)
+    }
+
+    @Delete
+    suspend fun deleteSession(session: NamedSession)
+}
+
+@Dao
+interface AnnotationDao {
+    @Query("SELECT * FROM annotations WHERE url = :url ORDER BY timestamp DESC")
+    fun getAnnotationsForUrl(url: String): Flow<List<AnnotationEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAnnotation(annotation: AnnotationEntity)
+
+    @Delete
+    suspend fun deleteAnnotation(annotation: AnnotationEntity)
+}
+
+@Dao
+interface CustomRedirectDao {
+    @Query("SELECT * FROM custom_redirects")
+    fun getAllRedirects(): Flow<List<CustomRedirectEntry>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRedirect(redirect: CustomRedirectEntry)
+
+    @Delete
+    suspend fun deleteRedirect(redirect: CustomRedirectEntry)
+}
+
+@Dao
 interface ReadingListDao {
     @Query("SELECT * FROM reading_list ORDER BY timestamp DESC")
     fun getAllEntries(): Flow<List<ReadingListEntry>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertEntry(entry: ReadingListEntry)
+    suspend fun insertEntry(readingListEntry: ReadingListEntry)
 
     @Delete
-    suspend fun deleteEntry(entry: ReadingListEntry)
+    suspend fun deleteEntry(readingListEntry: ReadingListEntry)
 
     @Query("DELETE FROM reading_list")
     suspend fun clearAll()

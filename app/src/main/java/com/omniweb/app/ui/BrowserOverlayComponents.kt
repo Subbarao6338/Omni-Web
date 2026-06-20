@@ -144,6 +144,7 @@ fun ContextMenuSheet(
     onOpenInBackground: (String) -> Unit,
     onCopyAddress: (String) -> Unit,
     onDownload: (String) -> Unit,
+    onHighlight: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -168,6 +169,15 @@ fun ContextMenuSheet(
                         modifier = Modifier.clickable { extra?.let(onCopyAddress); onDismiss() }
                     )
                 }
+            }
+
+            ListItem(
+                headlineContent = { Text("Highlight Selection") },
+                    leadingContent = { Icon(Icons.Default.BorderColor, null) },
+                modifier = Modifier.clickable { onHighlight(); onDismiss() }
+            )
+
+            when (result.type) {
                 WebView.HitTestResult.IMAGE_TYPE -> {
                     Text("Image Options", fontWeight = FontWeight.Bold, modifier = Modifier.padding(8.dp))
                     ListItem(

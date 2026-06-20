@@ -19,6 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import org.json.JSONArray
+import com.omniweb.app.util.adblock.BloomFilterAdBlocker
+import com.omniweb.app.util.AccessibilityTools
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
@@ -53,7 +55,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val suggestionCache = mutableMapOf<String, List<Suggestion>>()
     val recentlyClosedTabs = mutableStateListOf<TabInfo>()
 
+    private val _isSplitScreen = MutableStateFlow(false)
+    val isSplitScreen = _isSplitScreen.asStateFlow()
+
+    private val _splitTabId = MutableStateFlow<String?>(null)
+    val splitTabId = _splitTabId.asStateFlow()
+
     val blockedTrackersByTab = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
+    private val bloomFilterAdBlocker = BloomFilterAdBlocker(application)
+    private var redirectManager: com.omniweb.app.util.RedirectManager? = null
+    private val accessibilityTools = AccessibilityTools(application)
     private val tabLastActive = mutableMapOf<String, Long>()
     private val perSiteSettingsCache = mutableMapOf<String, PerSiteSettings>()
 
@@ -62,6 +73,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val initialId = UUID.randomUUID().toString()
         tabs.add(TabInfo(initialId, "about:home", "Home"))
         _activeTabId.value = initialId
+
+        viewModelScope.launch {
+            val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
+            database.customRedirectDao().getAllRedirects().collect {
+                redirectManager = com.omniweb.app.util.RedirectManager(it)
+            }
+        }
 
         viewModelScope.launch {
             val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
@@ -279,6 +297,25 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         hibernateTabsIfNeeded()
     }
 
+    fun toggleSplitScreen() {
+        if (!_isSplitScreen.value) {
+            val currentActiveId = _activeTabId.value
+            val otherTab = tabs.find { it.id != currentActiveId }
+            if (otherTab != null) {
+                _splitTabId.value = otherTab.id
+                _isSplitScreen.value = true
+            } else {
+                createTab()
+                val newTabId = tabs.last().id
+                _splitTabId.value = newTabId
+                _isSplitScreen.value = true
+            }
+        } else {
+            _isSplitScreen.value = false
+            _splitTabId.value = null
+        }
+    }
+
     fun restoreLastClosedTab() {
         if (recentlyClosedTabs.isNotEmpty()) {
             val tab = recentlyClosedTabs.removeAt(0)
@@ -347,6 +384,79 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         perSiteSettingsCache[settings.host] = settings
         viewModelScope.launch(Dispatchers.IO) {
             database.perSiteSettingsDao().insertSettings(settings)
+        }
+    }
+
+    fun isAd(url: String): Boolean {
+        return settings.value?.adBlockEnabled == true && bloomFilterAdBlocker.isAd(url)
+    }
+
+    fun getRedirect(url: String): String? {
+        return redirectManager?.getRedirect(url)
+    }
+
+    fun getAnnotationsForUrl(url: String): Flow<List<AnnotationEntity>> {
+        return database.annotationDao().getAnnotationsForUrl(url)
+    }
+
+    fun saveAnnotation(url: String, text: String, color: Int = 0xFFFFFF00.toInt()) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.annotationDao().insertAnnotation(AnnotationEntity(url = url, text = text, color = color))
+        }
+    }
+
+    fun deleteAnnotation(annotation: AnnotationEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.annotationDao().deleteAnnotation(annotation)
+        }
+    }
+
+    suspend fun getAllSessions(): List<NamedSession> {
+        return database.namedSessionDao().getAllSessions()
+    }
+
+    fun saveCurrentSession(name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val sessionTabs = tabs.map { tab ->
+                NamedSessionTab(sessionName = name, url = tab.url, title = tab.title)
+            }
+            database.namedSessionDao().saveSession(name, sessionTabs)
+        }
+    }
+
+    fun restoreSession(name: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val sessionTabs = database.namedSessionDao().getTabsForSession(name)
+            if (sessionTabs.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    sessionTabs.forEach { tab ->
+                        createTab(url = tab.url, title = tab.title)
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteSession(session: NamedSession) {
+        viewModelScope.launch(Dispatchers.IO) {
+            database.namedSessionDao().deleteSession(session)
+        }
+    }
+
+    fun speak(text: String) {
+        accessibilityTools.speak(text)
+    }
+
+    fun stopSpeaking() {
+        accessibilityTools.stop()
+    }
+
+    suspend fun chatWithPage(url: String, content: String, message: String, apiKey: String?): String {
+        if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings."
+        return try {
+            com.omniweb.app.util.PageUtils.generateSummary("Context: Website $url\nContent: $content\nQuestion: $message", apiKey) ?: "No response from AI."
+        } catch (e: Exception) {
+            "AI Error: ${e.message}"
         }
     }
 

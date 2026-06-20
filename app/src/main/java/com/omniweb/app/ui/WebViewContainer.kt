@@ -20,8 +20,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.TabInfo
+import com.omniweb.app.data.AnnotationEntity
 import com.omniweb.app.util.AdBlockManager
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
@@ -29,6 +32,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -48,6 +54,7 @@ fun WebViewContainer(
     onConsoleLog: (String, String) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentWebView = remember(tab.id) { viewModel.getOrCreateWebView(tab.id, context) }
 
@@ -79,6 +86,17 @@ fun WebViewContainer(
         AndroidView(
             factory = { _ ->
                 currentWebView.apply {
+                    if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+                        if (settings.torEnabled) {
+                            val proxyConfig = ProxyConfig.Builder()
+                                .addProxyRule("${settings.torProxyHost}:${settings.torProxyPort}")
+                                .addDirect().build()
+                            ProxyController.getInstance().setProxyOverride(proxyConfig, { }, { })
+                        } else {
+                            ProxyController.getInstance().clearProxyOverride({ }, { })
+                        }
+                    }
+
                     val initialHost = Uri.parse(tab.url).host ?: ""
                     val initialPerSite = viewModel.getPerSiteSettings(initialHost)
 
@@ -138,6 +156,17 @@ fun WebViewContainer(
                             if (site.isNotEmpty()) {
                                 onLoginDetected(site, user, pass)
                             }
+                            },
+                            onGetAnnotations = {
+                                val list = kotlinx.coroutines.runBlocking { viewModel.getAnnotationsForUrl(tab.url).firstOrNull() } ?: emptyList<AnnotationEntity>()
+                                val array = org.json.JSONArray()
+                                list.forEach { a: AnnotationEntity ->
+                                    val obj = org.json.JSONObject()
+                                    obj.put("text", a.text)
+                                    obj.put("color", "#" + Integer.toHexString(a.color).takeLast(6))
+                                    array.put(obj)
+                                }
+                                array.toString()
                         }
                     ), "Android")
 
@@ -187,6 +216,12 @@ fun WebViewContainer(
                             val url = request?.url?.toString() ?: return false
                             if (UrlUtils.isBookmarklet(url)) {
                                 onBookmarkletDetected(url)
+                                return true
+                            }
+
+                            val redirect = viewModel.getRedirect(url)
+                            if (redirect != null) {
+                                view?.loadUrl(redirect)
                                 return true
                             }
 
@@ -271,6 +306,7 @@ fun WebViewContainer(
                             """.trimIndent(), null)
 
                             view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
+                            onTextExtracted(tab.url) // Basic placeholder if JS failed
 
                             // Sniffer injection
                             view?.evaluateJavascript(mediaSnifferScript(), null)
@@ -279,6 +315,37 @@ fun WebViewContainer(
                             if (settings.strictPrivacyMode) {
                                 view?.evaluateJavascript(antiFingerprintScript(), null)
                             }
+
+                            // Re-apply annotations
+                            view?.evaluateJavascript("""
+                                (function() {
+                                    Android.getAnnotations().then(json => {
+                                        const annotations = JSON.parse(json);
+                                        annotations.forEach(a => {
+                                            const text = a.text;
+                                            const color = a.color;
+                                            function highlight(node) {
+                                                if (node.nodeType === 3) {
+                                                    const index = node.data.indexOf(text);
+                                                    if (index >= 0) {
+                                                        const range = document.createRange();
+                                                        range.setStart(node, index);
+                                                        range.setEnd(node, index + text.length);
+                                                        const mark = document.createElement('mark');
+                                                        mark.style.backgroundColor = color;
+                                                        range.surroundContents(mark);
+                                                    }
+                                                } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
+                                                    for (let i = 0; i < node.childNodes.length; i++) {
+                                                        highlight(node.childNodes[i]);
+                                                    }
+                                                }
+                                            }
+                                            highlight(document.body);
+                                        });
+                                    });
+                                })();
+                            """.trimIndent(), null)
                         }
 
                         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
