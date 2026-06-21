@@ -219,10 +219,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    val settings = database.settingsDao().getSettings().stateIn(
+    val settings = database.settingsDao().getSettings().map {
+        it?.copy(geminiApiKey = it.geminiApiKey ?: "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw") ?: Settings(geminiApiKey = "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw")
+    }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = Settings()
+        initialValue = Settings(geminiApiKey = "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw")
     )
 
     private val _searchSuggestions = mutableStateOf<List<Suggestion>>(emptyList())

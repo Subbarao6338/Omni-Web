@@ -130,6 +130,8 @@ fun WebViewContainer(
                         }
                     }
 
+                    AdBlockManager.init(context.applicationContext)
+
                     if (tab.isIncognito) {
                         CookieManager.getInstance().setAcceptCookie(false)
                         this.settings.domStorageEnabled = false
@@ -256,6 +258,10 @@ fun WebViewContainer(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             tab.isLoading = false
+                            
+                            val cookieBlockScript = context.assets.open("CookieBlock.js").bufferedReader().use { it.readText() }
+                            view?.evaluateJavascript(cookieBlockScript, null)
+
                             if (settings.adBlockEnabled) {
                                 view?.evaluateJavascript(AdBlockManager.getAdBlockScript(), null)
                             }

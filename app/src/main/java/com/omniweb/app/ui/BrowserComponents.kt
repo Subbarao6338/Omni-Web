@@ -306,6 +306,7 @@ fun TabSwitcherSheet(
     onDismiss: () -> Unit
 ) {
     var showCloseAllDialog by remember { mutableStateOf(false) }
+    var useTreeView by remember { mutableStateOf(false) }
 
     if (showCloseAllDialog) {
         AlertDialog(
@@ -335,12 +336,25 @@ fun TabSwitcherSheet(
                     IconButton(onClick = { onNewTab(true) }) {
                         Icon(Icons.Default.VisibilityOff, contentDescription = "New Incognito Tab")
                     }
+                    IconButton(onClick = { useTreeView = !useTreeView }) {
+                        Icon(if (useTreeView) Icons.Default.GridView else Icons.Default.AccountTree, contentDescription = "Toggle View")
+                    }
                     IconButton(onClick = { onNewTab(false) }) {
                         Icon(Icons.Default.Add, contentDescription = "New Tab")
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
+            if (useTreeView) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f, fill = false)) {
+                    TreeViewTabSwitcher(
+                        tabs = tabs,
+                        activeTabId = activeTabId,
+                        onTabSelect = { onTabSelect(it); onDismiss() },
+                        onTabClose = onTabClose
+                    )
+                }
+            } else {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
@@ -461,8 +475,9 @@ fun TabSwitcherSheet(
                     )
                 }
             }
+            }
 
-            if (recentlyClosedTabs.isNotEmpty()) {
+            if (recentlyClosedTabs.isNotEmpty() && !useTreeView) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Text("Recently Closed", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(8.dp))

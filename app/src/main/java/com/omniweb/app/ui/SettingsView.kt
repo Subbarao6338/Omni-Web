@@ -215,6 +215,21 @@ fun SettingsView(
                             scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "system")) }
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeOption("Earth", settings.themeMode == "earth", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "earth", accentColor = "#795548")) }
+                        }
+                        ThemeOption("Forest", settings.themeMode == "forest", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "forest", accentColor = "#2E7D32")) }
+                        }
+                        ThemeOption("Water", settings.themeMode == "water", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "water", accentColor = "#0277BD")) }
+                        }
+                        ThemeOption("Sand", settings.themeMode == "sand", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(themeMode = "sand", accentColor = "#FBC02D")) }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
                     Text("Accent Color", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)

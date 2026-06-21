@@ -69,6 +69,8 @@ import com.omniweb.app.data.TabInfo
 import com.omniweb.app.data.ReadingListEntry
 import com.omniweb.app.util.AdBlockManager
 import com.omniweb.app.util.OmniDownloadManager
+import com.omniweb.app.util.PageAnalyzer
+import com.omniweb.app.util.AnalysisResult
 import com.omniweb.app.util.PageUtils
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
@@ -157,6 +159,7 @@ fun BrowserView(
     var readerContent by remember { mutableStateOf("") }
     var summaryContent by remember { mutableStateOf<String?>(null) }
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var analysisResult by remember { mutableStateOf<AnalysisResult?>(null) }
 
     var isInspectMode by remember { mutableStateOf(false) }
 
@@ -476,6 +479,10 @@ fun BrowserView(
         )
     }
 
+    analysisResult?.let {
+        PageAnalysisView(result = it, onBack = { analysisResult = null })
+    }
+
     if (showTools) {
         ModalBottomSheet(onDismissRequest = { showTools = false }, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState())) {
@@ -544,6 +551,13 @@ fun BrowserView(
                     }}
                     item { ToolButton(Icons.Default.QrCode, "QR Code", Color(0xFF10B981)) {
                         qrBitmap = PageUtils.generateQRCode(activeTab.url)
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Insights, "Insights", Color(0xFF10B981)) {
+                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        PageAnalyzer.analyze(currentWebView) {
+                            analysisResult = it
+                        }
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.SlowMotionVideo, "Video Speed", Color(0xFFEA580C)) {

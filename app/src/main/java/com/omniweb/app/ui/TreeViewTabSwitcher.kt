@@ -5,10 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.omniweb.app.data.TabInfo
@@ -17,14 +17,22 @@ import com.omniweb.app.data.TabInfo
 fun TreeViewTabSwitcher(
     tabs: List<TabInfo>,
     activeTabId: String,
-    onTabSelected: (String) -> Unit,
-    onTabClosed: (String) -> Unit
+    onTabSelect: (String) -> Unit,
+    onTabClose: (String) -> Unit
 ) {
-    val rootTabs = tabs.filter { it.parentTabId == null }
-
-    LazyColumn {
-        items(rootTabs) { tab ->
-            TabTreeItem(tab, tabs, activeTabId, onTabSelected, onTabClosed, depth = 0)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Simple list for now, as we don't have parent-child relationship in TabInfo yet
+        items(tabs) { tab ->
+            TabTreeItem(
+                tab = tab,
+                isSelected = tab.id == activeTabId,
+                onSelect = { onTabSelect(tab.id) },
+                onClose = { onTabClose(tab.id) }
+            )
         }
     }
 }
@@ -32,35 +40,28 @@ fun TreeViewTabSwitcher(
 @Composable
 fun TabTreeItem(
     tab: TabInfo,
-    allTabs: List<TabInfo>,
-    activeTabId: String,
-    onTabSelected: (String) -> Unit,
-    onTabClosed: (String) -> Unit,
-    depth: Int
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    onClose: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(true) }
-    val children = allTabs.filter { it.parentTabId == tab.id }
-
-    Column(modifier = Modifier.padding(start = (depth * 16).dp)) {
-        ListItem(
-            headlineContent = { Text(tab.title, maxLines = 1) },
-            supportingContent = { Text(tab.url, maxLines = 1, style = MaterialTheme.typography.bodySmall) },
-            leadingContent = {
-                if (children.isNotEmpty()) {
-                    Icon(
-                        if (expanded) Icons.Default.ExpandMore else Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        modifier = Modifier.clickable { expanded = !expanded }
-                    )
-                }
-            },
-            modifier = Modifier.clickable { onTabSelected(tab.id) },
-            colors = if (tab.id == activeTabId) ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer) else ListItemDefaults.colors()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
-
-        if (expanded && children.isNotEmpty()) {
-            children.forEach { child ->
-                TabTreeItem(child, allTabs, activeTabId, onTabSelected, onTabClosed, depth + 1)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(tab.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1)
+                Text(tab.url, style = MaterialTheme.typography.bodySmall, maxLines = 1, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            IconButton(onClick = onClose) {
+                Icon(Icons.Default.Close, contentDescription = "Close Tab")
             }
         }
     }
