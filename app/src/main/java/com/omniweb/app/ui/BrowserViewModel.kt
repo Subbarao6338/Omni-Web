@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import org.json.JSONArray
+import com.omniweb.app.BuildConfig
 import com.omniweb.app.util.adblock.BloomFilterAdBlocker
 import com.omniweb.app.util.AccessibilityTools
 
@@ -75,7 +76,6 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _activeTabId.value = initialId
 
         viewModelScope.launch {
-            val currentSettings = database.settingsDao().getSettings().firstOrNull() ?: Settings()
             database.customRedirectDao().getAllRedirects().collect {
                 redirectManager = com.omniweb.app.util.RedirectManager(it)
             }
@@ -220,11 +220,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     val settings = database.settingsDao().getSettings().map {
-        it?.copy(geminiApiKey = it.geminiApiKey ?: "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw") ?: Settings(geminiApiKey = "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw")
+        it?.copy(geminiApiKey = it.geminiApiKey ?: BuildConfig.GEMINI_API_KEY) ?: Settings(geminiApiKey = BuildConfig.GEMINI_API_KEY)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = Settings(geminiApiKey = "AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw")
+        initialValue = Settings(geminiApiKey = BuildConfig.GEMINI_API_KEY)
     )
 
     private val _searchSuggestions = mutableStateOf<List<Suggestion>>(emptyList())
@@ -390,7 +390,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun isAd(url: String): Boolean {
-        return settings.value?.adBlockEnabled == true && bloomFilterAdBlocker.isAd(url)
+        return settings.value.adBlockEnabled && bloomFilterAdBlocker.isAd(url)
     }
 
     fun getRedirect(url: String): String? {
@@ -456,7 +456,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     suspend fun chatWithPage(url: String, content: String, message: String, apiKey: String?): String {
         if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings."
         return try {
-            com.omniweb.app.util.PageUtils.generateSummary("Context: Website $url\nContent: $content\nQuestion: $message", apiKey) ?: "No response from AI."
+            com.omniweb.app.util.PageUtils.generateSummary("Context: Website $url\nContent: $content\nQuestion: $message", apiKey)
         } catch (e: Exception) {
             "AI Error: ${e.message}"
         }
@@ -489,7 +489,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private suspend fun fetchLiveSuggestions(query: String): List<Suggestion> = withContext(Dispatchers.IO) {
         suggestionCache[query]?.let { return@withContext it }
         try {
-            val engine = settings.value?.searchEngine ?: "https://www.google.com/search?q="
+            val engine = settings.value.searchEngine
             val baseUrl = if (engine.contains("google.com")) {
                 "https://suggestqueries.google.com/complete/search?client=firefox&q="
             } else {

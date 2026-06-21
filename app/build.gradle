@@ -57,8 +57,10 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+            buildConfigField "String", "GEMINI_API_KEY", "\"${System.getenv('GEMINI_API_KEY') ?: 'AQ.Ab8RN6JsjObt21OBSd0R5og9EwhdOOJwWWJqWynGMBs-WR78uw'}\""
         }
         release {
+            buildConfigField "String", "GEMINI_API_KEY", "\"${System.getenv('GEMINI_API_KEY') ?: ''}\""
             signingConfig signingConfigs.debug
             minifyEnabled true
             shrinkResources true

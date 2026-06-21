@@ -36,9 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -100,8 +98,7 @@ fun BrowserView(
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
-    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
-    val settings = settingsState ?: Settings()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsStateWithLifecycle(initialValue = emptyList())
     val isBookmarked = bookmarks.any { it.url == activeTab.url }
     val userScripts by database.userScriptDao().getAllScripts().collectAsStateWithLifecycle(initialValue = emptyList())
@@ -169,7 +166,6 @@ fun BrowserView(
 
     var passwordToSave by remember { mutableStateOf<Triple<String, String, String>?>(null) } // site, user, pass
     var showVideoSpeed by remember { mutableStateOf(false) }
-    var currentVideoSpeed by remember { mutableStateOf(1.0f) }
 
     var showAddBookmarkletDialog by remember { mutableStateOf<String?>(null) }
 
@@ -505,7 +501,7 @@ fun BrowserView(
                         }
                         showTools = false
                     }}
-                    item { ToolButton(Icons.Default.Chat, "AI Chat", Color(0xFF8B5CF6)) {
+                    item { ToolButton(Icons.AutoMirrored.Filled.Chat, "AI Chat", Color(0xFF8B5CF6)) {
                         showAiChat = true
                         showTools = false
                     }}
@@ -792,7 +788,7 @@ fun BrowserView(
                             val response = viewModel.chatWithPage(activeTab.url, pageText, msg, settings.geminiApiKey)
                             chatMessages.add("AI" to response)
                         }
-                    }) { Icon(Icons.Default.Send, null) }
+                    }) { Icon(Icons.AutoMirrored.Filled.Send, null) }
                 }
             }
         }

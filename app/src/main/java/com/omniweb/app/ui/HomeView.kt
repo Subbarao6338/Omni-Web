@@ -52,8 +52,7 @@ fun HomeView(
 ) {
     val context = LocalContext.current
     val database = remember { AppDatabase.getDatabase(context) }
-    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
-    val settings = settingsState ?: Settings()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
     val history by database.historyDao().getAllHistory().collectAsStateWithLifecycle(initialValue = emptyList())
     val mostVisited by database.historyDao().getMostVisited().collectAsStateWithLifecycle(initialValue = emptyList())
     val scope = rememberCoroutineScope()

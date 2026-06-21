@@ -108,8 +108,7 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
         (appContext as? android.app.Activity)?.isInPictureInPictureMode ?: false
     } else false
 
-    val settingsState by viewModel.settings.collectAsStateWithLifecycle()
-    val settings = settingsState ?: com.omniweb.app.data.Settings()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
 
     val tabs = viewModel.tabs
     val activeTabId by viewModel.activeTabId.collectAsStateWithLifecycle()
