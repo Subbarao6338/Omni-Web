@@ -54,7 +54,6 @@ fun WebViewContainer(
     onConsoleLog: (String, String) -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentWebView = remember(tab.id) { viewModel.getOrCreateWebView(tab.id, context) }
 

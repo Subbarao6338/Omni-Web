@@ -44,7 +44,8 @@ object ArticleExtractor {
 
             finalElement.allElements.forEach { el ->
                 if (allowedTags.contains(el.tagName())) {
-                    if (el.parent() == finalElement || !allowedTags.contains(el.parent().tagName())) {
+                    val parent = el.parent()
+                    if (parent == finalElement || parent == null || !allowedTags.contains(parent.tagName())) {
                         // Scoring individual items within candidate
                         if (el.tagName() == "p" && el.text().length < 10) return@forEach
                         result.append(el.outerHtml())

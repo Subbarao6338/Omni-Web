@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,7 +29,7 @@ fun PageAnalysisView(
                 title = { Text("Page Insights") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -97,10 +98,10 @@ fun ScoreCard(title: String, score: Int, icon: ImageVector, color: Color) {
             }
             Spacer(modifier = Modifier.weight(1f) )
             CircularProgressIndicator(
-                progress = score.toFloat() / 100f,
+                progress = { score.toFloat() / 100f },
                 modifier = Modifier.size(48.dp),
                 color = color,
-                strokeWidth = 4f.dp
+                strokeWidth = 4.dp
             )
         }
     }

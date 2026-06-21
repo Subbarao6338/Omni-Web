@@ -5,9 +5,18 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 
 object AdBlockManager {
-    private val ADS_DOMAINS = hashSetOf<String>()
-    private val ANALYTICS_DOMAINS = hashSetOf<String>()
-    private val SOCIAL_DOMAINS = hashSetOf<String>()
+    private val ADS_DOMAINS = hashSetOf(
+        "doubleclick.net", "ad.doubleclick.net"
+    )
+    private val ANALYTICS_DOMAINS = hashSetOf(
+        "google-analytics.com", "analytics.google.com", "googletagmanager.com",
+        "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
+        "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com"
+    )
+    private val SOCIAL_DOMAINS = hashSetOf(
+        "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
+        "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com"
+    )
     private val MALWARE_DOMAINS = hashSetOf<String>()
     private var isInitialized = false
 
@@ -17,24 +26,16 @@ object AdBlockManager {
         loadHosts(context, "hosts.txt", ADS_DOMAINS)
         loadHosts(context, "malware.txt", MALWARE_DOMAINS)
         
-        // Fallback for analytics/social if not in hosts
-        ANALYTICS_DOMAINS.addAll(listOf(
-            "google-analytics.com", "analytics.google.com", "googletagmanager.com",
-            "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
-            "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com"
-        ))
-        
-        SOCIAL_DOMAINS.addAll(listOf(
-            "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
-            "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com"
-        ))
-
         isInitialized = true
     }
 
     private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>) {
         try {
-            val inputStream = context.assets.open(fileName)
+            val inputStream = try {
+                context.assets.open(fileName)
+            } catch (e: Exception) {
+                return
+            }
             val reader = BufferedReader(InputStreamReader(inputStream))
             var line: String?
             while (reader.readLine().also { line = it } != null) {

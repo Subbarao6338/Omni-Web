@@ -3,6 +3,7 @@ package com.omniweb.app.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -141,7 +142,8 @@ data class NamedSession(
             childColumns = ["sessionName"],
             onDelete = ForeignKey.CASCADE
         )
-    ]
+    ],
+    indices = [Index(value = ["sessionName"])]
 )
 data class NamedSessionTab(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

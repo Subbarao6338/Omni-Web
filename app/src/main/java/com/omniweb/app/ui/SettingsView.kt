@@ -64,22 +64,6 @@ fun SettingsView(
     var clearCache by remember { mutableStateOf(true) }
     var clearWebStorage by remember { mutableStateOf(true) }
 
-    val customEngines = remember(settings.customSearchEngines) {
-        try {
-            val list = mutableListOf<Pair<String, String>>()
-            if (!settings.customSearchEngines.isNullOrBlank()) {
-                val array = JSONArray(settings.customSearchEngines)
-                for (i in 0 until array.length()) {
-                    val obj = array.getJSONObject(i)
-                    list.add(obj.getString("name") to obj.getString("url"))
-                }
-            }
-            list
-        } catch (e: Exception) {
-            emptyList<Pair<String, String>>()
-        }
-    }
-
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
