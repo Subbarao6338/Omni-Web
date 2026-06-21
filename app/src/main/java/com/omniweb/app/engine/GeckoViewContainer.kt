@@ -7,7 +7,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
+import org.mozilla.geckoview.WebExtension
 import com.omniweb.app.data.TabInfo
+import com.omniweb.app.util.AdBlockManager
 
 class GeckoEngine(context: Context) {
     val runtime: GeckoRuntime by lazy { GeckoRuntime.create(context) }
@@ -47,6 +49,7 @@ fun GeckoViewContainer(
     AndroidView(
         factory = { ctx ->
             GeckoView(ctx).apply {
+                AdBlockManager.init(ctx.applicationContext)
                 setSession(session)
                 if (tab.url.isNotBlank() && tab.url != "about:home") {
                     session.loadUri(tab.url)
