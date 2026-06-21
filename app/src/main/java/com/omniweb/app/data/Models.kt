@@ -9,7 +9,8 @@ class TabInfo(
     initialTitle: String,
     val isIncognito: Boolean = false,
     initialScrollX: Int = 0,
-    initialScrollY: Int = 0
+    initialScrollY: Int = 0,
+    val parentTabId: String? = null
 ) {
     var url by mutableStateOf(initialUrl)
     var title by mutableStateOf(initialTitle)
