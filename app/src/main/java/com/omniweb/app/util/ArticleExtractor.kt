@@ -3,79 +3,92 @@ package com.omniweb.app.util
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import kotlin.math.min
 
 object ArticleExtractor {
     fun extractArticleContent(html: String): String {
         try {
             val doc: Document = Jsoup.parse(html)
 
-            // 1. Remove obvious junk
-            val tagsToRemove = listOf(
+            // 1. Pre-cleanup
+            val junkSelectors = listOf(
                 "script", "style", "aside", "iframe", "noscript", "svg", "form",
                 "button", "canvas", "video", "audio", "nav", "header", "footer",
-                ".ads", ".ad-container", "#comments", ".social-share", ".related-posts"
+                ".ads", ".ad-container", "#comments", ".social-share", ".related-posts",
+                ".newsletter", ".trending", ".sidebar", ".menu"
             )
-            tagsToRemove.forEach { doc.select(it).remove() }
+            junkSelectors.forEach { doc.select(it).remove() }
 
-            // 2. Identify candidate
-            val prioritySelectors = listOf("article", "main", "[role='main']", "#content", ".content", ".post", ".article", "#main", ".main")
+            // 2. Scoring Based Candidate Selection
             var bestCandidate: Element? = null
+            var bestScore = 0f
 
-            for (selector in prioritySelectors) {
-                val element = doc.select(selector).maxByOrNull { it.text().length }
-                if (element != null && element.text().length > 500) {
-                    bestCandidate = element
-                    break
-                }
-            }
-
-            if (bestCandidate == null) {
-                // Scoring fallback
-                var maxScore = 0
-                doc.select("div, section").forEach { el ->
-                    val text = el.ownText()
-                    val pCount = el.select("p").size
-                    val linkDensity = calculateLinkDensity(el)
-                    val score = (pCount * 20) + (text.length / 50)
-                    val finalScore = (score * (1 - linkDensity)).toInt()
-
-                    if (finalScore > maxScore) {
-                        maxScore = finalScore
-                        bestCandidate = el
-                    }
+            doc.select("div, section, article, main").forEach { el ->
+                val score = calculateScore(el)
+                if (score > bestScore) {
+                    bestScore = score
+                    bestCandidate = el
                 }
             }
 
             val finalElement = bestCandidate ?: doc.body()
 
-            // 3. Clean and format the result
+            // 3. Final Content Refinement
             val result = StringBuilder()
             val title = doc.title()
             if (title.isNotEmpty()) {
-                result.append("<h1>").append(title).append("</h1>")
+                result.append("<h1 class='reader-title'>").append(title).append("</h1>")
             }
 
-            // Only keep certain tags in the final output
-            val allowedTags = setOf("p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "img", "blockquote", "pre", "code")
+            val allowedTags = setOf("p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li", "img", "blockquote", "pre", "code", "table", "tr", "td", "th")
 
             finalElement.allElements.forEach { el ->
                 if (allowedTags.contains(el.tagName())) {
-                    // Avoid nested repetitions
                     if (el.parent() == finalElement || !allowedTags.contains(el.parent().tagName())) {
-                         result.append(el.outerHtml())
+                        // Scoring individual items within candidate
+                        if (el.tagName() == "p" && el.text().length < 10) return@forEach
+                        result.append(el.outerHtml())
                     }
                 }
             }
 
             return result.toString()
         } catch (e: Exception) {
-            return html // Fallback to raw if Jsoup fails
+            return html
         }
     }
 
-    private fun calculateLinkDensity(el: Element): Float {
+    private fun calculateScore(el: Element): Float {
+        var score = 0f
+        val text = el.text()
+        val words = text.split(Regex("\\s+")).size
+        
+        // Text density
+        score += words.toFloat()
+
+        // Paragraph count
+        val pCount = el.select("p").size
+        score += pCount * 10f
+
+        // Commas indicate prose
+        val commas = text.count { it == ',' }
+        score += commas * 1f
+
+        // Link density (higher density = lower score)
         val linkTextLength = el.select("a").sumOf { it.text().length }
-        val totalTextLength = el.text().length.coerceAtLeast(1)
-        return linkTextLength.toFloat() / totalTextLength
+        val totalTextLength = text.length.coerceAtLeast(1)
+        val linkDensity = min(linkTextLength.toFloat() / totalTextLength, 0.5f)
+        score *= (1 - linkDensity)
+
+        // Class/ID Bonuses
+        val attrString = (el.className() + " " + el.id()).lowercase()
+        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post")) {
+            score += 20f
+        }
+        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer")) {
+            score -= 30f
+        }
+
+        return score
     }
 }

@@ -4,19 +4,41 @@ import android.net.Uri
 import android.util.Patterns
 
 object UrlUtils {
-    /**
-     * Resolves a user input string into a valid URL or a search engine query.
-     */
+    private val BANGS = mapOf(
+        "!g" to "https://www.google.com/search?q=",
+        "!ddg" to "https://duckduckgo.com/?q=",
+        "!w" to "https://en.wikipedia.org/wiki/Special:Search?search=",
+        "!y" to "https://www.youtube.com/results?search_query=",
+        "!b" to "https://www.bing.com/search?q=",
+        "!gh" to "https://github.com/search?q=",
+        "!a" to "https://www.amazon.com/s?k=",
+        "!reddit" to "https://www.reddit.com/search/?q="
+    )
+
     fun resolveUrl(input: String, searchEngine: String): String {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) return "about:home"
 
-        // Handle internal about: and javascript: schemes
+        // Handle Bangs
+        if (trimmed.startsWith("!")) {
+            val spaceIndex = trimmed.indexOf(" ")
+            if (spaceIndex != -1) {
+                val bang = trimmed.substring(0, spaceIndex)
+                val query = trimmed.substring(spaceIndex + 1).trim()
+                BANGS[bang]?.let {
+                    return it + Uri.encode(query)
+                }
+            } else {
+                BANGS[trimmed]?.let {
+                    return it // Just the bang without query, maybe redirect to home?
+                }
+            }
+        }
+
         if (trimmed.startsWith("about:") || trimmed.startsWith("javascript:")) {
             return trimmed
         }
 
-        // Handle chrome:// schemes by mapping them to about: equivalents or keeping them
         if (trimmed.startsWith("chrome://")) {
             if (trimmed == "chrome://home" || trimmed == "chrome://home/") {
                 return "about:home"
@@ -24,22 +46,13 @@ object UrlUtils {
             return trimmed
         }
 
-        // If it already has a protocol, return it
         if (trimmed.contains("://")) {
             return trimmed
         }
 
-        // Check for common TLDs or localhost/IPs even if WEB_URL is picky
         val commonTlds = listOf(
             ".com", ".org", ".net", ".io", ".gov", ".edu", ".me", ".info", ".biz", ".ai",
-            ".app", ".dev", ".xyz", ".tech", ".online", ".site", ".shop", ".cloud",
-            ".network", ".icu", ".buzz", ".top", ".vip", ".blog", ".store", ".co", ".uk",
-            ".jp", ".de", ".fr", ".br", ".it", ".ru", ".es", ".ca", ".au", ".in", ".nl",
-            ".no", ".se", ".dk", ".fi", ".pl", ".tr", ".mx", ".kr", ".cn", ".tw", ".hk",
-            ".sg", ".nz", ".ar", ".cl", ".za", ".mobi", ".tel", ".name", ".pro",
-            ".museum", ".aero", ".jobs", ".travel", ".post", ".education", ".services",
-            ".agency", ".expert", ".solutions", ".media", ".digital", ".global", ".center",
-            ".chat", ".today", ".world", ".news", ".life", ".group", ".company", ".tools"
+            ".app", ".dev", ".xyz", ".tech", ".online", ".site", ".shop", ".cloud"
         )
         val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
         val portRegex = Regex(""".*:\d+$""")
@@ -48,39 +61,28 @@ object UrlUtils {
             trimmed.endsWith(tld, ignoreCase = true) || trimmed.contains(tld + "/", ignoreCase = true)
         }
 
-        // Check if it's a valid URL - use a regex fallback for unit tests
         val isUrl = try {
             Patterns.WEB_URL.matcher(trimmed).matches()
         } catch (e: Exception) {
-            // Fallback regex for unit tests or if Patterns is not available
             val fallbackRegex = Regex("""^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9.-]+)(/.*)?$""")
             fallbackRegex.matches(trimmed)
         }
 
-        // A string is considered a URL if:
-        // 1. It matches the WEB_URL pattern OR is localhost OR has a common TLD OR matches IP/Port
-        // 2. It does not contain spaces
         if ((isUrl || isLocalhost || hasCommonTld || portRegex.matches(trimmed) || ipRegex.matches(trimmed)) && !trimmed.contains(" ")) {
-            // Further verify it's likely a URL (has a dot, is localhost, or has a port)
             if (trimmed.contains(".") || isLocalhost || portRegex.matches(trimmed)) {
                 val protocol = if (isLocalhost || portRegex.matches(trimmed) || trimmed.startsWith("127.")) "http://" else "https://"
                 return protocol + trimmed
             }
         }
 
-        // Otherwise, treat as a search query
         val encoded = try {
             Uri.encode(trimmed)
         } catch (e: Exception) {
-            // Fallback for unit tests
             trimmed.replace(" ", "%20")
         }
         return "$searchEngine$encoded"
     }
 
-    /**
-     * Checks if a string is a javascript: bookmarklet.
-     */
     fun isBookmarklet(url: String): Boolean {
         return url.trim().startsWith("javascript:", ignoreCase = true)
     }
