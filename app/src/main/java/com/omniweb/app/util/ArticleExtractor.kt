@@ -16,7 +16,8 @@ object ArticleExtractor {
                 "button", "canvas", "video", "audio", "nav", "header", "footer",
                 ".ads", ".ad-container", "#comments", ".social-share", ".related-posts",
                 ".newsletter", ".trending", ".sidebar", ".menu", ".nav", ".footer", ".header",
-                "[aria-hidden='true']", "meta", "link", "input", "select", "textarea"
+                "[aria-hidden='true']", "meta", "link", "input", "select", "textarea",
+                ".breadcrumb", ".tags", ".author-info", ".widget", ".popup", ".modal"
             )
             junkSelectors.forEach { doc.select(it).remove() }
 
@@ -87,10 +88,10 @@ object ArticleExtractor {
 
         // Class/ID Bonuses
         val attrString = (el.className() + " " + el.id()).lowercase()
-        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post") || attrString.contains("body")) {
+        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post") || attrString.contains("body") || attrString.contains("main")) {
             score += 50f
         }
-        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer") || attrString.contains("menu") || attrString.contains("nav")) {
+        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer") || attrString.contains("menu") || attrString.contains("nav") || attrString.contains("widget") || attrString.contains("promo")) {
             score -= 50f
         }
 

@@ -386,8 +386,12 @@ fun WebViewContainer(
                 }
             },
             update = { view ->
-                if (view.url != tab.url && !tab.url.startsWith("about:")) {
-                    if (tab.url.startsWith("/")) {
+                val currentUrl = view.url
+                val originalUrl = view.originalUrl
+                val targetUrl = tab.url
+
+                if (targetUrl != currentUrl && targetUrl != originalUrl && !targetUrl.startsWith("about:")) {
+                    if (targetUrl.startsWith("/")) {
                         view.loadUrl("file://" + tab.url)
                     } else {
                         view.loadUrl(tab.url)

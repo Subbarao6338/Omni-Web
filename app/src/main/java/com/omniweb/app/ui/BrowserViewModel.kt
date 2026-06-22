@@ -31,19 +31,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
     private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
-            if (size > 5) {
+            if (size > 15) {
                 eldest?.let { entry ->
                     val webView = entry.value
                     val state = android.os.Bundle()
                     webView.saveState(state)
                     webViewStateCache[entry.key] = state
+
                     webView.stopLoading()
                     webView.webChromeClient = null
                     webView.webViewClient = WebViewClient()
-                    webView.clearCache(true)
                     webView.clearHistory()
-                    webView.removeAllViews()
-                    webView.destroy()
+                    webView.clearCache(false)
+
+                    // Only destroy if it's not the active or split tab
+                    if (entry.key != _activeTabId.value && entry.key != _splitTabId.value) {
+                        webView.removeAllViews()
+                        webView.destroy()
+                    }
                 }
                 return true
             }
@@ -506,12 +511,28 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val connection = url.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             val response = connection.inputStream.bufferedReader().readText()
-            val jsonArray = JSONArray(response)
             val suggestions = mutableListOf<Suggestion>()
-            for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                val phrase = obj.getString("phrase")
-                suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+
+            try {
+                if (engine.contains("google.com")) {
+                    val jsonArray = JSONArray(response)
+                    if (jsonArray.length() >= 2) {
+                        val items = jsonArray.getJSONArray(1)
+                        for (i in 0 until items.length()) {
+                            val phrase = items.getString(i)
+                            suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                        }
+                    }
+                } else {
+                    val jsonArray = JSONArray(response)
+                    for (i in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(i)
+                        val phrase = obj.getString("phrase")
+                        suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                    }
+                }
+            } catch (e: Exception) {
+                com.omniweb.app.util.LogUtils.e("Suggestion parsing failed", e)
             }
             suggestionCache[query] = suggestions
             suggestions
