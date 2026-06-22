@@ -12,7 +12,15 @@ object UrlUtils {
         "!b" to "https://www.bing.com/search?q=",
         "!gh" to "https://github.com/search?q=",
         "!a" to "https://www.amazon.com/s?k=",
-        "!reddit" to "https://www.reddit.com/search/?q="
+        "!reddit" to "https://www.reddit.com/search/?q=",
+        "!m" to "https://www.google.com/maps/search/",
+        "!tw" to "https://twitter.com/search?q=",
+        "!imdb" to "https://www.imdb.com/find?q=",
+        "!stack" to "https://stackoverflow.com/search?q=",
+        "!ebay" to "https://www.ebay.com/sch/i.html?_nkw=",
+        "!eco" to "https://www.ecosia.org/search?q=",
+        "!pkg" to "https://search.nixos.org/packages?query=",
+        "!proton" to "https://mail.proton.me/u/0/search/all?keyword="
     )
 
     fun resolveUrl(input: String, searchEngine: String): String {

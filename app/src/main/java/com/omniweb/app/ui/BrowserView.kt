@@ -107,6 +107,7 @@ fun BrowserView(
     val tabs = viewModel.tabs
     val isSplitScreen by viewModel.isSplitScreen.collectAsStateWithLifecycle()
     val splitTabId by viewModel.splitTabId.collectAsStateWithLifecycle()
+    val isZenMode by viewModel.isZenMode.collectAsStateWithLifecycle()
 
     val pagerState = rememberPagerState(
         initialPage = tabs.indexOfFirst { it.id == activeTab.id }.coerceAtLeast(0),
@@ -214,6 +215,16 @@ fun BrowserView(
     Scaffold(
         snackbarHost = {
             Column {
+                if (isZenMode) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                        modifier = Modifier.padding(16.dp).align(Alignment.End).clickable { viewModel.toggleZenMode() },
+                        shape = CircleShape,
+                        shadowElevation = 4.dp
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Exit Zen Mode", modifier = Modifier.padding(8.dp), tint = Color.White)
+                    }
+                }
                 if (isInspectMode) {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -240,6 +251,7 @@ fun BrowserView(
             }
         },
         topBar = {
+            if (!isZenMode) {
             Column {
                 BrowserAddressBar(
                     modifier = Modifier.pointerInput(Unit) {
@@ -330,8 +342,10 @@ fun BrowserView(
                     blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 }
                 )
             }
+            }
         },
         bottomBar = {
+            if (!isZenMode) {
             val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
             BrowserBottomBar(
                 tabCount = viewModel.tabs.size,
@@ -344,6 +358,7 @@ fun BrowserView(
                 onShowDownloads = onOpenDownloads,
                 onShowMenu = { showTools = true }
             )
+            }
         }
     ) { padding ->
     if (isSplitScreen && splitTabId != null) {
@@ -558,6 +573,10 @@ fun BrowserView(
                     }}
                     item { ToolButton(Icons.Default.SlowMotionVideo, "Video Speed", Color(0xFFEA580C)) {
                         showVideoSpeed = true
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.SelfImprovement, "Zen Mode", Color(0xFF10B981)) {
+                        viewModel.toggleZenMode()
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {

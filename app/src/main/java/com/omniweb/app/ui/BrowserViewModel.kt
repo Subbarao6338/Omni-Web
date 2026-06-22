@@ -62,6 +62,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _splitTabId = MutableStateFlow<String?>(null)
     val splitTabId = _splitTabId.asStateFlow()
 
+    private val _isZenMode = MutableStateFlow(false)
+    val isZenMode = _isZenMode.asStateFlow()
+
     val blockedTrackersByTab = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
     private val bloomFilterAdBlocker = BloomFilterAdBlocker(application)
     private var redirectManager: com.omniweb.app.util.RedirectManager? = null
@@ -297,6 +300,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         _activeTabId.value = id
         tabLastActive[id] = System.currentTimeMillis()
         hibernateTabsIfNeeded()
+    }
+
+    fun toggleZenMode() {
+        _isZenMode.value = !_isZenMode.value
     }
 
     fun toggleSplitScreen() {
