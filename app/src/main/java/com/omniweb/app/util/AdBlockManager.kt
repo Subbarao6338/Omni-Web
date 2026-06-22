@@ -3,31 +3,45 @@ package com.omniweb.app.util
 import android.content.Context
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentHashMap
 
 object AdBlockManager {
-    private val ADS_DOMAINS = hashSetOf(
-        "doubleclick.net", "ad.doubleclick.net"
-    )
-    private val ANALYTICS_DOMAINS = hashSetOf(
-        "google-analytics.com", "analytics.google.com", "googletagmanager.com",
-        "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
-        "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com"
-    )
-    private val SOCIAL_DOMAINS = hashSetOf(
-        "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
-        "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com"
-    )
-    private val MALWARE_DOMAINS = hashSetOf<String>()
-    private var isInitialized = false
-
-    fun init(context: Context) {
-        if (isInitialized) return
-        
-        loadHosts(context, "hosts.txt", ADS_DOMAINS)
-        loadHosts(context, "malware.txt", MALWARE_DOMAINS)
-        
-        isInitialized = true
+    private val ADS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
+        addAll(listOf("doubleclick.net", "ad.doubleclick.net"))
     }
+    private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
+        addAll(listOf(
+            "google-analytics.com", "analytics.google.com", "googletagmanager.com",
+            "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
+            "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com"
+        ))
+    }
+    private val SOCIAL_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
+        addAll(listOf(
+            "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
+            "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com"
+        ))
+    }
+    private val MALWARE_DOMAINS = ConcurrentHashMap.newKeySet<String>()
+
+    @Volatile
+    private var initJob: Job? = null
+
+    fun init(context: Context): Job {
+        return initJob ?: synchronized(this) {
+            initJob ?: CoroutineScope(Dispatchers.IO).launch {
+                loadHosts(context, "hosts.txt", ADS_DOMAINS)
+                loadHosts(context, "malware.txt", MALWARE_DOMAINS)
+            }.also { initJob = it }
+        }
+    }
+
+    suspend fun awaitIdling() {
+        initJob?.join()
+    }
+
+    fun isInitialized(): Boolean = initJob?.isCompleted == true
 
     private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>) {
         try {
@@ -54,6 +68,10 @@ object AdBlockManager {
         } catch (e: Exception) {
             LogUtils.e("Failed to load hosts: $fileName", e)
         }
+    }
+
+    fun getAllBlockedDomains(): Set<String> {
+        return ADS_DOMAINS + ANALYTICS_DOMAINS + SOCIAL_DOMAINS + MALWARE_DOMAINS
     }
 
     fun getCategory(host: String): String? {

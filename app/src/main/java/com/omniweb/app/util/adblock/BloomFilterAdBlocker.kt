@@ -1,19 +1,28 @@
 package com.omniweb.app.util.adblock
 import android.content.Context
 import android.net.Uri
+import com.omniweb.app.util.AdBlockManager
 import com.omniweb.app.util.adblock.hash.MurmurHashStringAdapter
+import kotlinx.coroutines.*
+
 class BloomFilterAdBlocker(private val context: Context) {
     private var bloomFilter: DefaultBloomFilter<String>? = null
     private val adHosts = mutableSetOf<String>()
+
     init {
-        val defaultHosts = listOf("doubleclick.net", "google-analytics.com", "adservice.google.com", "quantserve.com", "scorecardresearch.com")
-        adHosts.addAll(defaultHosts)
-        bloomFilter = DefaultBloomFilter(
-            numberOfElements = adHosts.size.coerceAtLeast(100),
-            falsePositiveRate = 0.01,
-            hashingAlgorithm = MurmurHashStringAdapter()
-        )
-        adHosts.forEach { bloomFilter?.put(it) }
+        CoroutineScope(Dispatchers.IO).launch {
+            AdBlockManager.init(context).join()
+            val defaultHosts = AdBlockManager.getAllBlockedDomains()
+            withContext(Dispatchers.Main) {
+                adHosts.addAll(defaultHosts)
+                bloomFilter = DefaultBloomFilter(
+                    numberOfElements = adHosts.size.coerceAtLeast(100),
+                    falsePositiveRate = 0.01,
+                    hashingAlgorithm = MurmurHashStringAdapter()
+                )
+                adHosts.forEach { bloomFilter?.put(it) }
+            }
+        }
     }
     fun isAd(url: String): Boolean {
         val domain = try {
