@@ -465,6 +465,30 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         accessibilityTools.stop()
     }
 
+    fun clearSiteData(host: String) {
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        val webStorage = android.webkit.WebStorage.getInstance()
+
+        val protocols = listOf("https://", "http://")
+
+        protocols.forEach { protocol ->
+            val url = protocol + host
+            val cookies = cookieManager.getCookie(url)
+            if (cookies != null) {
+                val cookieArray = cookies.split(";")
+                for (cookie in cookieArray) {
+                    val parts = cookie.split("=")
+                    if (parts.isNotEmpty()) {
+                        cookieManager.setCookie(url, parts[0].trim() + "=; Max-Age=0")
+                    }
+                }
+            }
+            webStorage.deleteOrigin(url)
+        }
+
+        cookieManager.flush()
+    }
+
     suspend fun chatWithPage(url: String, content: String, message: String, apiKey: String?): String {
         if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings."
         return try {

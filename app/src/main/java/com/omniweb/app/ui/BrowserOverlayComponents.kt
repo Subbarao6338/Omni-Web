@@ -30,6 +30,7 @@ fun SiteSettingsDialog(
     settings: PerSiteSettings?,
     onUpdate: (PerSiteSettings) -> Unit,
     onViewPrivacyReport: () -> Unit,
+    onClearData: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val currentSettings = settings ?: PerSiteSettings(host)
@@ -76,6 +77,16 @@ fun SiteSettingsDialog(
                 Icon(Icons.Default.Assessment, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("View Privacy Report")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onClearData,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+            ) {
+                Icon(Icons.Default.DeleteForever, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Clear Site Data")
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
