@@ -15,7 +15,8 @@ object ArticleExtractor {
                 "script", "style", "aside", "iframe", "noscript", "svg", "form",
                 "button", "canvas", "video", "audio", "nav", "header", "footer",
                 ".ads", ".ad-container", "#comments", ".social-share", ".related-posts",
-                ".newsletter", ".trending", ".sidebar", ".menu"
+                ".newsletter", ".trending", ".sidebar", ".menu", ".nav", ".footer", ".header",
+                "[aria-hidden='true']", "meta", "link", "input", "select", "textarea"
             )
             junkSelectors.forEach { doc.select(it).remove() }
 
@@ -78,16 +79,24 @@ object ArticleExtractor {
         // Link density (higher density = lower score)
         val linkTextLength = el.select("a").sumOf { it.text().length }
         val totalTextLength = text.length.coerceAtLeast(1)
-        val linkDensity = min(linkTextLength.toFloat() / totalTextLength, 0.5f)
-        score *= (1 - linkDensity)
+        val linkDensity = min(linkTextLength.toFloat() / totalTextLength, 1.0f)
+
+        if (linkDensity > 0.3f) {
+            score *= (1 - linkDensity)
+        }
 
         // Class/ID Bonuses
         val attrString = (el.className() + " " + el.id()).lowercase()
-        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post")) {
-            score += 20f
+        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post") || attrString.contains("body")) {
+            score += 50f
         }
-        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer")) {
-            score -= 30f
+        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer") || attrString.contains("menu") || attrString.contains("nav")) {
+            score -= 50f
+        }
+
+        // Penalty for too many links compared to paragraphs
+        if (el.select("a").size > el.select("p").size * 5) {
+            score -= 20f
         }
 
         return score
