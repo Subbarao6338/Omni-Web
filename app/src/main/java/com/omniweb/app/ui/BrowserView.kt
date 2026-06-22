@@ -772,6 +772,12 @@ fun BrowserView(
             settings = perSiteSettings,
             onUpdate = { viewModel.updatePerSiteSettings(it); viewModel.getOrCreateWebView(activeTab.id, context).reload() },
             onViewPrivacyReport = { showPrivacyReport = true; showSiteSettings = false },
+            onClearData = {
+                viewModel.clearSiteData(host)
+                Toast.makeText(context, "Data cleared for $host", Toast.LENGTH_SHORT).show()
+                viewModel.getOrCreateWebView(activeTab.id, context).reload()
+                showSiteSettings = false
+            },
             onDismiss = { showSiteSettings = false }
         )
     }
