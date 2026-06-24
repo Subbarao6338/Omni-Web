@@ -7,9 +7,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +35,7 @@ fun BookmarksView(
     onBack: () -> Unit,
     viewModel: BrowserViewModel? = null
 ) {
+    val context = LocalContext.current
     val bookmarks by database.bookmarkDao().getAllBookmarks().collectAsStateWithLifecycle(initialValue = emptyList())
     var sessions by remember { mutableStateOf<List<com.omniweb.app.data.NamedSession>>(emptyList()) }
     val scope = rememberCoroutineScope()
@@ -46,6 +52,24 @@ fun BookmarksView(
         bookmarks.filter { it.title.contains(searchQuery, ignoreCase = true) || it.url.contains(searchQuery, ignoreCase = true) }
     }
 
+    val importFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                try {
+                    context.contentResolver.openInputStream(it)?.use { stream ->
+                        val imported = com.omniweb.app.util.NetscapeBookmarkFormatImporter.import(stream)
+                        database.bookmarkDao().insertBookmarks(imported)
+                        Toast.makeText(context, "Imported ${imported.size} bookmarks", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -57,6 +81,11 @@ fun BookmarksView(
                         }
                     },
                     actions = {
+                        if (selectedTab == 0) {
+                            IconButton(onClick = { importFileLauncher.launch(arrayOf("text/html")) }) {
+                                Icon(Icons.Default.FileUpload, contentDescription = "Import from HTML")
+                            }
+                        }
                         if (selectedTab == 1 && viewModel != null) {
                             var showSessionDialog by remember { mutableStateOf(false) }
                             IconButton(onClick = { showSessionDialog = true }) {

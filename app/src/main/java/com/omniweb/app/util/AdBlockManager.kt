@@ -8,7 +8,13 @@ import java.util.concurrent.ConcurrentHashMap
 
 object AdBlockManager {
     private val ADS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
-        addAll(listOf("doubleclick.net", "ad.doubleclick.net"))
+        addAll(listOf(
+            "doubleclick.net", "ad.doubleclick.net", "adservice.google.com",
+            "amazon-adsystem.com", "adroll.com", "criteo.com", "yieldmo.com",
+            "smartadserver.com", "pubmatic.com", "adform.net", "adnxs.com",
+            "casalemedia.com", "rubiconproject.com", "googlesyndication.com",
+            "googleadservices.com", "taboola.com", "outbrain.com", "openx.net"
+        ))
     }
     private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
         addAll(listOf(

@@ -20,7 +20,9 @@ object UrlUtils {
         "!ebay" to "https://www.ebay.com/sch/i.html?_nkw=",
         "!eco" to "https://www.ecosia.org/search?q=",
         "!pkg" to "https://search.nixos.org/packages?query=",
-        "!proton" to "https://mail.proton.me/u/0/search/all?keyword="
+        "!proton" to "https://mail.proton.me/u/0/search/all?keyword=",
+        "!ya" to "https://yandex.ru/yandsearch?lr=21411&text=",
+        "!yh" to "https://search.yahoo.com/search?p="
     )
 
     fun resolveUrl(input: String, searchEngine: String): String {

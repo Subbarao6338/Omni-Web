@@ -54,10 +54,6 @@ fun SettingsView(
     val scope = rememberCoroutineScope()
     val settings = settingsState ?: Settings()
 
-    var showAddEngineDialog by remember { mutableStateOf(false) }
-    var newEngineName by remember { mutableStateOf("") }
-    var newEngineUrl by remember { mutableStateOf("") }
-
     var showClearDataDialog by remember { mutableStateOf(false) }
     var clearHistory by remember { mutableStateOf(true) }
     var clearCookies by remember { mutableStateOf(true) }
@@ -496,57 +492,6 @@ fun SettingsView(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDataDialog = false }) { Text("Cancel") }
-            }
-        )
-    }
-
-    if (showAddEngineDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddEngineDialog = false },
-            title = { Text("Add Custom Search Engine") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = newEngineName,
-                        onValueChange = { newEngineName = it },
-                        label = { Text("Engine Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = newEngineUrl,
-                        onValueChange = { newEngineUrl = it },
-                        label = { Text("Query URL (use %s for query)") },
-                        placeholder = { Text("https://example.com/search?q=%s") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (newEngineName.isNotBlank() && newEngineUrl.isNotBlank()) {
-                        scope.launch {
-                            val array = try {
-                                if (settings.customSearchEngines != null) JSONArray(settings.customSearchEngines) else JSONArray()
-                            } catch (e: Exception) {
-                                JSONArray()
-                            }
-                            val obj = org.json.JSONObject()
-                            obj.put("name", newEngineName)
-                            obj.put("url", newEngineUrl.replace("%s", ""))
-                            array.put(obj)
-
-                            database.settingsDao().updateSettings(settings.copy(
-                                customSearchEngines = array.toString()
-                            ))
-                            newEngineName = ""
-                            newEngineUrl = ""
-                            showAddEngineDialog = false
-                        }
-                    }
-                }) { Text("Add") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddEngineDialog = false }) { Text("Cancel") }
             }
         )
     }

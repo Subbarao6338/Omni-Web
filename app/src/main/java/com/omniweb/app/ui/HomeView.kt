@@ -302,6 +302,14 @@ fun HomeView(
                 }
             }
 
+            item {
+                SectionHeader("News Feed")
+                Box(modifier = Modifier.heightIn(max = 400.dp).padding(horizontal = 16.dp)) {
+                    RSSView(onNavigate = onNavigate)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
             if (mostVisited.isNotEmpty()) {
                 item {
                     SectionHeader("Top Sites")
