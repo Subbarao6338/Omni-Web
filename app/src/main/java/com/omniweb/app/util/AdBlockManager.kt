@@ -9,25 +9,17 @@ import java.util.concurrent.ConcurrentHashMap
 object AdBlockManager {
     private val ADS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
         addAll(listOf(
-            "doubleclick.net", "ad.doubleclick.net", "adservice.google.com",
-            "amazon-adsystem.com", "adroll.com", "criteo.com", "yieldmo.com",
-            "smartadserver.com", "pubmatic.com", "adform.net", "adnxs.com",
-            "casalemedia.com", "rubiconproject.com", "googlesyndication.com",
-            "googleadservices.com", "taboola.com", "outbrain.com", "openx.net"
+            "doubleclick.net", "googleadservices.com", "googlesyndication.com",
+            "moatads.com", "taboola.com", "outbrain.com", "adservice.google.com"
         ))
     }
     private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
         addAll(listOf(
-            "google-analytics.com", "analytics.google.com", "googletagmanager.com",
-            "googletagservices.com", "hotjar.com", "mouseflow.com", "crazyegg.com",
-            "optimizely.com", "mixpanel.com", "segment.com", "clarity.ms", "quantserve.com"
+            "google-analytics.com", "googletagmanager.com", "hotjar.com", "clarity.ms"
         ))
     }
     private val SOCIAL_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
-        addAll(listOf(
-            "fbcdn.net", "facebook.com", "ads.linkedin.com", "static.ads-twitter.com",
-            "ads-twitter.com", "analytics.twitter.com", "analytics.facebook.com"
-        ))
+        addAll(listOf("facebook.com", "fbcdn.net", "ads-twitter.com"))
     }
     private val MALWARE_DOMAINS = ConcurrentHashMap.newKeySet<String>()
 
@@ -51,26 +43,34 @@ object AdBlockManager {
 
     private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>) {
         try {
-            val inputStream = try {
-                context.assets.open(fileName)
-            } catch (e: Exception) {
-                return
-            }
-            val reader = BufferedReader(InputStreamReader(inputStream))
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                val trimmedLine = line!!.trim()
-                if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) continue
-                
-                val parts = trimmedLine.split(Regex("\\s+"))
-                if (parts.size >= 2) {
-                    val host = parts[1]
-                    if (host != "localhost" && host != "127.0.0.1") {
-                        targetSet.add(host)
+            context.assets.open(fileName).use { inputStream ->
+                val reader = BufferedReader(InputStreamReader(inputStream))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    val trimmedLine = line!!.trim()
+                    if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) continue
+
+                    // More efficient parsing than split(Regex)
+                    val firstSpace = trimmedLine.indexOf(' ')
+                    val firstTab = trimmedLine.indexOf('\t')
+                    val splitIdx = when {
+                        firstSpace != -1 && firstTab != -1 -> minOf(firstSpace, firstTab)
+                        firstSpace != -1 -> firstSpace
+                        else -> firstTab
+                    }
+
+                    if (splitIdx != -1) {
+                        val hostPart = trimmedLine.substring(splitIdx).trim()
+                        if (hostPart.isNotEmpty()) {
+                            // Extract only the domain, ignoring any trailing comments
+                            val domain = hostPart.split('#')[0].trim()
+                            if (domain != "localhost" && domain != "127.0.0.1" && domain != "0.0.0.0") {
+                                targetSet.add(domain)
+                            }
+                        }
                     }
                 }
             }
-            reader.close()
         } catch (e: Exception) {
             LogUtils.e("Failed to load hosts: $fileName", e)
         }

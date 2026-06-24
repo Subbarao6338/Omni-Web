@@ -279,7 +279,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 webView.stopLoading()
                 webView.webChromeClient = null
                 webView.webViewClient = WebViewClient()
-                webView.clearCache(true)
+                webView.clearCache(false)
                 webView.clearHistory()
                 webView.removeAllViews()
                 webView.destroy()
@@ -299,26 +299,38 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     override fun onCleared() {
         super.onCleared()
         webViewCache.values.forEach { webView ->
-            webView.stopLoading()
-            webView.webChromeClient = null
-            webView.webViewClient = WebViewClient()
-            webView.clearHistory()
-            webView.removeAllViews()
-            webView.destroy()
+            try {
+                webView.stopLoading()
+                webView.webChromeClient = null
+                webView.webViewClient = WebViewClient()
+                webView.loadUrl("about:blank")
+                webView.clearHistory()
+                webView.removeAllViews()
+                webView.destroy()
+            } catch (e: Exception) {
+                com.omniweb.app.util.LogUtils.e("Error destroying WebView in onCleared", e)
+            }
         }
         webViewCache.clear()
 
         prewarmedWebView?.let { webView ->
-            webView.stopLoading()
-            webView.webChromeClient = null
-            webView.webViewClient = WebViewClient()
-            webView.removeAllViews()
-            webView.destroy()
+            try {
+                webView.stopLoading()
+                webView.webChromeClient = null
+                webView.webViewClient = WebViewClient()
+                webView.loadUrl("about:blank")
+                webView.removeAllViews()
+                webView.destroy()
+            } catch (e: Exception) {
+                com.omniweb.app.util.LogUtils.e("Error destroying prewarmed WebView", e)
+            }
             prewarmedWebView = null
         }
 
         webViewStateCache.clear()
         blockedTrackersByTab.clear()
+        perSiteSettingsCache.clear()
+        suggestionCache.clear()
     }
 
     fun selectTab(id: String) {

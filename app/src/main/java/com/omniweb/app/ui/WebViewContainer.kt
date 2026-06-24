@@ -28,6 +28,7 @@ import com.omniweb.app.data.AnnotationEntity
 import com.omniweb.app.util.AdBlockManager
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
+import com.omniweb.app.util.ScriptProvider
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -56,6 +57,7 @@ fun WebViewContainer(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentWebView = remember(tab.id) { viewModel.getOrCreateWebView(tab.id, context) }
+    val scriptProvider = remember { ScriptProvider(context) }
 
     DisposableEffect(tab.id, lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -268,61 +270,26 @@ fun WebViewContainer(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             tab.isLoading = false
-                            
-                            val cookieBlockScript = context.assets.open("CookieBlock.js").bufferedReader().use { it.readText() }
-                            view?.evaluateJavascript(cookieBlockScript, null)
 
-                            if (settings.textReflowEnabled) {
-                                val script = context.assets.open("TextReflow.js").bufferedReader().use { it.readText() }
-                                view?.evaluateJavascript(script, null)
-                            }
+                            val host = Uri.parse(url ?: "").host ?: ""
+                            val perSite = viewModel.getPerSiteSettings(host)
+                            val adBlockEnabled = perSite?.adBlockEnabled ?: settings.adBlockEnabled
 
-                            if (settings.ampBlockingEnabled) {
-                                val script = context.assets.open("AmpBlock.js").bufferedReader().use { it.readText() }
-                                view?.evaluateJavascript(script, null)
-                            }
-
-                            if (settings.invertPageEnabled) {
-                                val script = context.assets.open("InvertPage.js").bufferedReader().use { it.readText() }
-                                view?.evaluateJavascript(script, null)
-                            }
+                            val bundledScript = scriptProvider.getAllInjectedScripts(
+                                blockAMP = settings.ampBlockingEnabled,
+                                cookieBlock = true,
+                                textReflow = settings.textReflowEnabled,
+                                invertPage = settings.invertPageEnabled,
+                                deepDarkMode = settings.deepDarkMode,
+                                adBlockEnabled = adBlockEnabled
+                            )
+                            view?.evaluateJavascript(bundledScript, null)
 
                             if (settings.forceZoom) {
                                 view?.evaluateJavascript(
-                                    "javascript:(function() { document.querySelector('meta[name=\"viewport\"]').setAttribute(\"content\",\"width=device-width\"); })();",
+                                    "(function() { const meta = document.querySelector('meta[name=\"viewport\"]'); if (meta) meta.setAttribute(\"content\",\"width=device-width\"); else { const n = document.createElement('meta'); n.name='viewport'; n.content='width=device-width'; document.head.appendChild(n); } })();",
                                     null
                                 )
-                            }
-
-                            if (settings.adBlockEnabled) {
-                                view?.evaluateJavascript(AdBlockManager.getAdBlockScript(), null)
-                            }
-
-                            if (settings.deepDarkMode) {
-                                view?.evaluateJavascript("""
-                                    (function() {
-                                        if (window.omniDeepDark) return;
-                                        window.omniDeepDark = true;
-                                        const style = document.createElement('style');
-                                        style.innerHTML = `
-                                            html, body {
-                                                background-color: #121212 !important;
-                                                color: #e0e0e0 !important;
-                                            }
-                                            div, section, article, p, span, li, h1, h2, h3, h4, h5, h6 {
-                                                background-color: transparent !important;
-                                                color: #e0e0e0 !important;
-                                            }
-                                            a {
-                                                color: #bb86fc !important;
-                                            }
-                                            img, video {
-                                                filter: brightness(0.8) contrast(1.2) !important;
-                                            }
-                                        `;
-                                        document.head.appendChild(style);
-                                    })();
-                                """.trimIndent(), null)
                             }
 
                             // Password Management: Injection

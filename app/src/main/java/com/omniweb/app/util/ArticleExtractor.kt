@@ -25,7 +25,7 @@ object ArticleExtractor {
             var bestCandidate: Element? = null
             var bestScore = 0f
 
-            doc.select("div, section, article, main").forEach { el ->
+            doc.select("div, section, article, main, [role='main']").forEach { el ->
                 val score = calculateScore(el)
                 if (score > bestScore) {
                     bestScore = score
@@ -64,41 +64,42 @@ object ArticleExtractor {
     private fun calculateScore(el: Element): Float {
         var score = 0f
         val text = el.text()
-        val words = text.split(Regex("\\s+")).size
+        val words = text.split(Regex("\\s+")).filter { it.length > 2 }.size
         
-        // Text density
+        // 1. Core density score
         score += words.toFloat()
 
-        // Paragraph count
+        // 2. Structural multipliers
         val pCount = el.select("p").size
-        score += pCount * 10f
+        score += pCount * 15f
 
-        // Commas indicate prose
-        val commas = text.count { it == ',' }
-        score += commas * 1f
+        val hCount = el.select("h1, h2, h3").size
+        score += hCount * 5f
 
-        // Link density (higher density = lower score)
+        // 3. Punctuation (prose indicator)
+        val punctuation = text.count { it == ',' || it == '.' || it == ';' || it == ':' }
+        score += punctuation * 2f
+
+        // 4. Link density penalty (strongest factor)
         val linkTextLength = el.select("a").sumOf { it.text().length }
         val totalTextLength = text.length.coerceAtLeast(1)
-        val linkDensity = min(linkTextLength.toFloat() / totalTextLength, 1.0f)
+        val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
-        if (linkDensity > 0.3f) {
-            score *= (1 - linkDensity)
-        }
-
-        // Class/ID Bonuses
-        val attrString = (el.className() + " " + el.id()).lowercase()
-        if (attrString.contains("content") || attrString.contains("article") || attrString.contains("post") || attrString.contains("body") || attrString.contains("main")) {
-            score += 50f
-        }
-        if (attrString.contains("sidebar") || attrString.contains("comment") || attrString.contains("footer") || attrString.contains("menu") || attrString.contains("nav") || attrString.contains("widget") || attrString.contains("promo")) {
-            score -= 50f
+        if (linkDensity > 0.2f) {
+            score *= (1f - linkDensity * 1.5f).coerceAtLeast(0f)
         }
 
-        // Penalty for too many links compared to paragraphs
-        if (el.select("a").size > el.select("p").size * 5) {
-            score -= 20f
-        }
+        // 5. Semantic Bonuses/Penalties
+        val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
+        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story")
+        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related")
+
+        if (positivePatterns.any { attrString.contains(it) }) score += 100f
+        if (negativePatterns.any { attrString.contains(it) }) score -= 150f
+
+        // 6. Image/Media bonus (if within a content block)
+        val imgCount = el.select("img").size
+        score += imgCount * 10f
 
         return score
     }
