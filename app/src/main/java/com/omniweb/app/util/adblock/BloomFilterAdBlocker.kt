@@ -14,6 +14,7 @@ class BloomFilterAdBlocker(private val context: Context) {
             AdBlockManager.init(context).join()
             val defaultHosts = AdBlockManager.getAllBlockedDomains()
             withContext(Dispatchers.Main) {
+                adHosts.clear()
                 adHosts.addAll(defaultHosts)
                 bloomFilter = DefaultBloomFilter(
                     numberOfElements = adHosts.size.coerceAtLeast(100),

@@ -47,7 +47,8 @@ fun SettingsView(
     onBack: () -> Unit,
     onOpenScripts: () -> Unit = {},
     onOpenPasswords: () -> Unit = {},
-    onOpenSearchEngines: () -> Unit = {}
+    onOpenSearchEngines: () -> Unit = {},
+    onOpenParentalControls: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val settingsState by database.settingsDao().getSettings().collectAsStateWithLifecycle(initialValue = Settings())
@@ -125,6 +126,21 @@ fun SettingsView(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
+                    headlineContent = { Text("Always Incognito") },
+                    supportingContent = { Text("Force all new tabs to be incognito") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.alwaysIncognito,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(alwaysIncognito = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
                     headlineContent = { Text("Strict Privacy Mode") },
                     supportingContent = { Text("Anti-fingerprinting and generic User-Agent") },
                     trailingContent = {
@@ -137,6 +153,13 @@ fun SettingsView(
                             }
                         )
                     }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Parental Controls") },
+                    supportingContent = { Text("Manage blocked sites and protection") },
+                    trailingContent = { Icon(Icons.Default.ChevronRight, contentDescription = null) },
+                    modifier = Modifier.clickable { onOpenParentalControls() }
                 )
                 ListItem(
                     headlineContent = { Text("Restore tabs on start") },
@@ -331,6 +354,66 @@ fun SettingsView(
 
             SettingsSection("Advanced", Icons.Default.Build) {
                 ListItem(
+                    headlineContent = { Text("Text Reflow") },
+                    supportingContent = { Text("Adjust text to fit screen when zooming") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.textReflowEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(textReflowEnabled = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("AMP Blocking") },
+                    supportingContent = { Text("Automatically redirect AMP pages to canonical") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.ampBlockingEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(ampBlockingEnabled = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Force Zoom") },
+                    supportingContent = { Text("Allow zooming on all websites") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.forceZoom,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(forceZoom = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Invert Page") },
+                    supportingContent = { Text("Invert web page colors") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.invertPageEnabled,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(invertPageEnabled = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
                     headlineContent = { Text("Userscripts") },
                     supportingContent = { Text("Manage custom JS injections") },
                     trailingContent = {
@@ -512,30 +595,3 @@ fun ThemeOption(label: String, selected: Boolean, modifier: Modifier = Modifier,
     }
 }
 
-@Composable
-fun SettingsSection(title: String, icon: ImageVector, content: @Composable ColumnScope.() -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp)
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        OutlinedCard(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-            ),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth(),
-            content = content
-        )
-    }
-}
