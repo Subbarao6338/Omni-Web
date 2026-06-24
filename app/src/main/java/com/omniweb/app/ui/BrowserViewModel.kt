@@ -526,10 +526,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         suggestionCache[query]?.let { return@withContext it }
         try {
             val engine = settings.value.searchEngine
-            val baseUrl = if (engine.contains("google.com")) {
-                "https://suggestqueries.google.com/complete/search?client=firefox&q="
-            } else {
-                "https://duckduckgo.com/ac/?q="
+            val baseUrl = when {
+                engine.contains("google.com") -> "https://suggestqueries.google.com/complete/search?client=firefox&q="
+                engine.contains("baidu.com") -> "https://suggestion.baidu.com/s?action=opensearch&wd="
+                engine.contains("bing.com") -> "https://www.bing.com/osjson.aspx?query="
+                engine.contains("ecosia.org") -> "https://ac.ecosia.org/autocomplete?q="
+                else -> "https://duckduckgo.com/ac/?q="
             }
             val url = URL("$baseUrl${android.net.Uri.encode(query)}")
             val connection = url.openConnection() as HttpURLConnection
@@ -538,7 +540,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val suggestions = mutableListOf<Suggestion>()
 
             try {
-                if (engine.contains("google.com")) {
+                if (engine.contains("google.com") || engine.contains("baidu.com") || engine.contains("bing.com")) {
                     val jsonArray = JSONArray(response)
                     if (jsonArray.length() >= 2) {
                         val items = jsonArray.getJSONArray(1)
@@ -547,12 +549,21 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                             suggestions.add(Suggestion(phrase, phrase, isHistory = false))
                         }
                     }
+                } else if (engine.contains("ecosia.org")) {
+                    val jsonObject = org.json.JSONObject(response)
+                    val suggestionsArray = jsonObject.getJSONArray("suggestions")
+                    for (i in 0 until suggestionsArray.length()) {
+                        val phrase = suggestionsArray.getString(i)
+                        suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                    }
                 } else {
                     val jsonArray = JSONArray(response)
                     for (i in 0 until jsonArray.length()) {
                         val obj = jsonArray.getJSONObject(i)
-                        val phrase = obj.getString("phrase")
-                        suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                        val phrase = obj.optString("phrase", "")
+                        if (phrase.isNotEmpty()) {
+                            suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                        }
                     }
                 }
             } catch (e: Exception) {
