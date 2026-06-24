@@ -79,7 +79,14 @@ data class Settings(
     val customSearchEngines: String? = null, // Stored as JSON: List<Pair<String, String>>
     val torEnabled: Boolean = false,
     val torProxyHost: String = "127.0.0.1",
-    val torProxyPort: Int = 9050
+    val torProxyPort: Int = 9050,
+    val parentalPassword: String? = null,
+    val blockedSites: String? = null, // JSON: List<String>
+    val alwaysIncognito: Boolean = false,
+    val textReflowEnabled: Boolean = false,
+    val ampBlockingEnabled: Boolean = false,
+    val invertPageEnabled: Boolean = false,
+    val forceZoom: Boolean = false
 )
 
 @Entity(tableName = "tabs")

@@ -202,7 +202,14 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                         onBack = { navController.popBackStack() },
                         onOpenScripts = { navController.navigate("scripts") },
                         onOpenPasswords = { navController.navigate("passwords") },
-                        onOpenSearchEngines = { navController.navigate("search_engines") }
+                        onOpenSearchEngines = { navController.navigate("search_engines") },
+                        onOpenParentalControls = { navController.navigate("parental_controls") }
+                    )
+                }
+                composable("parental_controls") {
+                    ParentalControlView(
+                        database = AppDatabase.getDatabase(appContext),
+                        onBack = { navController.popBackStack() }
                     )
                 }
                 composable("search_engines") {

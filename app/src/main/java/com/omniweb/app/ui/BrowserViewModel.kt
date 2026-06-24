@@ -239,10 +239,30 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val searchSuggestions get() = _searchSuggestions
 
     fun createTab(url: String = "about:home", title: String = "Home", isIncognito: Boolean = false) {
-        val newTab = TabInfo(UUID.randomUUID().toString(), url, title, isIncognito)
+        val finalIncognito = isIncognito || settings.value.alwaysIncognito
+        val newTab = TabInfo(UUID.randomUUID().toString(), url, title, finalIncognito)
         tabs.add(newTab)
         _activeTabId.value = newTab.id
         saveTabToDb(newTab)
+    }
+
+    fun isUrlBlocked(url: String): Boolean {
+        val blockedJson = settings.value.blockedSites ?: return false
+        try {
+            val arr = JSONArray(blockedJson)
+            val uri = android.net.Uri.parse(url)
+            val host = uri.host?.lowercase() ?: return false
+
+            for (i in 0 until arr.length()) {
+                val blocked = arr.getString(i).lowercase()
+                if (host == blocked || host.endsWith(".$blocked")) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            // Log error
+        }
+        return false
     }
 
     fun closeTab(id: String) {
@@ -402,7 +422,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun isAd(url: String): Boolean {
-        return settings.value.adBlockEnabled && bloomFilterAdBlocker.isAd(url)
+        if (!settings.value.adBlockEnabled) return false
+        val uri = android.net.Uri.parse(url)
+        val host = uri.host ?: return false
+        return com.omniweb.app.util.AdBlockManager.shouldBlock(host) || bloomFilterAdBlocker.isAd(url)
     }
 
     fun getRedirect(url: String): String? {

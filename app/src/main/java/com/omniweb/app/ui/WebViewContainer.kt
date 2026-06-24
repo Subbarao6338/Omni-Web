@@ -226,6 +226,11 @@ fun WebViewContainer(
                                 return true
                             }
 
+                            if (viewModel.isUrlBlocked(url)) {
+                                android.widget.Toast.makeText(context, "This site is blocked by parental controls", android.widget.Toast.LENGTH_SHORT).show()
+                                return true
+                            }
+
                             if (settings.httpsOnlyMode && url.startsWith("http://")) {
                                 val httpsUrl = url.replace("http://", "https://")
                                 view?.loadUrl(httpsUrl)
@@ -238,6 +243,12 @@ fun WebViewContainer(
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             tab.isLoading = true
                             url?.let {
+                                if (viewModel.isUrlBlocked(it)) {
+                                    view?.stopLoading()
+                                    android.widget.Toast.makeText(context, "This site is blocked by parental controls", android.widget.Toast.LENGTH_SHORT).show()
+                                    return
+                                }
+
                                 tab.url = it
                                 val uri = Uri.parse(it)
                                 val host = uri.host ?: ""
@@ -260,6 +271,28 @@ fun WebViewContainer(
                             
                             val cookieBlockScript = context.assets.open("CookieBlock.js").bufferedReader().use { it.readText() }
                             view?.evaluateJavascript(cookieBlockScript, null)
+
+                            if (settings.textReflowEnabled) {
+                                val script = context.assets.open("TextReflow.js").bufferedReader().use { it.readText() }
+                                view?.evaluateJavascript(script, null)
+                            }
+
+                            if (settings.ampBlockingEnabled) {
+                                val script = context.assets.open("AmpBlock.js").bufferedReader().use { it.readText() }
+                                view?.evaluateJavascript(script, null)
+                            }
+
+                            if (settings.invertPageEnabled) {
+                                val script = context.assets.open("InvertPage.js").bufferedReader().use { it.readText() }
+                                view?.evaluateJavascript(script, null)
+                            }
+
+                            if (settings.forceZoom) {
+                                view?.evaluateJavascript(
+                                    "javascript:(function() { document.querySelector('meta[name=\"viewport\"]').setAttribute(\"content\",\"width=device-width\"); })();",
+                                    null
+                                )
+                            }
 
                             if (settings.adBlockEnabled) {
                                 view?.evaluateJavascript(AdBlockManager.getAdBlockScript(), null)
