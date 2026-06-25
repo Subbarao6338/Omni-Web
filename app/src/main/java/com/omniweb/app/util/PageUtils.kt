@@ -89,6 +89,18 @@ object PageUtils {
                         "code" -> sb.append("`").append(node.text()).append("`")
                         "pre" -> sb.append("\n```\n").append(node.text()).append("\n```\n\n")
                         "br" -> sb.append("\n")
+                        "table" -> {
+                            sb.append("\n")
+                            convert(node, indent)
+                            sb.append("\n")
+                        }
+                        "tr" -> {
+                            sb.append("\n|")
+                            convert(node, indent)
+                        }
+                        "td", "th" -> {
+                            sb.append(" ").append(node.text().replace("|", "\\|")).append(" |")
+                        }
                         else -> convert(node, indent)
                     }
                 }

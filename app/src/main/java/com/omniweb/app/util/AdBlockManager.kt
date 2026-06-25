@@ -83,13 +83,22 @@ object AdBlockManager {
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
 
-        var current = host
-        while (current.contains(".")) {
+        if (MALWARE_DOMAINS.contains(host)) return "[Malware]"
+        if (ADS_DOMAINS.contains(host)) return "[Ad]"
+        if (ANALYTICS_DOMAINS.contains(host)) return "[Analytics]"
+        if (SOCIAL_DOMAINS.contains(host)) return "[Social]"
+
+        var dotIdx = host.indexOf('.')
+        while (dotIdx != -1) {
+            val current = host.substring(dotIdx + 1)
+            if (current.isEmpty()) break
+
             if (MALWARE_DOMAINS.contains(current)) return "[Malware]"
             if (ADS_DOMAINS.contains(current)) return "[Ad]"
             if (ANALYTICS_DOMAINS.contains(current)) return "[Analytics]"
             if (SOCIAL_DOMAINS.contains(current)) return "[Social]"
-            current = current.substringAfter(".", "")
+
+            dotIdx = host.indexOf('.', dotIdx + 1)
         }
         return null
     }
