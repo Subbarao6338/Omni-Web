@@ -77,13 +77,19 @@ object PageUtils {
                         "em", "i" -> sb.append("*").append(node.text()).append("*")
                         "a" -> sb.append("[").append(node.text()).append("](").append(node.attr("href")).append(")")
                         "img" -> sb.append("![").append(node.attr("alt")).append("](").append(node.attr("src")).append(")")
-                        "ul" -> {
+                        "ul", "ol" -> {
                             sb.append("\n")
                             convert(node, indent + 1)
                             sb.append("\n")
                         }
                         "li" -> {
-                            sb.append("\n").append("  ".repeat(indent)).append("- ")
+                            val prefix = if (node.parent()?.tagName() == "ol") {
+                                val index = (node.parent()?.children()?.indexOf(node) ?: 0) + 1
+                                "$index. "
+                            } else {
+                                "- "
+                            }
+                            sb.append("\n").append("  ".repeat(indent - 1).coerceAtLeast("")).append(prefix)
                             convert(node, indent)
                         }
                         "code" -> sb.append("`").append(node.text()).append("`")
@@ -91,7 +97,18 @@ object PageUtils {
                         "br" -> sb.append("\n")
                         "table" -> {
                             sb.append("\n")
-                            convert(node, indent)
+                            // Check for header to add separator
+                            val header = node.select("tr").firstOrNull()
+                            if (header != null) {
+                                convert(header, indent)
+                                sb.append("\n|")
+                                header.select("th, td").forEach { _ -> sb.append(" --- |") }
+                                node.select("tr").drop(1).forEach { tr ->
+                                    convert(tr, indent)
+                                }
+                            } else {
+                                convert(node, indent)
+                            }
                             sb.append("\n")
                         }
                         "tr" -> {
@@ -99,7 +116,9 @@ object PageUtils {
                             convert(node, indent)
                         }
                         "td", "th" -> {
-                            sb.append(" ").append(node.text().replace("|", "\\|")).append(" |")
+                            // Instead of full recursion, take content to avoid nested pipe issues
+                            val content = node.text().replace("|", "\\|")
+                            sb.append(" ").append(content).append(" |")
                         }
                         else -> convert(node, indent)
                     }

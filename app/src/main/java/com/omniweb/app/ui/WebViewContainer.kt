@@ -275,7 +275,7 @@ fun WebViewContainer(
                             val perSite = viewModel.getPerSiteSettings(host)
                             val adBlockEnabled = perSite?.adBlockEnabled ?: settings.adBlockEnabled
 
-                            val bundledScript = scriptProvider.getAllInjectedScripts(
+                            val coreScripts = scriptProvider.getAllInjectedScripts(
                                 blockAMP = settings.ampBlockingEnabled,
                                 cookieBlock = true,
                                 textReflow = settings.textReflowEnabled,
@@ -285,17 +285,16 @@ fun WebViewContainer(
                                 forceBlackTheme = settings.forceBlackTheme,
                                 adBlockEnabled = adBlockEnabled
                             )
-                            view?.evaluateJavascript(bundledScript, null)
+
+                            val finalBundle = StringBuilder()
+                            finalBundle.append(coreScripts).append("\n")
 
                             if (settings.forceZoom) {
-                                view?.evaluateJavascript(
-                                    "(function() { const meta = document.querySelector('meta[name=\"viewport\"]'); if (meta) meta.setAttribute(\"content\",\"width=device-width\"); else { const n = document.createElement('meta'); n.name='viewport'; n.content='width=device-width'; document.head.appendChild(n); } })();",
-                                    null
-                                )
+                                finalBundle.append("(function() { const meta = document.querySelector('meta[name=\"viewport\"]'); if (meta) meta.setAttribute(\"content\",\"width=device-width\"); else { const n = document.createElement('meta'); n.name='viewport'; n.content='width=device-width'; document.head.appendChild(n); } })();").append("\n")
                             }
 
-                            // Password Management: Injection
-                            view?.evaluateJavascript("""
+                            // Password Management
+                            finalBundle.append("""
                                 (function() {
                                     function findForms() {
                                         document.querySelectorAll('form').forEach(form => {
@@ -310,28 +309,24 @@ fun WebViewContainer(
                                     }
                                     setTimeout(findForms, 1000);
                                 })();
-                            """.trimIndent(), null)
+                            """.trimIndent()).append("\n")
 
-                            view?.evaluateJavascript("Android.postText(document.body.innerText)", null)
-                            onTextExtracted(tab.url) // Basic placeholder if JS failed
+                            finalBundle.append("Android.postText(document.body.innerText);\n")
+                            onTextExtracted(tab.url)
 
-                            // Sniffer injection
-                            view?.evaluateJavascript(mediaSnifferScript(), null)
+                            // Media Sniffer
+                            finalBundle.append(mediaSnifferScript()).append("\n")
 
-                            // Apply playback speed
-                            view?.evaluateJavascript("""
-                                (function() {
-                                    document.querySelectorAll('video').forEach(v => v.playbackRate = ${tab.playbackSpeed});
-                                })();
-                            """.trimIndent(), null)
+                            // Playback Speed
+                            finalBundle.append("(function() { document.querySelectorAll('video').forEach(v => v.playbackRate = ${tab.playbackSpeed}); })();\n")
 
-                            // Anti-fingerprinting injection
+                            // Anti-fingerprinting
                             if (settings.strictPrivacyMode) {
-                                view?.evaluateJavascript(antiFingerprintScript(), null)
+                                finalBundle.append(antiFingerprintScript()).append("\n")
                             }
 
-                            // Re-apply annotations
-                            view?.evaluateJavascript("""
+                            // Annotations
+                            finalBundle.append("""
                                 (function() {
                                     Android.getAnnotations().then(json => {
                                         const annotations = JSON.parse(json);
@@ -359,7 +354,9 @@ fun WebViewContainer(
                                         });
                                     });
                                 })();
-                            """.trimIndent(), null)
+                            """.trimIndent())
+
+                            view?.evaluateJavascript(finalBundle.toString(), null)
                         }
 
                         override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {

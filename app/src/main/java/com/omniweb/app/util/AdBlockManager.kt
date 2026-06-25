@@ -1,9 +1,11 @@
 package com.omniweb.app.util
 
 import android.content.Context
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import com.omniweb.app.util.adblock.DefaultBloomFilter
+import com.omniweb.app.util.adblock.HostsFileParser
+import com.omniweb.app.util.adblock.hash.MurmurHashStringAdapter
 import kotlinx.coroutines.*
+import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
 
 object AdBlockManager {
@@ -24,13 +26,27 @@ object AdBlockManager {
     private val MALWARE_DOMAINS = ConcurrentHashMap.newKeySet<String>()
 
     @Volatile
+    private var bloomFilter: DefaultBloomFilter<String>? = null
+
+    @Volatile
     private var initJob: Job? = null
 
     fun init(context: Context): Job {
         return initJob ?: synchronized(this) {
             initJob ?: CoroutineScope(Dispatchers.IO).launch {
-                loadHosts(context, "hosts.txt", ADS_DOMAINS)
-                loadHosts(context, "malware.txt", MALWARE_DOMAINS)
+                val parser = HostsFileParser()
+
+                loadHosts(context, "hosts.txt", ADS_DOMAINS, parser)
+                loadHosts(context, "malware.txt", MALWARE_DOMAINS, parser)
+
+                val allDomains = getAllBlockedDomains()
+                bloomFilter = DefaultBloomFilter(
+                    numberOfElements = allDomains.size.coerceAtLeast(1000),
+                    falsePositiveRate = 0.01,
+                    hashingAlgorithm = MurmurHashStringAdapter()
+                ).apply {
+                    putAll(allDomains)
+                }
             }.also { initJob = it }
         }
     }
@@ -39,37 +55,13 @@ object AdBlockManager {
         initJob?.join()
     }
 
-    fun isInitialized(): Boolean = initJob?.isCompleted == true
+    fun isInitialized(): Boolean = initJob?.isCompleted == true && bloomFilter != null
 
-    private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>) {
+    private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>, parser: HostsFileParser) {
         try {
             context.assets.open(fileName).use { inputStream ->
-                val reader = BufferedReader(InputStreamReader(inputStream))
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    val trimmedLine = line!!.trim()
-                    if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) continue
-
-                    // More efficient parsing than split(Regex)
-                    val firstSpace = trimmedLine.indexOf(' ')
-                    val firstTab = trimmedLine.indexOf('\t')
-                    val splitIdx = when {
-                        firstSpace != -1 && firstTab != -1 -> minOf(firstSpace, firstTab)
-                        firstSpace != -1 -> firstSpace
-                        else -> firstTab
-                    }
-
-                    if (splitIdx != -1) {
-                        val hostPart = trimmedLine.substring(splitIdx).trim()
-                        if (hostPart.isNotEmpty()) {
-                            // Extract only the domain, ignoring any trailing comments
-                            val domain = hostPart.split('#')[0].trim()
-                            if (domain != "localhost" && domain != "127.0.0.1" && domain != "0.0.0.0") {
-                                targetSet.add(domain)
-                            }
-                        }
-                    }
-                }
+                val domains = parser.parseInput(InputStreamReader(inputStream))
+                targetSet.addAll(domains)
             }
         } catch (e: Exception) {
             LogUtils.e("Failed to load hosts: $fileName", e)
@@ -83,6 +75,24 @@ object AdBlockManager {
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
 
+        // Fast path check using Bloom Filter
+        if (bloomFilter?.mightContain(host) == false) {
+            // Check subdomains
+            var dotIdx = host.indexOf('.')
+            var hasMightContainSubdomain = false
+            while (dotIdx != -1) {
+                val current = host.substring(dotIdx + 1)
+                if (current.isEmpty()) break
+                if (bloomFilter?.mightContain(current) == true) {
+                    hasMightContainSubdomain = true
+                    break
+                }
+                dotIdx = host.indexOf('.', dotIdx + 1)
+            }
+            if (!hasMightContainSubdomain) return null
+        }
+
+        // Precise check
         if (MALWARE_DOMAINS.contains(host)) return "[Malware]"
         if (ADS_DOMAINS.contains(host)) return "[Ad]"
         if (ANALYTICS_DOMAINS.contains(host)) return "[Analytics]"

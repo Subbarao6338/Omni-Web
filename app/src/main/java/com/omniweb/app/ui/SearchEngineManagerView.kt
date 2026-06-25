@@ -71,11 +71,13 @@ fun SearchEngineManagerView(database: AppDatabase, onBack: () -> Unit) {
             val defaultEngines = listOf(
                 "Google" to "https://www.google.com/search?q=",
                 "DuckDuckGo" to "https://duckduckgo.com/?q=",
+                "Brave" to "https://search.brave.com/search?q=",
                 "Bing" to "https://www.bing.com/search?q=",
                 "Yahoo" to "https://search.yahoo.com/search?p=",
                 "Baidu" to "https://www.baidu.com/s?wd=",
                 "Ecosia" to "https://www.ecosia.org/search?q=",
-                "Yandex" to "https://yandex.ru/yandsearch?lr=21411&text="
+                "Yandex" to "https://yandex.ru/yandsearch?lr=21411&text=",
+                "DuckDuckGo (Lite)" to "https://duckduckgo.com/lite/?q="
             )
 
             itemsIndexed(defaultEngines) { _, (name, url) ->

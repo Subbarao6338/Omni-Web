@@ -30,9 +30,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
-    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(16, 0.75f, true) {
+    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(10, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
-            if (size > 15) {
+            if (size > 8) {
                 eldest?.let { entry ->
                     // Do not remove the active or split tab from cache
                     if (entry.key == _activeTabId.value || entry.key == _splitTabId.value) {
@@ -214,9 +214,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
         webViewCache[tabId] = webView
 
-        // Prepare next prewarmed WebView using applicationContext
+        // Prepare next prewarmed WebView using applicationContext if memory is not low
         viewModelScope.launch(Dispatchers.Main) {
-            if (prewarmedWebView == null) {
+            val activityManager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            val memoryInfo = android.app.ActivityManager.MemoryInfo()
+            activityManager?.getMemoryInfo(memoryInfo)
+
+            if (prewarmedWebView == null && !memoryInfo.lowMemory) {
                 prewarmedWebView = createWebView(context.applicationContext)
             }
         }
@@ -468,7 +472,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         if (!settings.value.adBlockEnabled) return false
         val uri = android.net.Uri.parse(url)
         val host = uri.host ?: return false
-        return com.omniweb.app.util.AdBlockManager.shouldBlock(host) || bloomFilterAdBlocker.isAd(url)
+        return com.omniweb.app.util.AdBlockManager.shouldBlock(host)
     }
 
     fun getRedirect(url: String): String? {
@@ -597,6 +601,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 engine.contains("baidu.com") -> "https://suggestion.baidu.com/s?action=opensearch&wd="
                 engine.contains("bing.com") -> "https://www.bing.com/osjson.aspx?query="
                 engine.contains("ecosia.org") -> "https://ac.ecosia.org/autocomplete?q="
+                engine.contains("brave.com") -> "https://search.brave.com/api/suggest?q="
                 else -> "https://duckduckgo.com/ac/?q="
             }
 
@@ -606,7 +611,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val suggestions = mutableListOf<Suggestion>()
 
             try {
-                if (engine.contains("google.com") || engine.contains("baidu.com") || engine.contains("bing.com")) {
+                if (engine.contains("google.com") || engine.contains("baidu.com") || engine.contains("bing.com") || engine.contains("brave.com")) {
                     val jsonArray = JSONArray(response)
                     if (jsonArray.length() >= 2) {
                         val items = jsonArray.getJSONArray(1)

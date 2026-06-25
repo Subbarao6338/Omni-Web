@@ -62,14 +62,19 @@ object UrlUtils {
 
         val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
         val portRegex = Regex(""".*:\d+$""")
+        val pathRegex = Regex(""".*/.*""")
+        val paramRegex = Regex(""".*\?.*=.*""")
         val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)
 
         // Comprehensive check for URLs vs Search queries
         val isLikelyUrl = !trimmed.contains(" ") && (
-            trimmed.contains(".") && trimmed.substringAfterLast(".").all { it.isLetter() } && trimmed.substringAfterLast(".").length >= 2 ||
+            (trimmed.contains(".") && trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").all { it.isLetter() } &&
+             trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").length >= 2) ||
             isLocalhost ||
             portRegex.matches(trimmed) ||
-            trimmed.startsWith("/")
+            trimmed.startsWith("/") ||
+            (pathRegex.matches(trimmed) && trimmed.contains(".")) ||
+            paramRegex.matches(trimmed)
         )
 
         if (isLikelyUrl) {
