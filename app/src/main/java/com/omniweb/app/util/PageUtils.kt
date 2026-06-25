@@ -60,29 +60,44 @@ object PageUtils {
     }
 
     private fun htmlToMarkdown(html: String): String {
-        // A very basic HTML to Markdown converter
-        var md = html
-        md = md.replace(Regex("<h1.*?>(.*?)</h1>", RegexOption.IGNORE_CASE), "# $1\n\n")
-        md = md.replace(Regex("<h2.*?>(.*?)</h2>", RegexOption.IGNORE_CASE), "## $1\n\n")
-        md = md.replace(Regex("<h3.*?>(.*?)</h3>", RegexOption.IGNORE_CASE), "### $1\n\n")
-        md = md.replace(Regex("<p.*?>(.*?)</p>", RegexOption.IGNORE_CASE), "$1\n\n")
-        md = md.replace(Regex("<b.*?>(.*?)</b>", RegexOption.IGNORE_CASE), "**$1**")
-        md = md.replace(Regex("<strong.*?>(.*?)</strong>", RegexOption.IGNORE_CASE), "**$1**")
-        md = md.replace(Regex("<i.*?>(.*?)</i>", RegexOption.IGNORE_CASE), "*$1*")
-        md = md.replace(Regex("<em.*?>(.*?)</em>", RegexOption.IGNORE_CASE), "*$1*")
-        md = md.replace(Regex("<a.*?href=\"(.*?)\".*?>(.*?)</a>", RegexOption.IGNORE_CASE), "[$2]($1)")
-        md = md.replace(Regex("<img.*?src=\"(.*?)\".*?alt=\"(.*?)\".*?>", RegexOption.IGNORE_CASE), "![$2]($1)")
-        md = md.replace(Regex("<img.*?src=\"(.*?)\".*?>", RegexOption.IGNORE_CASE), "![]($1)")
-        md = md.replace(Regex("<li.*?>(.*?)</li>", RegexOption.IGNORE_CASE), "- $1\n")
-        md = md.replace(Regex("<ul.*?>", RegexOption.IGNORE_CASE), "\n")
-        md = md.replace(Regex("</ul>", RegexOption.IGNORE_CASE), "\n")
-        md = md.replace(Regex("<code.*?>(.*?)</code>", RegexOption.IGNORE_CASE), "`$1`")
-        md = md.replace(Regex("<pre.*?>(.*?)</pre>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "```\n$1\n```\n\n")
-        md = md.replace(Regex("<tr.*?>(.*?)</tr>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "|$1|\n")
-        md = md.replace(Regex("<t[dh].*?>(.*?)</t[dh]>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), " $1 |")
-        md = md.replace(Regex("<br.*?>", RegexOption.IGNORE_CASE), "\n")
-        md = md.replace(Regex("<[^>]*>", RegexOption.IGNORE_CASE), "") // Strip remaining tags
-        return md.trim()
+        val doc = org.jsoup.Jsoup.parse(html)
+        val sb = StringBuilder()
+
+        fun convert(element: org.jsoup.nodes.Element, indent: Int = 0) {
+            for (node in element.childNodes()) {
+                if (node is org.jsoup.nodes.TextNode) {
+                    sb.append(node.text())
+                } else if (node is org.jsoup.nodes.Element) {
+                    when (node.tagName()) {
+                        "h1" -> sb.append("\n# ").append(node.text()).append("\n\n")
+                        "h2" -> sb.append("\n## ").append(node.text()).append("\n\n")
+                        "h3" -> sb.append("\n### ").append(node.text()).append("\n\n")
+                        "p" -> sb.append("\n").append(node.text()).append("\n\n")
+                        "strong", "b" -> sb.append("**").append(node.text()).append("**")
+                        "em", "i" -> sb.append("*").append(node.text()).append("*")
+                        "a" -> sb.append("[").append(node.text()).append("](").append(node.attr("href")).append(")")
+                        "img" -> sb.append("![").append(node.attr("alt")).append("](").append(node.attr("src")).append(")")
+                        "ul" -> {
+                            sb.append("\n")
+                            convert(node, indent + 1)
+                            sb.append("\n")
+                        }
+                        "li" -> {
+                            sb.append("\n").append("  ".repeat(indent)).append("- ")
+                            convert(node, indent)
+                        }
+                        "code" -> sb.append("`").append(node.text()).append("`")
+                        "pre" -> sb.append("\n```\n").append(node.text()).append("\n```\n\n")
+                        "br" -> sb.append("\n")
+                        else -> convert(node, indent)
+                    }
+                }
+            }
+        }
+
+        convert(doc.body())
+        return sb.toString().trim()
+            .replace(Regex("\n{3,}"), "\n\n")
     }
 
     fun extractArticleContent(html: String): String {

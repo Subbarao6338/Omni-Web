@@ -60,29 +60,21 @@ object UrlUtils {
             return trimmed
         }
 
-        val commonTlds = listOf(
-            ".com", ".org", ".net", ".io", ".gov", ".edu", ".me", ".info", ".biz", ".ai",
-            ".app", ".dev", ".xyz", ".tech", ".online", ".site", ".shop", ".cloud"
-        )
         val ipRegex = Regex("""^(\d{1,3}\.){3}\d{1,3}(:\d+)?$""")
         val portRegex = Regex(""".*:\d+$""")
         val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)
-        val hasCommonTld = commonTlds.any { tld ->
-            trimmed.endsWith(tld, ignoreCase = true) || trimmed.contains(tld + "/", ignoreCase = true)
-        }
 
-        val isUrl = try {
-            Patterns.WEB_URL.matcher(trimmed).matches()
-        } catch (e: Exception) {
-            val fallbackRegex = Regex("""^([a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|[a-zA-Z0-9.-]+)(/.*)?$""")
-            fallbackRegex.matches(trimmed)
-        }
+        // Comprehensive check for URLs vs Search queries
+        val isLikelyUrl = !trimmed.contains(" ") && (
+            trimmed.contains(".") && trimmed.substringAfterLast(".").all { it.isLetter() } && trimmed.substringAfterLast(".").length >= 2 ||
+            isLocalhost ||
+            portRegex.matches(trimmed) ||
+            trimmed.startsWith("/")
+        )
 
-        if ((isUrl || isLocalhost || hasCommonTld || portRegex.matches(trimmed) || ipRegex.matches(trimmed)) && !trimmed.contains(" ")) {
-            if (trimmed.contains(".") || isLocalhost || portRegex.matches(trimmed)) {
-                val protocol = if (isLocalhost || portRegex.matches(trimmed) || trimmed.startsWith("127.")) "http://" else "https://"
-                return protocol + trimmed
-            }
+        if (isLikelyUrl) {
+            val protocol = if (isLocalhost || portRegex.matches(trimmed) || trimmed.startsWith("127.")) "http://" else "https://"
+            return if (trimmed.startsWith("/")) "file://$trimmed" else protocol + trimmed
         }
 
         val encoded = try {
