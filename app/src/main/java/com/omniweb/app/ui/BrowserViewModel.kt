@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
 import java.util.UUID
-import java.net.HttpURLConnection
-import java.net.URL
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
@@ -25,6 +25,7 @@ import com.omniweb.app.util.AccessibilityTools
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
+    private val okHttpClient = OkHttpClient()
 
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
@@ -33,6 +34,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
             if (size > 15) {
                 eldest?.let { entry ->
+                    // Do not remove the active or split tab from cache
+                    if (entry.key == _activeTabId.value || entry.key == _splitTabId.value) {
+                        return false
+                    }
+
                     val webView = entry.value
                     val state = android.os.Bundle()
                     webView.saveState(state)
@@ -43,12 +49,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     webView.webViewClient = WebViewClient()
                     webView.clearHistory()
                     webView.clearCache(false)
-
-                    // Only destroy if it's not the active or split tab
-                    if (entry.key != _activeTabId.value && entry.key != _splitTabId.value) {
-                        webView.removeAllViews()
-                        webView.destroy()
-                    }
+                    webView.removeAllViews()
+                    webView.destroy()
                 }
                 return true
             }
@@ -165,15 +167,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private var lastScrollUpdate = 0L
+    private val lastScrollUpdates = mutableMapOf<String, Long>()
     fun updateTabScroll(tabId: String, x: Int, y: Int) {
         tabs.find { it.id == tabId }?.let { tab ->
             tab.scrollX = x
             tab.scrollY = y
 
             val now = System.currentTimeMillis()
-            if (now - lastScrollUpdate > 5000) { // Throttled to every 5 seconds
-                lastScrollUpdate = now
+            val lastUpdate = lastScrollUpdates[tabId] ?: 0L
+            if (now - lastUpdate > 5000) { // Throttled to every 5 seconds
+                lastScrollUpdates[tabId] = now
                 viewModelScope.launch(Dispatchers.IO) {
                     val entry = TabEntry(
                         id = tab.id,
@@ -596,10 +599,10 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 engine.contains("ecosia.org") -> "https://ac.ecosia.org/autocomplete?q="
                 else -> "https://duckduckgo.com/ac/?q="
             }
-            val url = URL("$baseUrl${android.net.Uri.encode(query)}")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            val response = connection.inputStream.bufferedReader().readText()
+
+            val url = "$baseUrl${android.net.Uri.encode(query)}"
+            val request = Request.Builder().url(url).build()
+            val response = okHttpClient.newCall(request).execute().use { it.body?.string() } ?: return@withContext emptyList()
             val suggestions = mutableListOf<Suggestion>()
 
             try {
