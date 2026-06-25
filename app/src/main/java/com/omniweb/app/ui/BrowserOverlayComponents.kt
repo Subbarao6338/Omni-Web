@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,72 +81,147 @@ fun SiteSettingsDialog(
                 Text("View Privacy Report")
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onClearData,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
-            ) {
-                Icon(Icons.Default.DeleteForever, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Clear Site Data")
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        val cookieManager = android.webkit.CookieManager.getInstance()
+                        val cookies = cookieManager.getCookie(host)
+                        if (cookies != null) {
+                            val cookieArray = cookies.split(";")
+                            for (cookie in cookieArray) {
+                                val parts = cookie.split("=")
+                                if (parts.isNotEmpty()) {
+                                    cookieManager.setCookie(host, parts[0].trim() + "=; Max-Age=0")
+                                }
+                            }
+                        }
+                        cookieManager.flush()
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                ) {
+                    Icon(Icons.Default.Cookie, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Clear Cookies", fontSize = 12.sp)
+                }
+                Button(
+                    onClick = onClearData,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                ) {
+                    Icon(Icons.Default.DeleteForever, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Clear Data", fontSize = 12.sp)
+                }
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrivacyReportDialog(
+fun PrivacyReportView(
     blockedTrackers: List<String>,
-    onDismiss: () -> Unit
+    onBack: () -> Unit
 ) {
     val ads = blockedTrackers.filter { it.startsWith("[Ad]") }
     val analytics = blockedTrackers.filter { it.startsWith("[Analytics]") }
     val social = blockedTrackers.filter { it.startsWith("[Social]") }
-    val others = blockedTrackers.filter { !it.startsWith("[Ad]") && !it.startsWith("[Analytics]") && !it.startsWith("[Social]") }
+    val cryptomining = blockedTrackers.filter { it.startsWith("[Cryptomining]") }
+    val fingerprinting = blockedTrackers.filter { it.startsWith("[Fingerprinting]") }
+    val others = blockedTrackers.filter {
+        !it.startsWith("[Ad]") && !it.startsWith("[Analytics]") &&
+        !it.startsWith("[Social]") && !it.startsWith("[Cryptomining]") &&
+        !it.startsWith("[Fingerprinting]")
+    }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFF10B981))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Privacy Report")
-            }
-        },
-        text = {
-            Column {
-                Text("${blockedTrackers.size} trackers blocked on this page", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (blockedTrackers.isEmpty()) {
-                    Text("No trackers detected. This site respects your privacy!")
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
-                        if (ads.isNotEmpty()) {
-                            item { Text("Ads (${ads.size})", fontWeight = FontWeight.Bold, color = Color(0xFFEF4444), modifier = Modifier.padding(vertical = 4.dp)) }
-                            items(ads) { Text(it.removePrefix("[Ad] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
-                        }
-                        if (analytics.isNotEmpty()) {
-                            item { Text("Analytics (${analytics.size})", fontWeight = FontWeight.Bold, color = Color(0xFF3B82F6), modifier = Modifier.padding(vertical = 4.dp)) }
-                            items(analytics) { Text(it.removePrefix("[Analytics] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
-                        }
-                        if (social.isNotEmpty()) {
-                            item { Text("Social (${social.size})", fontWeight = FontWeight.Bold, color = Color(0xFF8B5CF6), modifier = Modifier.padding(vertical = 4.dp)) }
-                            items(social) { Text(it.removePrefix("[Social] "), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
-                        }
-                        if (others.isNotEmpty()) {
-                            item { Text("Other (${others.size})", fontWeight = FontWeight.Bold, color = Color(0xFF6B7280), modifier = Modifier.padding(vertical = 4.dp)) }
-                            items(others) { Text(it, fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)) }
-                        }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Privacy Report", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding).fillMaxSize().padding(16.dp)) {
+            Surface(
+                color = Color(0xFF10B981).copy(alpha = 0.1f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(48.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("${blockedTrackers.size} Trackers Blocked", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Color(0xFF10B981))
+                        Text("Omni Browser is protecting your privacy", fontSize = 12.sp)
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Blocked Content Types", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (blockedTrackers.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No trackers detected on this page.")
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    if (ads.isNotEmpty()) {
+                        item { TrackerCategoryItem("Ads", ads.size, Color(0xFFEF4444), Icons.Default.AdUnits, ads.map { it.removePrefix("[Ad] ") }) }
+                    }
+                    if (analytics.isNotEmpty()) {
+                        item { TrackerCategoryItem("Analytics", analytics.size, Color(0xFF3B82F6), Icons.Default.Analytics, analytics.map { it.removePrefix("[Analytics] ") }) }
+                    }
+                    if (social.isNotEmpty()) {
+                        item { TrackerCategoryItem("Social", social.size, Color(0xFF8B5CF6), Icons.Default.People, social.map { it.removePrefix("[Social] ") }) }
+                    }
+                    if (cryptomining.isNotEmpty()) {
+                        item { TrackerCategoryItem("Cryptomining", cryptomining.size, Color(0xFFF59E0B), Icons.Default.CurrencyBitcoin, cryptomining.map { it.removePrefix("[Cryptomining] ") }) }
+                    }
+                    if (fingerprinting.isNotEmpty()) {
+                        item { TrackerCategoryItem("Fingerprinting", fingerprinting.size, Color(0xFF10B981), Icons.Default.Fingerprint, fingerprinting.map { it.removePrefix("[Fingerprinting] ") }) }
+                    }
+                    if (others.isNotEmpty()) {
+                        item { TrackerCategoryItem("Other", others.size, Color(0xFF6B7280), Icons.Default.MoreHoriz, others) }
+                    }
+                }
+            }
         }
-    )
+    }
+}
+
+@Composable
+fun TrackerCategoryItem(name: String, count: Int, color: Color, icon: ImageVector, items: List<String>) {
+    var expanded by remember { mutableStateOf(false) }
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { expanded = !expanded },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(name, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                Text(count.toString(), fontWeight = FontWeight.ExtraBold, color = color)
+                Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null)
+            }
+            if (expanded) {
+                Spacer(modifier = Modifier.height(8.dp))
+                items.forEach { item ->
+                    Text(item, fontSize = 11.sp, modifier = Modifier.padding(start = 36.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -213,11 +290,14 @@ fun ContextMenuSheet(
 fun ReaderModeView(
     title: String,
     content: String,
+    settings: com.omniweb.app.data.Settings,
+    onUpdateSettings: (com.omniweb.app.data.Settings) -> Unit,
+    onExportMarkdown: () -> Unit,
     onClose: () -> Unit
 ) {
-    var fontSize by remember { mutableFloatStateOf(18f) }
-    var theme by remember { mutableStateOf("system") } // "light", "dark", "sepia", "system"
-    var fontFamilyType by remember { mutableStateOf("serif") } // "serif", "sans", "mono"
+    val fontSize = settings.readerFontSize
+    val theme = settings.readerTheme
+    val fontFamilyType = settings.readerFontFamily
 
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val effectiveTheme = if (theme == "system") (if (isSystemDark) "dark" else "light") else theme
@@ -238,13 +318,17 @@ fun ReaderModeView(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onExportMarkdown) {
+                        Icon(Icons.Default.Description, contentDescription = "Export to MD")
+                    }
                     IconButton(onClick = {
-                        theme = when(theme) {
+                        val nextTheme = when(theme) {
                             "system" -> "light"
                             "light" -> "sepia"
                             "sepia" -> "dark"
                             else -> "system"
                         }
+                        onUpdateSettings(settings.copy(readerTheme = nextTheme))
                     }) {
                         val icon = when(theme) {
                             "system" -> Icons.Default.SettingsSuggest
@@ -254,18 +338,23 @@ fun ReaderModeView(
                         }
                         Icon(icon, contentDescription = "Toggle Theme")
                     }
-                    IconButton(onClick = { fontSize = (fontSize + 2f).coerceAtMost(32f) }) {
+                    IconButton(onClick = {
+                        onUpdateSettings(settings.copy(readerFontSize = (fontSize + 2f).coerceAtMost(32f)))
+                    }) {
                         Icon(Icons.Default.TextIncrease, contentDescription = "Increase Font")
                     }
-                    IconButton(onClick = { fontSize = (fontSize - 2f).coerceAtLeast(12f) }) {
+                    IconButton(onClick = {
+                        onUpdateSettings(settings.copy(readerFontSize = (fontSize - 2f).coerceAtLeast(12f)))
+                    }) {
                         Icon(Icons.Default.TextDecrease, contentDescription = "Decrease Font")
                     }
                     IconButton(onClick = {
-                        fontFamilyType = when(fontFamilyType) {
+                        val nextFont = when(fontFamilyType) {
                             "serif" -> "sans"
                             "sans" -> "mono"
                             else -> "serif"
                         }
+                        onUpdateSettings(settings.copy(readerFontFamily = nextFont))
                     }) {
                         Icon(Icons.Default.FontDownload, contentDescription = "Toggle Font")
                     }

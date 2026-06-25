@@ -281,6 +281,8 @@ fun WebViewContainer(
                                 textReflow = settings.textReflowEnabled,
                                 invertPage = settings.invertPageEnabled,
                                 deepDarkMode = settings.deepDarkMode,
+                                forceLightTheme = settings.forceLightTheme,
+                                forceBlackTheme = settings.forceBlackTheme,
                                 adBlockEnabled = adBlockEnabled
                             )
                             view?.evaluateJavascript(bundledScript, null)
@@ -421,7 +423,8 @@ fun WebViewContainer(
                 view.settings.javaScriptEnabled = settings.javaScriptEnabled
 
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, settings.darkMode)
+                    val shouldDarken = (settings.darkMode || settings.forceBlackTheme) && !settings.forceLightTheme
+                    WebSettingsCompat.setAlgorithmicDarkeningAllowed(view.settings, shouldDarken)
                 }
             },
             modifier = Modifier.fillMaxSize()

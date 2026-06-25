@@ -12,7 +12,7 @@ import kotlinx.coroutines.launch
 
 @Database(
     entities = [Bookmark::class, HistoryEntry::class, Settings::class, DownloadTask::class, UserScript::class, Shortcut::class, TabEntry::class, PasswordEntry::class, PerSiteSettings::class, ReadingListEntry::class, NamedSession::class, NamedSessionTab::class, AnnotationEntity::class, CustomRedirectEntry::class],
-    version = 19,
+    version = 22,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -143,6 +143,29 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `forceLightTheme` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `forceBlackTheme` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `readerFontSize` REAL NOT NULL DEFAULT 18.0")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `readerTheme` TEXT NOT NULL DEFAULT 'system'")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `readerFontFamily` TEXT NOT NULL DEFAULT 'serif'")
+            }
+        }
+
+        private val MIGRATION_20_21 = object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `toolbarLocation` TEXT NOT NULL DEFAULT 'bottom'")
+            }
+        }
+
+        private val MIGRATION_21_22 = object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `firefoxUserId` TEXT")
+                db.execSQL("ALTER TABLE `settings` ADD COLUMN `firefoxCollectionName` TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -150,12 +173,12 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "omni_browser_db"
                 )
-                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
-                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, httpsOnlyMode, deepDarkMode, strictPrivacyMode, geminiApiKey, customUserAgent, customSearchEngines, torEnabled, torProxyHost, torProxyPort, parentalPassword, blockedSites, alwaysIncognito, textReflowEnabled, ampBlockingEnabled, invertPageEnabled, forceZoom) " +
-                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, 0, 0, 0, NULL, NULL, NULL, 0, '127.0.0.1', 9050, NULL, NULL, 0, 0, 0, 0, 0)")
+                        db.execSQL("INSERT OR IGNORE INTO settings (id, searchEngine, adBlockEnabled, themeMode, lastTabUrl, accentColor, darkMode, downloadPath, restoreTabsOnStart, clearDataOnExit, javaScriptEnabled, blockThirdPartyCookies, httpsOnlyMode, deepDarkMode, strictPrivacyMode, geminiApiKey, customUserAgent, customSearchEngines, torEnabled, torProxyHost, torProxyPort, parentalPassword, blockedSites, alwaysIncognito, textReflowEnabled, ampBlockingEnabled, invertPageEnabled, forceZoom, forceLightTheme, forceBlackTheme, readerFontSize, readerTheme, readerFontFamily, toolbarLocation, firefoxUserId, firefoxCollectionName) " +
+                                "VALUES (0, 'https://www.google.com/search?q=', 1, 'system', 'about:home', '#3B82F6', 0, NULL, 1, 0, 1, 1, 0, 0, 0, NULL, NULL, NULL, 0, '127.0.0.1', 9050, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 18.0, 'system', 'serif', 'bottom', NULL, NULL)")
                     }
                 })
                 .fallbackToDestructiveMigration()
