@@ -69,7 +69,10 @@ fun BrowserAddressBar(
     onScanClick: () -> Unit = {},
     suggestions: List<Suggestion>,
     onSuggestionClick: (Suggestion) -> Unit,
-    blockedCount: Int = 0
+    blockedCount: Int = 0,
+    tabCount: Int = 0,
+    onShowTabs: () -> Unit = {},
+    onShowMenu: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val clipboardManager = remember { context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager }
@@ -132,29 +135,44 @@ fun BrowserAddressBar(
                     }
                 }
             } else {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = onHomeClick) { Icon(Icons.Default.Home, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (blockedCount > 0) {
+                        Surface(
+                            color = Color(0xFF10B981).copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.clickable { onPrivacyClick() }
+                        ) {
+                            Box(modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Shield, contentDescription = "Privacy Shield", modifier = Modifier.size(20.dp), tint = Color(0xFF10B981))
+                            }
+                        }
+                    } else {
+                        IconButton(onClick = onPrivacyClick) {
+                            Icon(Icons.Default.Shield, contentDescription = "Privacy Shield", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
                     Column(modifier = Modifier.weight(1f)) {
                         Box {
                             TextField(
                                 value = urlInput,
                                 onValueChange = onUrlChange,
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(26.dp),
                                 singleLine = true,
                                 leadingIcon = {
                                     if (pageFavicon != null) {
                                         Image(
                                             bitmap = pageFavicon.asImageBitmap(),
                                             contentDescription = null,
-                                            modifier = Modifier.size(22.dp).clip(RoundedCornerShape(6.dp)).clickable { onPrivacyClick() }
+                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp))
                                         )
                                     } else {
                                         val isSecure = urlInput.startsWith("https")
                                         Icon(
-                                            if (isSecure) Icons.Default.Eco else Icons.Default.Info,
-                                            contentDescription = if (isSecure) "Secure" else "Insecure",
-                                            modifier = Modifier.size(20.dp).scale(if (isLoading) leafScale else 1f).clickable { onPrivacyClick() },
+                                            if (isSecure) Icons.Default.Lock else Icons.Default.LockOpen,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp).scale(if (isLoading) leafScale else 1f),
                                             tint = if (isSecure) Color(0xFF10B981) else MaterialTheme.colorScheme.error
                                         )
                                     }
@@ -162,37 +180,19 @@ fun BrowserAddressBar(
                                 trailingIcon = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         if (clipboardContent != null && urlInput.isEmpty()) {
-                                            TextButton(
-                                                onClick = {
-                                                    onUrlChange(clipboardContent!!)
-                                                    onGo()
-                                                },
-                                                contentPadding = PaddingValues(horizontal = 8.dp)
-                                            ) {
-                                                Icon(Icons.Default.ContentPasteGo, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Paste & Go", fontSize = 10.sp)
+                                            IconButton(onClick = {
+                                                onUrlChange(clipboardContent!!)
+                                                onGo()
+                                            }) {
+                                                Icon(Icons.Default.ContentPasteGo, contentDescription = "Paste & Go", modifier = Modifier.size(18.dp))
                                             }
-                                        }
-                                        if (blockedCount > 0) {
-                                            Surface(
-                                                color = Color(0xFF10B981).copy(alpha = 0.1f),
-                                                shape = RoundedCornerShape(8.dp),
-                                                modifier = Modifier.clickable { onPrivacyClick() }
-                                            ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                                    Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color(0xFF10B981))
-                                                    Spacer(modifier = Modifier.width(4.dp))
-                                                    Text(blockedCount.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
-                                                }
-                                            }
-                                        }
-                                        if (urlInput.isEmpty()) {
-                                            IconButton(onClick = onScanClick) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR", modifier = Modifier.size(16.dp)) }
-                                            IconButton(onClick = onVoiceClick) { Icon(Icons.Default.Mic, contentDescription = "Voice Search", modifier = Modifier.size(16.dp)) }
                                         }
                                         if (urlInput.isNotEmpty()) {
-                                            IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(16.dp)) }
+                                            IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp)) }
+                                        } else {
+                                            IconButton(onClick = { if (isLoading) onStop() else onRefresh() }) {
+                                                Icon(if (isLoading) Icons.Default.Close else Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            }
                                         }
                                     }
                                 },
@@ -247,19 +247,13 @@ fun BrowserAddressBar(
                             }
                         }
                     }
-                    IconButton(onClick = onBookmarkClick) {
-                        Icon(
-                            if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
-                            contentDescription = "Bookmark",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    IconButton(onClick = onShowTabs) {
+                        BadgedBox(badge = { if (tabCount > 0) Badge { Text(tabCount.toString()) } }) {
+                            Icon(Icons.Default.Layers, contentDescription = "Tabs")
+                        }
                     }
-                    IconButton(onClick = { if (isLoading) onStop() else onRefresh() }) {
-                        Icon(
-                            if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
-                            contentDescription = if (isLoading) "Stop" else "Refresh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                    IconButton(onClick = onShowMenu) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
                     }
                 }
             }
@@ -273,7 +267,6 @@ fun BrowserBottomBar(
     mediaCount: Int,
     onShowTabs: () -> Unit,
     onNewTab: () -> Unit,
-    onShowMedia: () -> Unit,
     onBack: () -> Unit,
     onForward: () -> Unit,
     onShowDownloads: () -> Unit,
@@ -283,7 +276,6 @@ fun BrowserBottomBar(
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             NavButton(Icons.Default.Layers, "Tabs", badge = tabCount) { onShowTabs() }
             NavButton(Icons.Default.Add, "New") { onNewTab() }
-            NavButton(Icons.Default.VideoLibrary, "Media", badge = mediaCount) { onShowMedia() }
             NavButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back") { onBack() }
             NavButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward") { onForward() }
             NavButton(Icons.Default.Download, "Files") { onShowDownloads() }

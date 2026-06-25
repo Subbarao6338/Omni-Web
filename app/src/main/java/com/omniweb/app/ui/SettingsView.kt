@@ -126,6 +126,36 @@ fun SettingsView(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 ListItem(
+                    headlineContent = { Text("Force Light Theme") },
+                    supportingContent = { Text("Enforce light background on websites") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.forceLightTheme,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(forceLightTheme = enabled, forceBlackTheme = if (enabled) false else settings.forceBlackTheme))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
+                    headlineContent = { Text("Force Black Theme") },
+                    supportingContent = { Text("Enforce pure black background on websites") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.forceBlackTheme,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(forceBlackTheme = enabled, forceLightTheme = if (enabled) false else settings.forceLightTheme))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
                     headlineContent = { Text("Always Incognito") },
                     supportingContent = { Text("Force all new tabs to be incognito") },
                     trailingContent = {
@@ -205,6 +235,18 @@ fun SettingsView(
 
             SettingsSection("Appearance", Icons.Default.Palette) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Toolbar Location", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeOption("Bottom", settings.toolbarLocation == "bottom", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(toolbarLocation = "bottom")) }
+                        }
+                        ThemeOption("Top", settings.toolbarLocation == "top", Modifier.weight(1f)) {
+                            scope.launch { database.settingsDao().updateSettings(settings.copy(toolbarLocation = "top")) }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
                     Text("Theme Mode", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -437,6 +479,83 @@ fun SettingsView(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
                     )
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Firefox Sync (Extensions)", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.firefoxUserId ?: "",
+                        onValueChange = {
+                            scope.launch {
+                                database.settingsDao().updateSettings(settings.copy(firefoxUserId = it.ifBlank { null }))
+                            }
+                        },
+                        label = { Text("Firefox User ID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.firefoxCollectionName ?: "",
+                        onValueChange = {
+                            scope.launch {
+                                database.settingsDao().updateSettings(settings.copy(firefoxCollectionName = it.ifBlank { null }))
+                            }
+                        },
+                        label = { Text("Collection Name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val userId = settings.firefoxUserId
+                            val collectionName = settings.firefoxCollectionName
+                            if (!userId.isNullOrBlank() && !collectionName.isNullOrBlank()) {
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    try {
+                                        val url = "https://addons.mozilla.org/api/v4/accounts/account/$userId/collections/$collectionName/addons/"
+                                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                        val response = connection.inputStream.bufferedReader().readText()
+                                        val json = org.json.JSONObject(response)
+                                        val addons = json.getJSONArray("results")
+                                        for (i in 0 until addons.length()) {
+                                            val addon = addons.getJSONObject(i).getJSONObject("addon")
+                                            val name = addon.getString("name")
+                                            val guid = addon.getString("guid")
+                                            // Firefox extensions on Android usually work via userscripts if proxied or native support
+                                            // For now, we add them as named placeholder userscripts or log them
+                                            database.userScriptDao().insertScript(
+                                                com.omniweb.app.data.UserScript(
+                                                    name = "Extension: $name",
+                                                    script = "// Firefox Extension GUID: $guid\n// Sync implementation pending native engine support",
+                                                    enabled = true,
+                                                    type = "userscript"
+                                                )
+                                            )
+                                        }
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            Toast.makeText(context, "Synced ${addons.length()} extensions", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                            Toast.makeText(context, "Sync failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            } else {
+                                Toast.makeText(context, "Please enter User ID and Collection Name", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Sync, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sync Firefox Collection")
+                    }
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 Column(modifier = Modifier.padding(16.dp)) {

@@ -86,7 +86,15 @@ data class Settings(
     val textReflowEnabled: Boolean = false,
     val ampBlockingEnabled: Boolean = false,
     val invertPageEnabled: Boolean = false,
-    val forceZoom: Boolean = false
+    val forceZoom: Boolean = false,
+    val forceLightTheme: Boolean = false,
+    val forceBlackTheme: Boolean = false,
+    val readerFontSize: Float = 18f,
+    val readerTheme: String = "system",
+    val readerFontFamily: String = "serif",
+    val toolbarLocation: String = "bottom",
+    val firefoxUserId: String? = null,
+    val firefoxCollectionName: String? = null
 )
 
 @Entity(tableName = "tabs")

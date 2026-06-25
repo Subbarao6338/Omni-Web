@@ -251,8 +251,7 @@ fun BrowserView(
             }
         },
         topBar = {
-            if (!isZenMode) {
-            Column {
+            if (!isZenMode && settings.toolbarLocation == "top") {
                 BrowserAddressBar(
                     modifier = Modifier.pointerInput(Unit) {
                         detectHorizontalDragGestures { change, dragAmount ->
@@ -271,7 +270,7 @@ fun BrowserView(
                                 }
                             }
                         }
-                    },
+                    }.statusBarsPadding(),
                     urlInput = urlInput,
                     onUrlChange = {
                         urlInput = it
@@ -339,25 +338,106 @@ fun BrowserView(
                         }
                         viewModel.updateSuggestions("")
                     },
-                    blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 }
+                    blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 },
+                    tabCount = viewModel.tabs.size,
+                    onShowTabs = { showTabs = true },
+                    onShowMenu = { showTools = true }
                 )
-            }
             }
         },
         bottomBar = {
-            if (!isZenMode) {
-            val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-            BrowserBottomBar(
-                tabCount = viewModel.tabs.size,
-                mediaCount = activeTab.detectedMedia.size,
-                onShowTabs = { showTabs = true },
-            onNewTab = { showQuickActions = true },
-                onShowMedia = { showMediaGrabber = true },
-                onBack = { if (currentWebView.canGoBack()) currentWebView.goBack() else onBackToHome() },
-                onForward = { if (currentWebView.canGoForward()) currentWebView.goForward() },
-                onShowDownloads = onOpenDownloads,
-                onShowMenu = { showTools = true }
-            )
+            if (!isZenMode && settings.toolbarLocation == "bottom") {
+                BrowserAddressBar(
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures { change, dragAmount ->
+                            change.consume()
+                            if (dragAmount > 50) {
+                                scope.launch {
+                                    if (pagerState.currentPage > 0) {
+                                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                                    }
+                                }
+                            } else if (dragAmount < -50) {
+                                scope.launch {
+                                    if (pagerState.currentPage < tabs.size - 1) {
+                                        pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                    }
+                                }
+                            }
+                        }
+                    }.navigationBarsPadding(),
+                    urlInput = urlInput,
+                    onUrlChange = {
+                        urlInput = it
+                        viewModel.updateSuggestions(it)
+                    },
+                    onGo = {
+                        val input = urlInput.trim()
+                        if (input.isNotEmpty()) {
+                            val target = UrlUtils.resolveUrl(input, settings.searchEngine)
+                            if (target == "about:home") onBackToHome() else {
+                                activeTab.url = target
+                                viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                            }
+                        }
+                        viewModel.updateSuggestions("")
+                    },
+                    onRefresh = { viewModel.getOrCreateWebView(activeTab.id, context).reload() },
+                    onStop = { viewModel.getOrCreateWebView(activeTab.id, context).stopLoading() },
+                    isLoading = activeTab.isLoading,
+                    pageFavicon = activeTab.faviconBitmap,
+                    onPrivacyClick = { showSiteSettings = true },
+                    onBookmarkClick = {
+                        scope.launch {
+                            if (isBookmarked) {
+                                bookmarks.find { it.url == activeTab.url }?.let { database.bookmarkDao().deleteBookmark(it) }
+                            } else {
+                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title, url = urlInput))
+                            }
+                        }
+                    },
+                    isBookmarked = isBookmarked,
+                    isFindMode = isFindMode,
+                    findQuery = findQuery,
+                    onFindQueryChange = {
+                        findQuery = it
+                        viewModel.getOrCreateWebView(activeTab.id, context).findAllAsync(it)
+                    },
+                    onFindNext = { forward -> viewModel.getOrCreateWebView(activeTab.id, context).findNext(forward) },
+                    findMatchStatus = findMatchStatus,
+                    onCloseFind = {
+                        isFindMode = false
+                        findQuery = ""
+                        findMatchStatus = ""
+                        viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
+                    },
+                    onHomeClick = onBackToHome,
+                    onVoiceClick = {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        }
+                        try {
+                            voiceLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Voice search not available", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onScanClick = onOpenScanner,
+                    suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
+                    onSuggestionClick = { suggestion ->
+                        val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
+                        if (target == "about:home") onBackToHome() else {
+                            urlInput = target
+                            activeTab.url = target
+                            viewModel.getOrCreateWebView(activeTab.id, context).loadUrl(target)
+                        }
+                        viewModel.updateSuggestions("")
+                    },
+                    blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 },
+                    tabCount = viewModel.tabs.size,
+                    onShowTabs = { showTabs = true },
+                    onShowMenu = { showTools = true }
+                )
             }
         }
     ) { padding ->
@@ -500,6 +580,41 @@ fun BrowserView(
                 Text("Page Tools", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(24.dp))
 
+                val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+
+                ToolCategory("Navigation") {
+                    item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", Color(0xFF3B82F6)) {
+                        if (currentWebView.canGoBack()) currentWebView.goBack() else onBackToHome()
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward", Color(0xFF3B82F6)) {
+                        if (currentWebView.canGoForward()) currentWebView.goForward()
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Add, "New Tab", Color(0xFF10B981)) {
+                        viewModel.createTab()
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Home, "Home", Color(0xFF6B7280)) {
+                        onBackToHome()
+                        showTools = false
+                    }}
+                    item {
+                        val isBookmarkedInternal = bookmarks.any { it.url == activeTab.url }
+                        ToolButton(if (isBookmarkedInternal) Icons.Default.Star else Icons.Default.StarBorder, if (isBookmarkedInternal) "Bookmarked" else "Bookmark", Color(0xFFFFB000)) {
+                        scope.launch {
+                            if (isBookmarkedInternal) {
+                                bookmarks.find { it.url == activeTab.url }?.let { database.bookmarkDao().deleteBookmark(it) }
+                            } else {
+                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title, url = urlInput))
+                            }
+                        }
+                        showTools = false
+                    }}
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
                 ToolCategory("Page Actions") {
                     item { ToolButton(if (isSplitScreen) Icons.Default.Fullscreen else Icons.Default.VerticalSplit, if (isSplitScreen) "Single Screen" else "Split Screen", Color(0xFFF59E0B)) {
                         viewModel.toggleSplitScreen()
@@ -577,6 +692,14 @@ fun BrowserView(
                     }}
                     item { ToolButton(Icons.Default.SelfImprovement, "Zen Mode", Color(0xFF10B981)) {
                         viewModel.toggleZenMode()
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.VideoLibrary, "Media Grabber", Color(0xFFEC4899)) {
+                        showMediaGrabber = true
+                        showTools = false
+                    }}
+                    item { ToolButton(Icons.Default.Download, "Downloads", Color(0xFF3B82F6)) {
+                        onOpenDownloads()
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
@@ -719,11 +842,14 @@ fun BrowserView(
     }
 
     if (showMediaGrabber) {
-        MediaGrabberView(mediaItems = activeTab.detectedMedia, onDownload = { item ->
+        MediaGrabberView(mediaItems = activeTab.detectedMedia, onDownload = { items ->
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
-            downloadManager.startDownload(item.src, item.title)
+            items.forEach { item ->
+                downloadManager.startDownload(item.src, item.title)
+            }
+            Toast.makeText(context, "Started ${items.size} downloads", Toast.LENGTH_SHORT).show()
         }) { showMediaGrabber = false }
     }
 
@@ -760,6 +886,18 @@ fun BrowserView(
         ReaderModeView(
             title = activeTab.title,
             content = readerContent,
+            settings = settings,
+            onUpdateSettings = { newSettings ->
+                scope.launch {
+                    database.settingsDao().updateSettings(newSettings)
+                }
+            },
+            onExportMarkdown = {
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                    val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
+                    PageUtils.saveAsMarkdown(context, clean, activeTab.title)
+                }
+            },
             onClose = { isReaderMode = false }
         )
     }

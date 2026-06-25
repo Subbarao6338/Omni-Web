@@ -25,10 +25,12 @@ import com.omniweb.app.data.MediaItem
 @Composable
 fun MediaGrabberView(
     mediaItems: List<MediaItem>,
-    onDownload: (MediaItem) -> Unit,
+    onDownload: (List<MediaItem>) -> Unit,
     onBack: () -> Unit
 ) {
     var filterType by remember { mutableStateOf("all") }
+    val selectedItems = remember { mutableStateListOf<String>() }
+
     val filteredItems = if (filterType == "all") mediaItems else mediaItems.filter {
         if (filterType == "video") it.type == "video"
         else if (filterType == "audio") it.type == "audio"
@@ -46,15 +48,29 @@ fun MediaGrabberView(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 },
                 actions = {
+                    if (selectedItems.isNotEmpty()) {
+                        IconButton(onClick = {
+                            val toDownload = mediaItems.filter { it.id in selectedItems }
+                            onDownload(toDownload)
+                            selectedItems.clear()
+                        }) {
+                            Icon(Icons.Default.Download, contentDescription = "Download Selected")
+                        }
+                    }
                     if (mediaItems.isNotEmpty()) {
                         TextButton(onClick = {
-                            mediaItems.take(50).forEach { onDownload(it) }
+                            if (selectedItems.size == filteredItems.size) {
+                                selectedItems.clear()
+                            } else {
+                                selectedItems.clear()
+                                selectedItems.addAll(filteredItems.map { it.id })
+                            }
                         }) {
-                            Text("Bulk (50)")
+                            Text(if (selectedItems.size == filteredItems.size) "Deselect All" else "Select All")
                         }
                     }
                 }
@@ -81,6 +97,7 @@ fun MediaGrabberView(
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(filteredItems) { item ->
+                        val isSelected = item.id in selectedItems
                         ListItem(
                             headlineContent = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -96,26 +113,33 @@ fun MediaGrabberView(
                             },
                             supportingContent = { Text(item.src, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 11.sp) },
                             leadingContent = {
-                                Box(modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        when (item.type) {
-                                            "video" -> Icons.Default.Movie
-                                            "audio" -> Icons.Default.MusicNote
-                                            "image" -> Icons.Default.Image
-                                            else -> Icons.AutoMirrored.Filled.InsertDriveFile
-                                        },
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = isSelected, onCheckedChange = {
+                                        if (it) selectedItems.add(item.id) else selectedItems.remove(item.id)
+                                    })
+                                    Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            when (item.type) {
+                                                "video" -> Icons.Default.Movie
+                                                "audio" -> Icons.Default.MusicNote
+                                                "image" -> Icons.Default.Image
+                                                else -> Icons.AutoMirrored.Filled.InsertDriveFile
+                                            },
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                             },
                             trailingContent = {
-                                IconButton(onClick = { onDownload(item) }) {
+                                IconButton(onClick = { onDownload(listOf(item)) }) {
                                     Icon(Icons.Default.Download, contentDescription = "Download", tint = MaterialTheme.colorScheme.primary)
                                 }
                             },
-                            modifier = Modifier.clickable { onDownload(item) }
+                            modifier = Modifier.clickable {
+                                if (isSelected) selectedItems.remove(item.id) else selectedItems.add(item.id)
+                            }
                         )
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
