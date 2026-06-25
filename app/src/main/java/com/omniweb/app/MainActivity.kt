@@ -81,10 +81,22 @@ class MainActivity : ComponentActivity() {
         viewModel.stopSpeaking()
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+        viewModel.handleIntent(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         android.webkit.WebView.enableSlowWholeDocumentDraw()
+
+        val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+        if (savedInstanceState == null) {
+            viewModel.handleIntent(intent)
+        }
 
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
@@ -103,6 +115,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
+    val navController = rememberNavController()
+    val pendingNavigation by viewModel.pendingNavigation
+
+    LaunchedEffect(pendingNavigation) {
+        pendingNavigation?.let { route ->
+            navController.navigate(route) {
+                launchSingleTop = true
+            }
+            viewModel.onNavigationHandled()
+        }
+    }
+
     val appContext = androidx.compose.ui.platform.LocalContext.current
     val isInPiP = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
         (appContext as? android.app.Activity)?.isInPictureInPictureMode ?: false
@@ -143,8 +167,6 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
             surfaceVariant = Color(0xFFF3F4F6)
         )
     }
-
-    val navController = rememberNavController()
 
     MaterialTheme(colorScheme = colorScheme) {
         Surface(modifier = Modifier.fillMaxSize()) {

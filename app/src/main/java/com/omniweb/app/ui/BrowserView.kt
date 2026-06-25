@@ -620,6 +620,15 @@ fun BrowserView(
                         viewModel.toggleSplitScreen()
                         showTools = false
                     }}
+                    item { ToolButton(Icons.AutoMirrored.Filled.OpenInNew, "Open in App", Color(0xFF3B82F6)) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(activeTab.url))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "No app can handle this link", Toast.LENGTH_SHORT).show()
+                        }
+                        showTools = false
+                    }}
                     item { ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
                         val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         currentWebView.url?.let {

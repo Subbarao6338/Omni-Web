@@ -70,6 +70,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _isZenMode = MutableStateFlow(false)
     val isZenMode = _isZenMode.asStateFlow()
 
+    var pendingNavigation = mutableStateOf<String?>(null)
+        private set
+
     val blockedTrackersByTab = java.util.concurrent.ConcurrentHashMap<String, MutableSet<String>>()
     private val bloomFilterAdBlocker = BloomFilterAdBlocker(application)
     private var redirectManager: com.omniweb.app.util.RedirectManager? = null
@@ -341,6 +344,31 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun toggleZenMode() {
         _isZenMode.value = !_isZenMode.value
+    }
+
+    fun handleIntent(intent: android.content.Intent?) {
+        when (intent?.action) {
+            android.content.Intent.ACTION_VIEW -> {
+                val url = intent.dataString
+                if (url != null) {
+                    createTab(url)
+                    pendingNavigation.value = "browser"
+                }
+            }
+            android.content.Intent.ACTION_SEND -> {
+                if (intent.type == "text/plain") {
+                    val sharedText = intent.getStringExtra(android.content.Intent.EXTRA_TEXT)
+                    if (sharedText != null) {
+                        createTab(sharedText)
+                        pendingNavigation.value = "browser"
+                    }
+                }
+            }
+        }
+    }
+
+    fun onNavigationHandled() {
+        pendingNavigation.value = null
     }
 
     fun toggleSplitScreen() {
