@@ -85,8 +85,18 @@ object ArticleExtractor {
         val totalTextLength = text.length.coerceAtLeast(1)
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
-        if (linkDensity > 0.2f) {
-            score *= (1f - linkDensity * 1.5f).coerceAtLeast(0f)
+        if (linkDensity > 0.25f) {
+            // Heavier penalty for higher link density
+            score *= (1f - linkDensity * 2.0f).coerceAtLeast(0f)
+        } else if (linkDensity > 0.1f) {
+            score *= (1f - linkDensity * 1.2f).coerceAtLeast(0.1f)
+        }
+
+        // 4b. Text-to-tag ratio bonus (High density of text relative to tags)
+        val tagCount = el.allElements.size.coerceAtLeast(1)
+        val textToTagRatio = words.toFloat() / tagCount
+        if (textToTagRatio > 5f) {
+            score *= 1.2f
         }
 
         // 5. Semantic Bonuses/Penalties
