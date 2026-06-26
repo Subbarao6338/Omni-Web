@@ -340,6 +340,7 @@ fun BrowserView(
                     },
                     blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 },
                     tabCount = viewModel.tabs.size,
+                    mediaCount = activeTab.detectedMedia.size,
                     onShowTabs = { showTabs = true },
                     onShowMenu = { showTools = true }
                 )
@@ -435,6 +436,7 @@ fun BrowserView(
                     },
                     blockedCount = synchronized(viewModel.blockedTrackersByTab) { viewModel.blockedTrackersByTab[activeTab.id]?.size ?: 0 },
                     tabCount = viewModel.tabs.size,
+                    mediaCount = activeTab.detectedMedia.size,
                     onShowTabs = { showTabs = true },
                     onShowMenu = { showTools = true }
                 )
@@ -580,15 +582,15 @@ fun BrowserView(
                 Text("Page Tools", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(24.dp))
 
-                val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                val toolsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
 
                 ToolCategory("Navigation") {
                     item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", Color(0xFF3B82F6)) {
-                        if (currentWebView.canGoBack()) currentWebView.goBack() else onBackToHome()
+                        if (toolsWebView.canGoBack()) toolsWebView.goBack() else onBackToHome()
                         showTools = false
                     }}
                     item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward", Color(0xFF3B82F6)) {
-                        if (currentWebView.canGoForward()) currentWebView.goForward()
+                        if (toolsWebView.canGoForward()) toolsWebView.goForward()
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Add, "New Tab", Color(0xFF10B981)) {
@@ -630,8 +632,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                        currentWebView.url?.let {
+                        toolsWebView.url?.let {
                             val intent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_TEXT, it)
@@ -645,8 +646,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.ContentCopy, "Copy Link", Color(0xFF8B5CF6)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                        currentWebView.url?.let {
+                        toolsWebView.url?.let {
                             val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                             clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
                             Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
@@ -658,8 +658,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader", Color(0xFFEA580C)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                        currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
+                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
                             val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
                                 source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
                             } else source ?: ""
@@ -669,15 +668,13 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile" else "Desktop", Color(0xFF6366F1)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         isDesktopMode = !isDesktopMode
-                        currentWebView.settings.userAgentString = if (isDesktopMode) "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else null
-                        currentWebView.reload()
+                        toolsWebView.settings.userAgentString = if (isDesktopMode) "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else null
+                        toolsWebView.reload()
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AutoAwesome, "Summarize", Color(0xFF8B5CF6)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                        currentWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
                             scope.launch {
                                 summaryContent = PageUtils.generateSummary(source ?: "", settings.geminiApiKey)
                             }
@@ -689,8 +686,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Insights, "Insights", Color(0xFF10B981)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-                        PageAnalyzer.analyze(currentWebView) {
+                        PageAnalyzer.analyze(toolsWebView) {
                             analysisResult = it
                         }
                         showTools = false
@@ -712,12 +708,11 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             val shortcutManager = context.getSystemService(ShortcutManager::class.java)
                             if (shortcutManager!!.isRequestPinShortcutSupported) {
                                 val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
-                                    .setShortLabel(currentWebView.title ?: "Web Page")
+                                    .setShortLabel(toolsWebView.title ?: "Web Page")
                                     .setIcon(if (activeTab.faviconBitmap != null) Icon.createWithBitmap(activeTab.faviconBitmap) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
                                     .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
                                     .build()
@@ -731,31 +726,30 @@ fun BrowserView(
                 Spacer(modifier = Modifier.height(24.dp))
                 ToolCategory("Save & Print") {
                     item { ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
-                        PageUtils.takeFullPageScreenshot(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
+                        PageUtils.takeFullPageScreenshot(context, toolsWebView, activeTab.title)
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                        PageUtils.saveAsPdf(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
+                        PageUtils.saveAsPdf(context, toolsWebView, activeTab.title)
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
                         scope.launch {
-                            val path = PageUtils.saveAsMhtml(context, viewModel.getOrCreateWebView(activeTab.id, context), activeTab.title)
+                            val path = PageUtils.saveAsMhtml(context, toolsWebView, activeTab.title)
                             database.readingListDao().insertEntry(com.omniweb.app.data.ReadingListEntry(title = activeTab.title, url = activeTab.url, filePath = path))
                         }
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
-                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
                             val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
                             PageUtils.saveAsMarkdown(context, clean, activeTab.title)
                         }
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
-                        val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                         val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
-                        printManager.print("Omni Document", currentWebView.createPrintDocumentAdapter("Document"), null)
+                        printManager.print("Omni Document", toolsWebView.createPrintDocumentAdapter("Document"), null)
                         showTools = false
                     }}
                 }
@@ -771,7 +765,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Code, "Source", Color(0xFFEA580C)) {
-                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
                             pageSource = source ?: ""
                             showSource = true
                             showTools = false
@@ -788,7 +782,7 @@ fun BrowserView(
                     item { ToolButton(Icons.Default.BugReport, "Inspect", Color(0xFFEF4444)) {
                         isInspectMode = true
                         showTools = false
-                        viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                        toolsWebView.evaluateJavascript("""
                             (function() {
                                 if (window.omniInspector) {
                                     window.omniInspector.start();
@@ -866,7 +860,7 @@ fun BrowserView(
         val bookmarklets = userScripts.filter { it.type == "bookmarklet" && it.enabled }
         ModalBottomSheet(onDismissRequest = { showBookmarklets = false }, containerColor = MaterialTheme.colorScheme.surface) {
             Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding()) {
-                val currentWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                val bookmarkletsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
                 Text("Bookmarklets", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 if (bookmarklets.isEmpty()) {
@@ -877,7 +871,7 @@ fun BrowserView(
                             ListItem(
                                 headlineContent = { Text(bookmarklet.name) },
                                 modifier = Modifier.clickable {
-                                    currentWebView.evaluateJavascript("(function() { ${bookmarklet.script} })();", null)
+                                    bookmarkletsWebView.evaluateJavascript("(function() { ${bookmarklet.script} })();", null)
                                     showBookmarklets = false
                                 },
                                 leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null, tint = Color(0xFFFACC15)) }

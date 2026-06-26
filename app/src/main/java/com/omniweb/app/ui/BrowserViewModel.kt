@@ -415,7 +415,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        val timeout = if (force) 0 else 30 * 1000 // 30 seconds
+        val timeout = if (force) 0 else 5 * 60 * 1000 // 5 minutes
         val activeId = _activeTabId.value
 
         // Use a list to avoid ConcurrentModificationException if we were modifying the cache during iteration

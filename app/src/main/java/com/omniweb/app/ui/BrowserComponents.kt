@@ -71,6 +71,7 @@ fun BrowserAddressBar(
     onSuggestionClick: (Suggestion) -> Unit,
     blockedCount: Int = 0,
     tabCount: Int = 0,
+    mediaCount: Int = 0,
     onShowTabs: () -> Unit = {},
     onShowMenu: () -> Unit = {}
 ) {
@@ -136,6 +137,10 @@ fun BrowserAddressBar(
                 }
             } else {
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onHomeClick) {
+                        Icon(Icons.Default.Home, contentDescription = "Home", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
                     if (blockedCount > 0) {
                         Surface(
                             color = Color(0xFF10B981).copy(alpha = 0.2f),
@@ -186,6 +191,18 @@ fun BrowserAddressBar(
                                             }) {
                                                 Icon(Icons.Default.ContentPasteGo, contentDescription = "Paste & Go", modifier = Modifier.size(18.dp))
                                             }
+                                        }
+                                        if (urlInput.isEmpty()) {
+                                            IconButton(onClick = onVoiceClick) { Icon(Icons.Default.Mic, contentDescription = "Voice Search", modifier = Modifier.size(18.dp)) }
+                                            IconButton(onClick = onScanClick) { Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan QR", modifier = Modifier.size(18.dp)) }
+                                        }
+                                        IconButton(onClick = onBookmarkClick) {
+                                            Icon(
+                                                if (isBookmarked) Icons.Default.Star else Icons.Default.StarBorder,
+                                                contentDescription = "Bookmark",
+                                                modifier = Modifier.size(18.dp),
+                                                tint = if (isBookmarked) Color(0xFFFFB000) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
                                         }
                                         if (urlInput.isNotEmpty()) {
                                             IconButton(onClick = { onUrlChange("") }) { Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp)) }
@@ -253,7 +270,9 @@ fun BrowserAddressBar(
                         }
                     }
                     IconButton(onClick = onShowMenu) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                        BadgedBox(badge = { if (mediaCount > 0) Badge { Text(mediaCount.toString()) } }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Menu")
+                        }
                     }
                 }
             }
@@ -279,7 +298,7 @@ fun BrowserBottomBar(
             NavButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back") { onBack() }
             NavButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward") { onForward() }
             NavButton(Icons.Default.Download, "Files") { onShowDownloads() }
-            NavButton(Icons.Default.MoreVert, "Menu") { onShowMenu() }
+            NavButton(Icons.Default.MoreVert, "Menu", badge = mediaCount) { onShowMenu() }
         }
     }
 }

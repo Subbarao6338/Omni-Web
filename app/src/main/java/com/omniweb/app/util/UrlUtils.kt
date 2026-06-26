@@ -66,10 +66,15 @@ object UrlUtils {
         val paramRegex = Regex(""".*\?.*=.*""")
         val isLocalhost = trimmed.startsWith("localhost") || trimmed.startsWith("127.0.0.1") || ipRegex.matches(trimmed)
 
+        val commonTlds = setOf("com", "org", "net", "edu", "gov", "io", "me", "co", "info", "biz", "us", "uk", "ca", "de", "jp", "fr", "au", "in", "it", "nl", "br")
+
         // Comprehensive check for URLs vs Search queries
         val isLikelyUrl = !trimmed.contains(" ") && (
-            (trimmed.contains(".") && trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").all { it.isLetter() } &&
-             trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").length >= 2) ||
+            (trimmed.contains(".") && (
+                trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").lowercase() in commonTlds ||
+                (trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").all { it.isLetter() } &&
+                 trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").length >= 2)
+            )) ||
             isLocalhost ||
             portRegex.matches(trimmed) ||
             trimmed.startsWith("/") ||
