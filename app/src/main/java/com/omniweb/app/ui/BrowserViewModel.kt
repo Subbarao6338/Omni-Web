@@ -561,11 +561,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     suspend fun chatWithPage(url: String, content: String, message: String, apiKey: String?): String {
         if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings."
-        return try {
-            com.omniweb.app.util.PageUtils.generateSummary("Context: Website $url\nContent: $content\nQuestion: $message", apiKey)
-        } catch (e: Exception) {
-            "AI Error: ${e.message}"
-        }
+        return com.omniweb.app.util.PageUtils.chatWithPage(url, content, message, apiKey)
     }
 
     private suspend fun fetchSuggestionsInternal(query: String) = withContext(Dispatchers.IO) {
@@ -611,34 +607,44 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             val suggestions = mutableListOf<Suggestion>()
 
             try {
-                if (engine.contains("google.com") || engine.contains("baidu.com") || engine.contains("bing.com") || engine.contains("brave.com")) {
+                if (response.trim().startsWith("[")) {
                     val jsonArray = JSONArray(response)
-                    if (jsonArray.length() >= 2) {
+                    if (jsonArray.length() >= 2 && jsonArray.get(1) is JSONArray) {
                         val items = jsonArray.getJSONArray(1)
                         for (i in 0 until items.length()) {
-                            val phrase = items.getString(i)
-                            suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                            val phrase = items.optString(i)
+                            if (phrase.isNotEmpty()) {
+                                suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                            }
+                        }
+                    } else {
+                        // Fallback for flat arrays
+                        for (i in 0 until jsonArray.length()) {
+                            val item = jsonArray.opt(i)
+                            if (item is String) {
+                                suggestions.add(Suggestion(item, item, isHistory = false))
+                            } else if (item is org.json.JSONObject) {
+                                val phrase = item.optString("phrase", "")
+                                if (phrase.isNotEmpty()) {
+                                    suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                                }
+                            }
                         }
                     }
-                } else if (engine.contains("ecosia.org")) {
+                } else if (response.trim().startsWith("{")) {
                     val jsonObject = org.json.JSONObject(response)
-                    val suggestionsArray = jsonObject.getJSONArray("suggestions")
-                    for (i in 0 until suggestionsArray.length()) {
-                        val phrase = suggestionsArray.getString(i)
-                        suggestions.add(Suggestion(phrase, phrase, isHistory = false))
-                    }
-                } else {
-                    val jsonArray = JSONArray(response)
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        val phrase = obj.optString("phrase", "")
-                        if (phrase.isNotEmpty()) {
-                            suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                    val suggestionsArray = jsonObject.optJSONArray("suggestions")
+                    if (suggestionsArray != null) {
+                        for (i in 0 until suggestionsArray.length()) {
+                            val phrase = suggestionsArray.optString(i)
+                            if (phrase.isNotEmpty()) {
+                                suggestions.add(Suggestion(phrase, phrase, isHistory = false))
+                            }
                         }
                     }
                 }
             } catch (e: Exception) {
-                com.omniweb.app.util.LogUtils.e("Suggestion parsing failed", e)
+                com.omniweb.app.util.LogUtils.e("Suggestion parsing failed for engine $engine", e)
             }
             suggestionCache[query] = suggestions
             suggestions

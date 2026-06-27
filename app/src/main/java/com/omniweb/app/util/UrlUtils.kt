@@ -72,7 +72,7 @@ object UrlUtils {
         val isLikelyUrl = !trimmed.contains(" ") && (
             (trimmed.contains(".") && (
                 trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").lowercase() in commonTlds ||
-                (trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").all { it.isLetter() } &&
+                (trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").all { it.isLetterOrDigit() } &&
                  trimmed.substringAfterLast(".").substringBefore("/").substringBefore("?").length >= 2)
             )) ||
             isLocalhost ||

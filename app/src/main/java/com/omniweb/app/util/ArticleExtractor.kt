@@ -17,7 +17,9 @@ object ArticleExtractor {
                 ".ads", ".ad-container", "#comments", ".social-share", ".related-posts",
                 ".newsletter", ".trending", ".sidebar", ".menu", ".nav", ".footer", ".header",
                 "[aria-hidden='true']", "meta", "link", "input", "select", "textarea",
-                ".breadcrumb", ".tags", ".author-info", ".widget", ".popup", ".modal"
+                ".breadcrumb", ".tags", ".author-info", ".widget", ".popup", ".modal",
+                ".share", ".social", ".ad", ".advert", ".banner", ".cookie", ".paywall",
+                "[id*='ad-']", "[class*='ad-']"
             )
             junkSelectors.forEach { doc.select(it).remove() }
 
@@ -63,26 +65,29 @@ object ArticleExtractor {
 
     private fun calculateScore(el: Element): Float {
         var score = 0f
-        val text = el.text()
-        val words = text.split(Regex("\\s+")).filter { it.length > 2 }.size
+        val ownText = el.ownText()
+        val totalText = el.text()
         
+        val words = totalText.split(Regex("\\s+")).filter { it.length > 2 }.size
+        if (words < 5) return 0f
+
         // 1. Core density score
         score += words.toFloat()
 
         // 2. Structural multipliers
         val pCount = el.select("p").size
-        score += pCount * 15f
+        score += pCount * 20f
 
-        val hCount = el.select("h1, h2, h3").size
-        score += hCount * 5f
+        val hCount = el.select("h1, h2, h3, h4").size
+        score += hCount * 10f
 
         // 3. Punctuation (prose indicator)
-        val punctuation = text.count { it == ',' || it == '.' || it == ';' || it == ':' }
-        score += punctuation * 2f
+        val punctuation = totalText.count { it == ',' || it == '.' || it == ';' || it == ':' || it == '?' || it == '!' }
+        score += punctuation * 3f
 
         // 4. Link density penalty (strongest factor)
         val linkTextLength = el.select("a").sumOf { it.text().length }
-        val totalTextLength = text.length.coerceAtLeast(1)
+        val totalTextLength = totalText.length.coerceAtLeast(1)
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
         if (linkDensity > 0.25f) {
@@ -94,18 +99,18 @@ object ArticleExtractor {
 
         // 4b. Text-to-tag ratio bonus (High density of text relative to tags)
         val tagCount = el.allElements.size.coerceAtLeast(1)
-        val textToTagRatio = words.toFloat() / tagCount
+        val textToTagRatio = words.toFloat() / tagCount.toFloat()
         if (textToTagRatio > 5f) {
             score *= 1.2f
         }
 
         // 5. Semantic Bonuses/Penalties
         val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
-        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story")
-        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related")
+        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description")
+        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend")
 
-        if (positivePatterns.any { attrString.contains(it) }) score += 100f
-        if (negativePatterns.any { attrString.contains(it) }) score -= 150f
+        if (positivePatterns.any { attrString.contains(it) }) score += 150f
+        if (negativePatterns.any { attrString.contains(it) }) score -= 200f
 
         // 6. Image/Media bonus (if within a content block)
         val imgCount = el.select("img").size
