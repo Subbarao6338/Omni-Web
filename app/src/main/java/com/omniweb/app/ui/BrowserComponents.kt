@@ -129,6 +129,8 @@ fun BrowserAddressBar(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                         )
                     )
                     TextButton(onClick = onCloseFind) {
@@ -236,8 +238,10 @@ fun BrowserAddressBar(
                                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 ),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp)
                             )
 
                         }
@@ -394,7 +398,7 @@ fun TabSwitcherSheet(
                             Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(20.dp)).background(color))
                         },
                         content = {
-                            ElevatedCard(
+                            OutlinedCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(180.dp)
@@ -403,11 +407,11 @@ fun TabSwitcherSheet(
                                         onDismiss()
                                     },
                                 shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.elevatedCardColors(
+                                colors = CardDefaults.outlinedCardColors(
                                     containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface
                                 ),
-                                elevation = CardDefaults.elevatedCardElevation(
-                                    defaultElevation = if (isSelected) 8.dp else 2.dp
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = 0.dp
                                 )
                             ) {
                                 Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
