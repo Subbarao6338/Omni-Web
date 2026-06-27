@@ -98,6 +98,8 @@ class MainActivity : ComponentActivity() {
             viewModel.handleIntent(intent)
         }
 
+        com.omniweb.app.util.AdBlockManager.init(this)
+
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
                 YoutubeDL.getInstance().init(this@MainActivity)

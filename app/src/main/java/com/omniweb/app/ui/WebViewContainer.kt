@@ -312,7 +312,6 @@ fun WebViewContainer(
                             """.trimIndent()).append("\n")
 
                             finalBundle.append("Android.postText(document.body.innerText);\n")
-                            onTextExtracted(tab.url)
 
                             // Media Sniffer
                             finalBundle.append(mediaSnifferScript()).append("\n")
