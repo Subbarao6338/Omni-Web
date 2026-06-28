@@ -19,7 +19,8 @@ object ArticleExtractor {
                 "[aria-hidden='true']", "meta", "link", "input", "select", "textarea",
                 ".breadcrumb", ".tags", ".author-info", ".widget", ".popup", ".modal",
                 ".share", ".social", ".ad", ".advert", ".banner", ".cookie", ".paywall",
-                "[id*='ad-']", "[class*='ad-']"
+                "[id*='ad-']", "[class*='ad-']", ".cookie-notice", ".consent-banner",
+                ".newsletter-signup", ".promotion"
             )
             junkSelectors.forEach { doc.select(it).remove() }
 
@@ -65,7 +66,6 @@ object ArticleExtractor {
 
     private fun calculateScore(el: Element): Float {
         var score = 0f
-        val ownText = el.ownText()
         val totalText = el.text()
         
         val words = totalText.split(Regex("\\s+")).filter { it.length > 2 }.size
@@ -109,7 +109,7 @@ object ArticleExtractor {
         val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description")
         val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend")
 
-        if (positivePatterns.any { attrString.contains(it) }) score += 150f
+        if (positivePatterns.any { attrString.contains(it) }) score += 200f
         if (negativePatterns.any { attrString.contains(it) }) score -= 200f
 
         // 6. Image/Media bonus (if within a content block)

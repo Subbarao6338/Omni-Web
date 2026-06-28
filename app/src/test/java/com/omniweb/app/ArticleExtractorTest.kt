@@ -49,4 +49,38 @@ class ArticleExtractorTest {
         assertEquals(true, extracted.contains("Main content paragraph"))
         assertEquals(false, extracted.contains("sidebar"))
     }
+
+    @Test
+    fun testExtractArticleContent_Complex() {
+        val html = """
+            <html>
+            <head><title>Complex Test</title></head>
+            <body>
+                <div class="wrapper">
+                    <div class="header">Header</div>
+                    <div class="container">
+                        <aside>Sidebar</aside>
+                        <main>
+                            <article>
+                                <h1 class="title">Complex Test</h1>
+                                <div class="content">
+                                    <p>This is the actual content that should be extracted reliably even with multiple nested wrappers.</p>
+                                    <div class="newsletter-signup">Sign up for our newsletter!</div>
+                                </div>
+                            </article>
+                        </main>
+                    </div>
+                    <footer class="footer">Footer Info</footer>
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
+        val extracted = ArticleExtractor.extractArticleContent(html)
+        assertEquals(true, extracted.contains("Complex Test"))
+        assertEquals(true, extracted.contains("actual content"))
+        assertEquals(false, extracted.contains("Sidebar"))
+        assertEquals(false, extracted.contains("Header"))
+        assertEquals(false, extracted.contains("Footer Info"))
+        assertEquals(false, extracted.contains("Sign up for our newsletter"))
+    }
 }

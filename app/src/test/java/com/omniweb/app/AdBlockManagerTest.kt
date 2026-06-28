@@ -31,4 +31,13 @@ class AdBlockManagerTest {
         assertEquals(true, script.contains("MutationObserver"))
         assertEquals(true, script.contains("display: none !important"))
     }
+
+    @Test
+    fun testShouldBlock_SubdomainMatching() {
+        assertEquals(true, AdBlockManager.shouldBlock("test.doubleclick.net"))
+        assertEquals(true, AdBlockManager.shouldBlock("sub.test.doubleclick.net"))
+        assertEquals(true, AdBlockManager.shouldBlock("facebook.com"))
+        assertEquals(true, AdBlockManager.shouldBlock("ads.facebook.com"))
+        assertEquals(false, AdBlockManager.shouldBlock("google.com"))
+    }
 }
