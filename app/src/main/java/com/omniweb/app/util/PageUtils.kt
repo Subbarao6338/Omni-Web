@@ -172,7 +172,7 @@ object PageUtils {
                     modelName = "gemini-1.5-flash",
                     apiKey = apiKey
                 )
-                val prompt = "Summarize the following web page content in a concise way, focusing on the main points. Use bullet points for key takeaways:\n\n$text"
+                val prompt = "Summarize the following web page content in a concise way, focusing on the main points. Use bullet points for key takeaways. Keep it under 200 words:\n\n$text"
                 val response = generativeModel.generateContent(prompt)
                 return response.text ?: "AI failed to generate a summary."
             } catch (e: Exception) {
@@ -182,26 +182,53 @@ object PageUtils {
         }
 
         // Heuristic summarization: Take first few significant sentences and key points
-        val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.length > 20 }
+        val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.trim().length > 20 }
         if (sentences.isEmpty()) return "Content structure is not suitable for summarization."
 
         val intro = sentences.take(3).joinToString(" ")
 
         // Find key points (sentences containing keywords or being in list items)
-        val keywords = listOf("important", "key", "result", "finally", "because", "therefore", "essential", "main", "feature")
+        val keywords = listOf("important", "key", "result", "finally", "because", "therefore", "essential", "main", "feature", "summary", "conclude")
         val keyPoints = sentences.filter { s -> keywords.any { k -> s.contains(k, ignoreCase = true) } }
-            .take(3)
+            .distinct()
+            .take(5)
             .joinToString("\n• ", prefix = "\n• ")
 
         val summary = StringBuilder()
-        summary.append("📄 AI-Powered Summary (Local)\n\n")
+        summary.append("📄 Page Insights (Heuristic)\n\n")
         summary.append(intro)
         if (keyPoints.length > 10) {
-            summary.append("\n\nKey Takeaways:")
+            summary.append("\n\nKey Highlights:")
             summary.append(keyPoints)
         }
 
         return summary.toString()
+    }
+
+    suspend fun chatWithPage(url: String, content: String, question: String, apiKey: String): String {
+        return try {
+            val generativeModel = GenerativeModel(
+                modelName = "gemini-1.5-flash",
+                apiKey = apiKey
+            )
+            val systemPrompt = """
+                You are a helpful web browsing assistant.
+                Below is the content of the webpage at: $url
+
+                CONTENT:
+                $content
+
+                Please answer the user's question based on the provided content.
+                If the information is not in the content, say you don't know based on the page but try to provide general knowledge if relevant.
+            """.trimIndent()
+
+            val prompt = "$systemPrompt\n\nUSER QUESTION: $question"
+            val response = generativeModel.generateContent(prompt)
+            response.text ?: "AI failed to provide an answer."
+        } catch (e: Exception) {
+            LogUtils.e("Gemini chat failed", e)
+            "AI Error: ${e.message}"
+        }
     }
 
     fun generateQRCode(url: String): Bitmap? {

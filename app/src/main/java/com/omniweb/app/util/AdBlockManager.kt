@@ -75,41 +75,35 @@ object AdBlockManager {
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
 
-        // Fast path check using Bloom Filter
-        if (bloomFilter?.mightContain(host) == false) {
-            // Check subdomains
-            var dotIdx = host.indexOf('.')
-            var hasMightContainSubdomain = false
-            while (dotIdx != -1) {
-                val current = host.substring(dotIdx + 1)
-                if (current.isEmpty()) break
-                if (bloomFilter?.mightContain(current) == true) {
-                    hasMightContainSubdomain = true
-                    break
-                }
-                dotIdx = host.indexOf('.', dotIdx + 1)
-            }
-            if (!hasMightContainSubdomain) return null
+        // 1. Try full host first
+        getDirectCategory(host)?.let { return it }
+
+        // 2. Try parent domains (e.g., ad.doubleclick.net -> doubleclick.net)
+        var dotIdx = host.indexOf('.')
+        while (dotIdx != -1 && dotIdx < host.length - 1) {
+            val suffix = host.substring(dotIdx + 1)
+            if (suffix.isEmpty()) break
+
+            getDirectCategory(suffix)?.let { return it }
+
+            dotIdx = host.indexOf('.', dotIdx + 1)
+        }
+        return null
+    }
+
+    private fun getDirectCategory(host: String): String? {
+        // Fast path check using Bloom Filter if initialized
+        val filter = bloomFilter
+        if (filter != null && !filter.mightContain(host)) {
+            return null
         }
 
-        // Precise check
+        // Precise check against individual sets
         if (MALWARE_DOMAINS.contains(host)) return "[Malware]"
         if (ADS_DOMAINS.contains(host)) return "[Ad]"
         if (ANALYTICS_DOMAINS.contains(host)) return "[Analytics]"
         if (SOCIAL_DOMAINS.contains(host)) return "[Social]"
 
-        var dotIdx = host.indexOf('.')
-        while (dotIdx != -1) {
-            val current = host.substring(dotIdx + 1)
-            if (current.isEmpty()) break
-
-            if (MALWARE_DOMAINS.contains(current)) return "[Malware]"
-            if (ADS_DOMAINS.contains(current)) return "[Ad]"
-            if (ANALYTICS_DOMAINS.contains(current)) return "[Analytics]"
-            if (SOCIAL_DOMAINS.contains(current)) return "[Social]"
-
-            dotIdx = host.indexOf('.', dotIdx + 1)
-        }
         return null
     }
 

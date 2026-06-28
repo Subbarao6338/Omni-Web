@@ -416,7 +416,22 @@ fun WebViewContainer(
                     WebSettings.LOAD_CACHE_ONLY
                 }
 
-                view.settings.javaScriptEnabled = settings.javaScriptEnabled
+                val host = Uri.parse(view.url ?: tab.url).host ?: ""
+                val perSite = viewModel.getPerSiteSettings(host)
+
+                view.settings.javaScriptEnabled = perSite?.javaScriptEnabled ?: settings.javaScriptEnabled
+
+                val targetUa = if (perSite?.desktopMode == true) {
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                } else if (settings.strictPrivacyMode) {
+                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                } else {
+                    settings.customUserAgent ?: "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+                }
+
+                if (view.settings.userAgentString != targetUa) {
+                    view.settings.userAgentString = targetUa
+                }
 
                 if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
                     val shouldDarken = (settings.darkMode || settings.forceBlackTheme) && !settings.forceLightTheme

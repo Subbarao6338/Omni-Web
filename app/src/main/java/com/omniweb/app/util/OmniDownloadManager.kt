@@ -119,18 +119,23 @@ class OmniDownloadManager(private val context: Context) {
             request.addOption("--socket-timeout", "10")
             request.addOption("--retries", "3")
 
+            var lastUpdate = 0L
             withContext(Dispatchers.IO) {
                 try {
                     YoutubeDL.getInstance().execute(request) { progress, _, _ ->
-                    scope.launch {
-                       db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
-                           db.downloadDao().updateDownload(currentTask.copy(
-                               downloadedSize = progress.toLong(),
-                               totalSize = 100,
-                               status = DownloadManager.STATUS_RUNNING
-                           ))
-                       }
-                    }
+                        val now = System.currentTimeMillis()
+                        if (now - lastUpdate > 1000 || progress >= 100) {
+                            lastUpdate = now
+                            scope.launch {
+                                db.downloadDao().getDownloadByIdSync(downloadId)?.let { currentTask ->
+                                    db.downloadDao().updateDownload(currentTask.copy(
+                                        downloadedSize = progress.toLong(),
+                                        totalSize = 100,
+                                        status = DownloadManager.STATUS_RUNNING
+                                    ))
+                                }
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     throw e
