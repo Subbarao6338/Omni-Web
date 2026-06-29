@@ -17,7 +17,8 @@ object AdBlockManager {
     }
     private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
         addAll(listOf(
-            "google-analytics.com", "googletagmanager.com", "hotjar.com", "clarity.ms"
+            "google-analytics.com", "googletagmanager.com", "hotjar.com", "clarity.ms",
+            "mixpanel.com", "amplitude.com", "segment.com"
         ))
     }
     private val SOCIAL_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
@@ -130,7 +131,8 @@ object AdBlockManager {
                     ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
                     "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
                     "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
-                    "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']"
+                    "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
+                    "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']"
                 ];
 
                 const style = document.createElement('style');
