@@ -658,7 +658,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader", Color(0xFFEA580C)) {
-                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source: String? ->
+                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source: String? ->
                             val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
                                 source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
                             } else source ?: ""
@@ -674,7 +674,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.AutoAwesome, "Summarize", Color(0xFF8B5CF6)) {
-                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
                             scope.launch {
                                 summaryContent = PageUtils.generateSummary(source ?: "", settings.geminiApiKey)
                             }
@@ -741,7 +741,7 @@ fun BrowserView(
                         showTools = false
                     }}
                     item { ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
-                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
+                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
                             val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
                             PageUtils.saveAsMarkdown(context, clean, activeTab.title)
                         }
@@ -896,7 +896,7 @@ fun BrowserView(
                 }
             },
             onExportMarkdown = {
-                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
                     val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
                     PageUtils.saveAsMarkdown(context, clean, activeTab.title)
                 }
@@ -978,7 +978,7 @@ fun BrowserView(
                 }
             },
             onReaderMode = {
-                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("document.documentElement.outerHTML") { source ->
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
                     readerContent = PageUtils.extractArticleContent(source ?: "")
                     isReaderMode = true
                 }
