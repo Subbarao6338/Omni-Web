@@ -110,7 +110,7 @@ fun BrowserAddressBar(
                     TextField(
                         value = findQuery,
                         onValueChange = onFindQueryChange,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier.weight(1f).height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         singleLine = true,
                         placeholder = { Text("Find in page...") },
@@ -131,7 +131,8 @@ fun BrowserAddressBar(
                             unfocusedIndicatorColor = Color.Transparent,
                             focusedTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        )
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                     )
                     TextButton(onClick = onCloseFind) {
                         Text("Done")
@@ -164,8 +165,8 @@ fun BrowserAddressBar(
                             TextField(
                                 value = urlInput,
                                 onValueChange = onUrlChange,
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(26.dp),
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(28.dp),
                                 singleLine = true,
                                 leadingIcon = {
                                     if (pageFavicon != null) {
@@ -215,22 +216,6 @@ fun BrowserAddressBar(
                                         }
                                     }
                                 },
-                                supportingText = {
-                                    androidx.compose.animation.AnimatedVisibility(
-                                        visible = isLoading,
-                                        enter = fadeIn() + androidx.compose.animation.expandVertically(),
-                                        exit = fadeOut() + androidx.compose.animation.shrinkVertically()
-                                    ) {
-                                        LinearProgressIndicator(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(3.dp)
-                                                .clip(RoundedCornerShape(1.5.dp)),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                                        )
-                                    }
-                                },
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                 keyboardActions = KeyboardActions(onGo = { onGo() }),
                                 colors = TextFieldDefaults.colors(
@@ -241,9 +226,22 @@ fun BrowserAddressBar(
                                     focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                     unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 ),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 16.sp)
+                                textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                             )
-
+                            androidx.compose.animation.AnimatedVisibility(
+                                visible = isLoading,
+                                enter = fadeIn() + androidx.compose.animation.expandVertically(),
+                                exit = fadeOut() + androidx.compose.animation.shrinkVertically()
+                            ) {
+                                LinearProgressIndicator(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(1.5.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                )
+                            }
                         }
 
                         AnimatedVisibility(

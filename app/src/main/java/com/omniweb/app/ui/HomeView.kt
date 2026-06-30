@@ -227,7 +227,10 @@ fun HomeView(
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
-                        )
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                     )
 
                     val suggestions by viewModel.searchSuggestions
