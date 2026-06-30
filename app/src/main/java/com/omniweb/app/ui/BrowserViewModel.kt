@@ -30,9 +30,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
-    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(10, 0.75f, true) {
+    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(5, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
-            if (size > 8) {
+            if (size > 5) {
                 eldest?.let { entry ->
                     // Do not remove the active or split tab from cache
                     if (entry.key == _activeTabId.value || entry.key == _splitTabId.value) {

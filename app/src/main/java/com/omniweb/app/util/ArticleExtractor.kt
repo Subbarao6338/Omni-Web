@@ -11,18 +11,16 @@ object ArticleExtractor {
             val doc: Document = Jsoup.parse(html)
 
             // 1. Pre-cleanup
-            val junkSelectors = listOf(
-                "script", "style", "aside", "iframe", "noscript", "svg", "form",
-                "button", "canvas", "video", "audio", "nav", "header", "footer",
-                ".ads", ".ad-container", "#comments", ".social-share", ".related-posts",
-                ".newsletter", ".trending", ".sidebar", ".menu", ".nav", ".footer", ".header",
-                "[aria-hidden='true']", "meta", "link", "input", "select", "textarea",
-                ".breadcrumb", ".tags", ".author-info", ".widget", ".popup", ".modal",
-                ".share", ".social", ".ad", ".advert", ".banner", ".cookie", ".paywall",
-                "[id*='ad-']", "[class*='ad-']", ".cookie-notice", ".consent-banner",
-                ".newsletter-signup", ".promotion"
-            )
-            junkSelectors.forEach { doc.select(it).remove() }
+            val junkSelector = "script, style, aside, iframe, noscript, svg, form, " +
+                "button, canvas, video, audio, nav, header, footer, " +
+                ".ads, .ad-container, #comments, .social-share, .related-posts, " +
+                ".newsletter, .trending, .sidebar, .menu, .nav, .footer, .header, " +
+                "[aria-hidden='true'], meta, link, input, select, textarea, " +
+                ".breadcrumb, .tags, .author-info, .widget, .popup, .modal, " +
+                ".share, .social, .ad, .advert, .banner, .cookie, .paywall, " +
+                "[id*='ad-'], [class*='ad-'], .cookie-notice, .consent-banner, " +
+                ".newsletter-signup, .promotion"
+            doc.select(junkSelector).remove()
 
             // 2. Scoring Based Candidate Selection
             var bestCandidate: Element? = null
@@ -90,14 +88,21 @@ object ArticleExtractor {
         val totalTextLength = totalText.length.coerceAtLeast(1)
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
-        if (linkDensity > 0.25f) {
+        if (linkDensity > 0.5f) {
+            score *= 0.1f
+        } else if (linkDensity > 0.25f) {
             // Heavier penalty for higher link density
             score *= (1f - linkDensity * 2.0f).coerceAtLeast(0f)
         } else if (linkDensity > 0.1f) {
             score *= (1f - linkDensity * 1.2f).coerceAtLeast(0.1f)
         }
 
-        // 4b. Text-to-tag ratio bonus (High density of text relative to tags)
+        // 4b. Multi-p bonus (Strong content indicator)
+        if (el.select("> p").size > 3) {
+            score += 50f
+        }
+
+        // 4c. Text-to-tag ratio bonus (High density of text relative to tags)
         val tagCount = el.allElements.size.coerceAtLeast(1)
         val textToTagRatio = words.toFloat() / tagCount.toFloat()
         if (textToTagRatio > 5f) {

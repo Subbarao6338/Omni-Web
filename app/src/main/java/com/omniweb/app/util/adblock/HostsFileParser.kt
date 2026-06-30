@@ -5,12 +5,10 @@ import java.io.InputStreamReader
 class HostsFileParser {
     fun parseInput(input: InputStreamReader): List<String> {
         val domains = mutableListOf<String>()
-        input.use { reader ->
-            reader.readLines().forEach { line ->
-                val parsed = parseLine(line)
-                if (parsed != null) {
-                    domains.add(parsed)
-                }
+        input.forEachLine { line ->
+            val parsed = parseLine(line)
+            if (parsed != null) {
+                domains.add(parsed)
             }
         }
         return domains

@@ -22,7 +22,10 @@ object UrlUtils {
         "!pkg" to "https://search.nixos.org/packages?query=",
         "!proton" to "https://mail.proton.me/u/0/search/all?keyword=",
         "!ya" to "https://yandex.ru/yandsearch?lr=21411&text=",
-        "!yh" to "https://search.yahoo.com/search?p="
+        "!yh" to "https://search.yahoo.com/search?p=",
+        "!k" to "https://kotlinlang.org/?q=",
+        "!android" to "https://developer.android.com/s/results?q=",
+        "!dg" to "https://duckduckgo.com/?q="
     )
 
     fun resolveUrl(input: String, searchEngine: String): String {

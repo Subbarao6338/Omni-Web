@@ -21,22 +21,20 @@ class DefaultBloomFilter<T>(
     private val bitSet: BitSet = BitSet(numberOfBits)
     override fun put(item: T) {
         val hash = hashingAlgorithm.hash(item)
-        val bitSize = bitSet.size()
         var combinedHash = hash.lowerHalf()
         val upperHalf = hash.upperHalf()
         for (i in 0 until numberOfHashes) {
-            bitSet.set((combinedHash and Int.MAX_VALUE) % bitSize)
+            bitSet.set((combinedHash and 0x7FFFFFFF) % numberOfBits)
             combinedHash += upperHalf
         }
     }
     override fun putAll(collection: Collection<T>) { collection.forEach(::put) }
     override fun mightContain(item: T): Boolean {
         val hash = hashingAlgorithm.hash(item)
-        val bitSize = bitSet.size()
         var combinedHash = hash.lowerHalf()
         val upperHalf = hash.upperHalf()
         for (i in 0 until numberOfHashes) {
-            if (!bitSet.get((combinedHash and Int.MAX_VALUE) % bitSize)) return false
+            if (!bitSet.get((combinedHash and 0x7FFFFFFF) % numberOfBits)) return false
             combinedHash += upperHalf
         }
         return true
