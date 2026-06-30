@@ -100,7 +100,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
             if (currentSettings.restoreTabsOnStart && savedTabs.isNotEmpty()) {
                 val restoredTabs = savedTabs.map { entry ->
-                    TabInfo(entry.id, entry.url, entry.title, entry.isIncognito, entry.scrollX, entry.scrollY)
+                    TabInfo(entry.id, entry.url, entry.title, entry.isIncognito, entry.scrollX, entry.scrollY, entry.parentTabId)
                 }
                 tabs.clear()
                 tabs.addAll(restoredTabs)
@@ -147,7 +147,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 position = tabs.indexOf(tab),
                 isIncognito = tab.isIncognito,
                 scrollX = tab.scrollX,
-                scrollY = tab.scrollY
+                scrollY = tab.scrollY,
+                parentTabId = tab.parentTabId
             ))
         }
     }
@@ -161,7 +162,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 position = tabs.indexOf(tab),
                 isIncognito = tab.isIncognito,
                 scrollX = tab.scrollX,
-                scrollY = tab.scrollY
+                scrollY = tab.scrollY,
+                parentTabId = tab.parentTabId
             )
             database.tabDao().updateTab(entry)
         }
@@ -185,7 +187,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                         position = tabs.indexOf(tab),
                         isIncognito = tab.isIncognito,
                         scrollX = tab.scrollX,
-                        scrollY = tab.scrollY
+                        scrollY = tab.scrollY,
+                        parentTabId = tab.parentTabId
                     )
                     database.tabDao().updateTab(entry)
                 }
@@ -248,9 +251,9 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     private val _searchSuggestions = mutableStateOf<List<Suggestion>>(emptyList())
     val searchSuggestions get() = _searchSuggestions
 
-    fun createTab(url: String = "about:home", title: String = "Home", isIncognito: Boolean = false) {
+    fun createTab(url: String = "about:home", title: String = "Home", isIncognito: Boolean = false, parentTabId: String? = null) {
         val finalIncognito = isIncognito || settings.value.alwaysIncognito
-        val newTab = TabInfo(UUID.randomUUID().toString(), url, title, finalIncognito)
+        val newTab = TabInfo(UUID.randomUUID().toString(), url, title, finalIncognito, parentTabId = parentTabId)
         tabs.add(newTab)
         _activeTabId.value = newTab.id
         saveTabToDb(newTab)

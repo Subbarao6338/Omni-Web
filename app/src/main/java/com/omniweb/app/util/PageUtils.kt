@@ -231,6 +231,22 @@ object PageUtils {
         }
     }
 
+    suspend fun explainSelection(text: String, apiKey: String?): String {
+        if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings to use this feature."
+        return try {
+            val generativeModel = GenerativeModel(
+                modelName = "gemini-1.5-flash",
+                apiKey = apiKey
+            )
+            val prompt = "Explain the following text in a clear and concise way. If it's a technical term, define it. If it's a complex concept, simplify it:\n\n$text"
+            val response = generativeModel.generateContent(prompt)
+            response.text ?: "AI failed to generate an explanation."
+        } catch (e: Exception) {
+            LogUtils.e("Gemini explanation failed", e)
+            "AI Error: ${e.message}"
+        }
+    }
+
     fun generateQRCode(url: String): Bitmap? {
         try {
             val size = 512

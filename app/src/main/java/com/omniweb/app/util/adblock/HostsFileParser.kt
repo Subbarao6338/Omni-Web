@@ -26,11 +26,14 @@ class HostsFileParser {
         val parts = processed.split(Regex("\\s+"))
         if (parts.size >= 2) {
             val domain = parts[1]
-            if (domain != "localhost" && domain != "127.0.0.1") {
+            if (domain != "localhost" && domain != "127.0.0.1" && domain != "0.0.0.0" && domain != "::1") {
                 return domain
             }
-        } else if (parts.size == 1 && parts[0].contains(".")) {
-            return parts[0]
+        } else if (parts.size == 1) {
+            val domain = parts[0]
+            if (domain.contains(".") && domain != "127.0.0.1" && domain != "0.0.0.0") {
+                return domain
+            }
         }
 
         return null

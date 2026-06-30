@@ -236,10 +236,16 @@ fun SettingsSection(title: String, icon: ImageVector, content: @Composable Colum
 
 @Composable
 fun AddShortcutItem(onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+    ) {
         OutlinedCard(
             modifier = Modifier.size(64.dp),
-            shape = RoundedCornerShape(18.dp),
+            shape = RoundedCornerShape(20.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.outlinedCardColors(containerColor = Color.Transparent)
         ) {
@@ -248,6 +254,6 @@ fun AddShortcutItem(onClick: () -> Unit) {
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        Text(text = "Add", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        Text(text = "Add", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
     }
 }
