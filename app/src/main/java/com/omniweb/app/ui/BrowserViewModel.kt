@@ -418,13 +418,24 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     fun hibernateTabsIfNeeded(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        val timeout = if (force) 0 else 5 * 60 * 1000 // 5 minutes
         val activeId = _activeTabId.value
+        val splitId = _splitTabId.value
 
-        // Use a list to avoid ConcurrentModificationException if we were modifying the cache during iteration
-        val tabsToHibernate = webViewCache.keys.filter { it != activeId }.filter { tabId ->
+        val activityManager = getApplication<Application>().getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+        val memoryInfo = android.app.ActivityManager.MemoryInfo()
+        activityManager?.getMemoryInfo(memoryInfo)
+
+        // More aggressive timeout if memory is low
+        val timeout = when {
+            force -> 0L
+            memoryInfo.lowMemory -> 1 * 60 * 1000L // 1 minute
+            else -> 5 * 60 * 1000L // 5 minutes
+        }
+
+        // Use a list to avoid ConcurrentModificationException
+        val tabsToHibernate = webViewCache.keys.filter { it != activeId && it != splitId }.filter { tabId ->
             val lastActive = tabLastActive[tabId] ?: 0L
-            force || (now - lastActive > timeout)
+            force || (now - lastActive > timeout) || memoryInfo.lowMemory
         }
 
         tabsToHibernate.forEach { tabId ->
@@ -436,11 +447,19 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 webView.stopLoading()
                 webView.webChromeClient = null
                 webView.webViewClient = WebViewClient()
-                webView.clearCache(false) // Don't clear disk cache during hibernation
+                webView.loadUrl("about:blank")
                 webView.clearHistory()
                 webView.removeAllViews()
                 webView.destroy()
             }
+        }
+
+        if (memoryInfo.lowMemory) {
+            prewarmedWebView?.let {
+                it.destroy()
+                prewarmedWebView = null
+            }
+            suggestionCache.clear()
         }
     }
 

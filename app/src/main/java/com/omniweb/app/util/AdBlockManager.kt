@@ -117,56 +117,20 @@ object AdBlockManager {
         return getCategory(host) != null
     }
 
-    fun getAdBlockScript(): String {
-        return """
-            (function() {
-                if (window.omniAdBlockApplied) return;
-                window.omniAdBlockApplied = true;
+    @Volatile
+    private var adBlockScript: String? = null
 
-                const selectors = [
-                    "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
-                    "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
-                    "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
-                    "[id^='ad-']", "[class^='ad-']", "[class*='sponsored']", ".trc_rbox_container",
-                    "div[id^='google_ads_iframe']", "aside[class*='ad']", "section[class*='ad']",
-                    ".ad-container", "[class*='ad-unit']", ".sponsored-content",
-                    "div[class*='AdContainer']", "div[class*='promoted']", "div[class*='sponsored']",
-                    "iframe[src*='doubleclick.net']", "iframe[src*='googleads']",
-                    "div[id*='ad-wrapper']", "div[class*='ad-wrapper']", ".native-ad",
-                    ".ad-slot", ".ad-label", ".ad-text", "div[data-ad-client]", "div[data-ad-slot]",
-                    "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
-                    "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
-                    "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
-                    "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']"
-                ];
+    fun getAdBlockScript(context: Context? = null): String {
+        adBlockScript?.let { return it }
+        if (context == null) return "" // Should have been initialized
 
-                const style = document.createElement('style');
-                style.id = 'omni-adblock-style';
-                style.innerHTML = selectors.join(', ') + ' { display: none !important; pointer-events: none !important; height: 0 !important; width: 0 !important; opacity: 0 !important; visibility: hidden !important; z-index: -9999 !important; }';
-                document.head.appendChild(style);
-
-                function hideElement(el) {
-                    el.style.setProperty('display', 'none', 'important');
-                    el.style.setProperty('visibility', 'hidden', 'important');
-                    el.style.setProperty('pointer-events', 'none', 'important');
-                }
-
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.addedNodes.length) {
-                             mutation.addedNodes.forEach(node => {
-                                 if (node.nodeType === 1) { 
-                                     selectors.forEach(s => {
-                                         if (node.matches(s)) hideElement(node);
-                                         node.querySelectorAll(s).forEach(el => hideElement(el));
-                                     });
-                                 }
-                             });
-                        }
-                    });
-                });
-                observer.observe(document.body, { childList: true, subtree: true });
-            })();
-        """.trimIndent()
+        return try {
+            context.assets.open("AdBlock.js").use { inputStream ->
+                InputStreamReader(inputStream).readText().also { adBlockScript = it }
+            }
+        } catch (e: Exception) {
+            LogUtils.e("Failed to load AdBlock.js", e)
+            ""
+        }
     }
 }

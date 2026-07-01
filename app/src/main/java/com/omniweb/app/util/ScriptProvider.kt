@@ -35,7 +35,7 @@ class ScriptProvider(private val context: Context) {
         if (invertPage) sb.append(getScript("InvertPage.js")).append("\n")
 
         if (adBlockEnabled) {
-            sb.append(AdBlockManager.getAdBlockScript()).append("\n")
+            sb.append(AdBlockManager.getAdBlockScript(context)).append("\n")
         }
 
         if (forceLightTheme) {

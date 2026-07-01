@@ -19,14 +19,14 @@ object ArticleExtractor {
                 ".breadcrumb, .tags, .author-info, .widget, .popup, .modal, " +
                 ".share, .social, .ad, .advert, .banner, .cookie, .paywall, " +
                 "[id*='ad-'], [class*='ad-'], .cookie-notice, .consent-banner, " +
-                ".newsletter-signup, .promotion"
+                ".newsletter-signup, .promotion, [role='complementary'], [role='navigation']"
             doc.select(junkSelector).remove()
 
             // 2. Scoring Based Candidate Selection
             var bestCandidate: Element? = null
             var bestScore = 0f
 
-            doc.select("div, section, article, main, [role='main']").forEach { el ->
+            doc.select("div, section, article, main, [role='main'], [role='article']").forEach { el ->
                 val score = calculateScore(el)
                 if (score > bestScore) {
                     bestScore = score
@@ -74,14 +74,14 @@ object ArticleExtractor {
 
         // 2. Structural multipliers
         val pCount = el.select("p").size
-        score += pCount * 20f
+        score += pCount * 25f // Increased from 20
 
         val hCount = el.select("h1, h2, h3, h4").size
-        score += hCount * 10f
+        score += hCount * 15f // Increased from 10
 
         // 3. Punctuation (prose indicator)
         val punctuation = totalText.count { it == ',' || it == '.' || it == ';' || it == ':' || it == '?' || it == '!' }
-        score += punctuation * 3f
+        score += punctuation * 5f // Increased from 3
 
         // 4. Link density penalty (strongest factor)
         val linkTextLength = el.select("a").sumOf { it.text().length }
@@ -89,23 +89,23 @@ object ArticleExtractor {
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
         if (linkDensity > 0.5f) {
-            score *= 0.1f
-        } else if (linkDensity > 0.25f) {
-            // Heavier penalty for higher link density
-            score *= (1f - linkDensity * 2.0f).coerceAtLeast(0f)
-        } else if (linkDensity > 0.1f) {
-            score *= (1f - linkDensity * 1.2f).coerceAtLeast(0.1f)
+            score *= 0.05f // More aggressive penalty
+        } else if (linkDensity > 0.2f) { // Lower threshold for penalty
+            score *= (1f - linkDensity * 1.5f).coerceAtLeast(0f)
         }
 
         // 4b. Multi-p bonus (Strong content indicator)
-        if (el.select("> p").size > 3) {
-            score += 50f
+        val directPCount = el.select("> p").size
+        if (directPCount > 3) {
+            score += 100f // Increased from 50
         }
 
         // 4c. Text-to-tag ratio bonus (High density of text relative to tags)
         val tagCount = el.allElements.size.coerceAtLeast(1)
         val textToTagRatio = words.toFloat() / tagCount.toFloat()
-        if (textToTagRatio > 5f) {
+        if (textToTagRatio > 10f) {
+            score *= 1.5f
+        } else if (textToTagRatio > 5f) {
             score *= 1.2f
         }
 
