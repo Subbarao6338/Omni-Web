@@ -97,17 +97,18 @@ object AdBlockManager {
     }
 
     private fun getDirectCategory(host: String): String? {
+        val lowerHost = host.lowercase()
         // Fast path check using Bloom Filter if initialized
         val filter = bloomFilter
-        if (filter != null && !filter.mightContain(host)) {
+        if (filter != null && !filter.mightContain(lowerHost)) {
             return null
         }
 
         // Precise check against individual sets
-        if (MALWARE_DOMAINS.contains(host)) return "[Malware]"
-        if (ADS_DOMAINS.contains(host)) return "[Ad]"
-        if (ANALYTICS_DOMAINS.contains(host)) return "[Analytics]"
-        if (SOCIAL_DOMAINS.contains(host)) return "[Social]"
+        if (MALWARE_DOMAINS.contains(lowerHost)) return "[Malware]"
+        if (ADS_DOMAINS.contains(lowerHost)) return "[Ad]"
+        if (ANALYTICS_DOMAINS.contains(lowerHost)) return "[Analytics]"
+        if (SOCIAL_DOMAINS.contains(lowerHost)) return "[Social]"
 
         return null
     }

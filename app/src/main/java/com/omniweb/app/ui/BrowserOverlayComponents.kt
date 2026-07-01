@@ -233,6 +233,7 @@ fun ContextMenuSheet(
     onCopyAddress: (String) -> Unit,
     onDownload: (String) -> Unit,
     onHighlight: () -> Unit,
+    onExplain: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -263,6 +264,12 @@ fun ContextMenuSheet(
                 headlineContent = { Text("Highlight Selection") },
                     leadingContent = { Icon(Icons.Default.BorderColor, null) },
                 modifier = Modifier.clickable { onHighlight(); onDismiss() }
+            )
+
+            ListItem(
+                headlineContent = { Text("Explain Selection (AI)") },
+                leadingContent = { Icon(Icons.Default.AutoAwesome, null) },
+                modifier = Modifier.clickable { onExplain(); onDismiss() }
             )
 
             when (result.type) {

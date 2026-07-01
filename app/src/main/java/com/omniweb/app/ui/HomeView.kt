@@ -138,43 +138,43 @@ fun HomeView(
             item {
                 val lastTab = tabs.find { it.id == activeTabId }
                 if (lastTab != null && lastTab.url != "about:home") {
-                    Card(
+                    ElevatedCard(
                         modifier = Modifier
                             .padding(horizontal = 24.dp)
                             .fillMaxWidth()
                             .clickable { onNavigate(lastTab.url) },
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)),
+                        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
                     ) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
+                                    .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                    .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (lastTab.faviconBitmap != null) {
                                     androidx.compose.foundation.Image(
                                         bitmap = lastTab.faviconBitmap!!.asImageBitmap(),
                                         contentDescription = null,
-                                        modifier = Modifier.size(24.dp).clip(RoundedCornerShape(4.dp))
+                                        modifier = Modifier.size(28.dp).clip(RoundedCornerShape(6.dp))
                                     )
                                 } else {
-                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(24.dp))
                                 }
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text("Continue browsing", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
-                                Text(lastTab.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(lastTab.url, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("CONTINUE BROWSING", fontSize = 10.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+                                Text(lastTab.title, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Text(lastTab.url, fontSize = 13.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
 
@@ -267,38 +267,27 @@ fun HomeView(
             if (shortcuts.isNotEmpty()) {
                 item {
                     SectionHeader("Shortcuts", onAction = { showAddShortcutDialog = true }, actionIcon = Icons.Default.Add)
-                    Box(modifier = Modifier.padding(horizontal = 12.dp)) {
-                        val itemsToDisplay = shortcuts + null // null represents the 'Add' button
-                        val columns = 4
-                        val rows = (itemsToDisplay.size + columns - 1) / columns
-
-                        Column {
-                            for (row in 0 until rows) {
-                                Row(modifier = Modifier.fillMaxWidth()) {
-                                    for (col in 0 until columns) {
-                                        val index = row * columns + col
-                                        Box(modifier = Modifier.weight(1f)) {
-                                            if (index < itemsToDisplay.size) {
-                                                val shortcut = itemsToDisplay[index]
-                                                if (shortcut != null) {
-                                                    ShortcutItem(
-                                                        shortcut,
-                                                        onClick = { onNavigate(shortcut.url) },
-                                                        onLongClick = {
-                                                            scope.launch {
-                                                                database.shortcutDao().deleteShortcut(shortcut)
-                                                            }
-                                                        }
-                                                    )
-                                                } else {
-                                                    AddShortcutItem(onClick = { showAddShortcutDialog = true })
-                                                }
-                                            }
-                                        }
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier.heightIn(max = 400.dp).padding(horizontal = 12.dp),
+                        contentPadding = PaddingValues(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        userScrollEnabled = false
+                    ) {
+                        items(shortcuts) { shortcut ->
+                            ShortcutItem(
+                                shortcut,
+                                onClick = { onNavigate(shortcut.url) },
+                                onLongClick = {
+                                    scope.launch {
+                                        database.shortcutDao().deleteShortcut(shortcut)
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(16.dp))
-                            }
+                            )
+                        }
+                        item {
+                            AddShortcutItem(onClick = { showAddShortcutDialog = true })
                         }
                     }
                     Spacer(modifier = Modifier.height(24.dp))

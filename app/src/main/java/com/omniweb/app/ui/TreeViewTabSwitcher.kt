@@ -20,21 +20,45 @@ fun TreeViewTabSwitcher(
     onTabSelect: (String) -> Unit,
     onTabClose: (String) -> Unit
 ) {
+    val roots = tabs.filter { it.parentTabId == null || tabs.none { t -> t.id == it.parentTabId } }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Simple list for now, as we don't have parent-child relationship in TabInfo yet
-        items(tabs) { tab ->
-            TabTreeItem(
-                tab = tab,
-                isSelected = tab.id == activeTabId,
-                onSelect = { onTabSelect(tab.id) },
-                onClose = { onTabClose(tab.id) }
-            )
+        roots.forEach { root ->
+            item(key = root.id) {
+                TabTreeItem(
+                    tab = root,
+                    isSelected = root.id == activeTabId,
+                    onSelect = { onTabSelect(root.id) },
+                    onClose = { onTabClose(root.id) },
+                    depth = 0
+                )
+            }
+            val children = getChildrenRecursive(root.id, tabs)
+            items(children, key = { it.first.id }) { (child, depth) ->
+                TabTreeItem(
+                    tab = child,
+                    isSelected = child.id == activeTabId,
+                    onSelect = { onTabSelect(child.id) },
+                    onClose = { onTabClose(child.id) },
+                    depth = depth
+                )
+            }
         }
     }
+}
+
+private fun getChildrenRecursive(parentId: String, allTabs: List<TabInfo>, depth: Int = 1): List<Pair<TabInfo, Int>> {
+    val result = mutableListOf<Pair<TabInfo, Int>>()
+    val children = allTabs.filter { it.parentTabId == parentId }
+    children.forEach { child ->
+        result.add(child to depth)
+        result.addAll(getChildrenRecursive(child.id, allTabs, depth + 1))
+    }
+    return result
 }
 
 @Composable
@@ -42,11 +66,13 @@ fun TabTreeItem(
     tab: TabInfo,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    depth: Int
 ) {
     OutlinedCard(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(start = (depth * 20).dp)
             .clickable(onClick = onSelect),
         colors = CardDefaults.outlinedCardColors(
             containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant

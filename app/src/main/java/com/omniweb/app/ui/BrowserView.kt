@@ -158,6 +158,7 @@ fun BrowserView(
     var summaryContent by remember { mutableStateOf<String?>(null) }
     var qrBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var analysisResult by remember { mutableStateOf<AnalysisResult?>(null) }
+    var explanationContent by remember { mutableStateOf<String?>(null) }
 
     var isInspectMode by remember { mutableStateOf(false) }
 
@@ -1081,10 +1082,10 @@ fun BrowserView(
     if (showContextMenu && contextMenuResult != null) {
         ContextMenuSheet(
             result = contextMenuResult!!,
-            onOpenInNewTab = { viewModel.createTab(it) },
+            onOpenInNewTab = { viewModel.createTab(it, parentTabId = activeTab.id) },
             onOpenInBackground = { url ->
                 val currentTabId = activeTab.id
-                viewModel.createTab(url)
+                viewModel.createTab(url, parentTabId = activeTab.id)
                 viewModel.selectTab(currentTabId)
             },
             onCopyAddress = { url ->
@@ -1125,7 +1126,26 @@ fun BrowserView(
                     }
                 }
             },
+            onExplain = {
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function() { return window.getSelection().toString(); })();") { selection ->
+                    val text = selection?.trim()?.removeSurrounding("\"") ?: ""
+                    if (text.isNotEmpty()) {
+                        scope.launch {
+                            explanationContent = com.omniweb.app.util.PageUtils.explainSelection(text, settings.geminiApiKey)
+                        }
+                    }
+                }
+            },
             onDismiss = { showContextMenu = false }
+        )
+    }
+
+    if (explanationContent != null) {
+        AlertDialog(
+            onDismissRequest = { explanationContent = null },
+            title = { Text("AI Explanation") },
+            text = { Text(explanationContent!!) },
+            confirmButton = { TextButton(onClick = { explanationContent = null }) { Text("Close") } }
         )
     }
 }

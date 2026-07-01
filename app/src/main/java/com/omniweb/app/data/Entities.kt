@@ -106,7 +106,8 @@ data class TabEntry(
     val isIncognito: Boolean = false,
     val lastActive: Long = System.currentTimeMillis(),
     val scrollX: Int = 0,
-    val scrollY: Int = 0
+    val scrollY: Int = 0,
+    val parentTabId: String? = null
 )
 
 @Entity(tableName = "downloads")
