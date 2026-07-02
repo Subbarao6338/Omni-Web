@@ -1136,6 +1136,29 @@ fun BrowserView(
                     }
                 }
             },
+            onCopyAsMarkdown = {
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
+                    (function() {
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const container = document.createElement('div');
+                            for (let i = 0; i < selection.rangeCount; i++) {
+                                container.appendChild(selection.getRangeAt(i).cloneContents());
+                            }
+                            return container.innerHTML;
+                        }
+                        return document.documentElement.outerHTML;
+                    })();
+                """.trimIndent()) { html ->
+                    val cleanHtml = if (html != null && html.startsWith("\"") && html.endsWith("\"")) {
+                        html.substring(1, html.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
+                    } else html ?: ""
+                    val markdown = com.omniweb.app.util.PageUtils.htmlToMarkdown(cleanHtml)
+                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Markdown", markdown))
+                    Toast.makeText(context, "Copied as Markdown", Toast.LENGTH_SHORT).show()
+                }
+            },
             onDismiss = { showContextMenu = false }
         )
     }

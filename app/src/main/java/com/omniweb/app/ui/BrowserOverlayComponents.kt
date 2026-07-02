@@ -234,6 +234,7 @@ fun ContextMenuSheet(
     onDownload: (String) -> Unit,
     onHighlight: () -> Unit,
     onExplain: () -> Unit,
+    onCopyAsMarkdown: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -270,6 +271,12 @@ fun ContextMenuSheet(
                 headlineContent = { Text("Explain Selection (AI)") },
                 leadingContent = { Icon(Icons.Default.AutoAwesome, null) },
                 modifier = Modifier.clickable { onExplain(); onDismiss() }
+            )
+
+            ListItem(
+                headlineContent = { Text("Copy as Markdown") },
+                leadingContent = { Icon(Icons.Default.Description, null) },
+                modifier = Modifier.clickable { onCopyAsMarkdown(); onDismiss() }
             )
 
             when (result.type) {

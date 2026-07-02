@@ -59,7 +59,7 @@ object PageUtils {
         Toast.makeText(context, "Saved as Markdown: ${file.name}", Toast.LENGTH_SHORT).show()
     }
 
-    private fun htmlToMarkdown(html: String): String {
+    fun htmlToMarkdown(html: String): String {
         val doc = org.jsoup.Jsoup.parse(html)
         val sb = StringBuilder()
 

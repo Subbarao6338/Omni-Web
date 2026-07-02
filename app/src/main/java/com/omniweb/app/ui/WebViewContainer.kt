@@ -461,11 +461,17 @@ private fun antiFingerprintScript() = """
         hideProperty(navigator, 'plugins', []);
         hideProperty(navigator, 'languages', ['en-US', 'en']);
 
-        // Minimize canvas fingerprinting by adding slight noise (placeholder logic)
+        // Minimize canvas fingerprinting by adding slight noise
         const originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
         CanvasRenderingContext2D.prototype.getImageData = function() {
             const imageData = originalGetImageData.apply(this, arguments);
-            // Could add subtle noise here
+            const pixels = imageData.data;
+            for (let i = 0; i < pixels.length; i += 4) {
+                // Add extremely subtle noise to the least significant bits of RGB
+                pixels[i] = pixels[i] ^ (Math.random() < 0.1 ? 1 : 0);
+                pixels[i+1] = pixels[i+1] ^ (Math.random() < 0.1 ? 1 : 0);
+                pixels[i+2] = pixels[i+2] ^ (Math.random() < 0.1 ? 1 : 0);
+            }
             return imageData;
         };
     })();
