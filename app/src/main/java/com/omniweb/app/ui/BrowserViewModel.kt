@@ -427,8 +427,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         // More aggressive timeout if memory is low
         val timeout = when {
-            force -> 0L
-            memoryInfo.lowMemory -> 1 * 60 * 1000L // 1 minute
+            force || memoryInfo.lowMemory -> 0L
             else -> 5 * 60 * 1000L // 5 minutes
         }
 

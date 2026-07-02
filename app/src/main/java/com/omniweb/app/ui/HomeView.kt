@@ -248,13 +248,23 @@ fun HomeView(
                                     ListItem(
                                         headlineContent = { Text(suggestion.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         supportingContent = { Text(suggestion.url, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 12.sp) },
-                                        leadingContent = { Icon(if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                                        leadingContent = {
+                                            Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    if (suggestion.isHistory) Icons.Default.History else Icons.Default.Star,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(20.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        },
                                         modifier = Modifier.clickable {
                                             val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
                                             if (target != "about:home") {
                                                 onNavigate(target)
                                             }
-                                        }
+                                        },
+                                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                                     )
                                 }
                             }
