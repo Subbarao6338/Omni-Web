@@ -108,7 +108,7 @@ fun WebViewContainer(
                         mediaPlaybackRequiresUserGesture = false
                         loadWithOverviewMode = true
                         useWideViewPort = true
-                        mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                         cacheMode = WebSettings.LOAD_DEFAULT
                         setSupportZoom(true)
                         builtInZoomControls = true

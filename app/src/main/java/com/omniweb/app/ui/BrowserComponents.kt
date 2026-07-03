@@ -236,10 +236,11 @@ fun BrowserAddressBar(
                                 LinearProgressIndicator(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(3.dp)
-                                        .clip(RoundedCornerShape(1.5.dp)),
+                                        .height(4.dp)
+                                        .align(Alignment.BottomCenter)
+                                        .clip(RoundedCornerShape(2.dp)),
                                     color = MaterialTheme.colorScheme.primary,
-                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    trackColor = Color.Transparent
                                 )
                             }
                         }
