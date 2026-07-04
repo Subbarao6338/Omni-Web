@@ -26,10 +26,6 @@ object AdBlockManager {
     }
     private val MALWARE_DOMAINS = ConcurrentHashMap.newKeySet<String>()
 
-    private val cachedBlockedDomains: Set<String> by lazy {
-        ADS_DOMAINS + ANALYTICS_DOMAINS + SOCIAL_DOMAINS + MALWARE_DOMAINS
-    }
-
     @Volatile
     private var bloomFilter: DefaultBloomFilter<String>? = null
 
@@ -74,7 +70,7 @@ object AdBlockManager {
     }
 
     fun getAllBlockedDomains(): Set<String> {
-        return cachedBlockedDomains
+        return ADS_DOMAINS + ANALYTICS_DOMAINS + SOCIAL_DOMAINS + MALWARE_DOMAINS
     }
 
     fun getCategory(host: String): String? {

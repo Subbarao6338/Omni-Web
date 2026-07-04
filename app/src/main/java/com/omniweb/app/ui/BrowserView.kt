@@ -345,6 +345,14 @@ fun BrowserView(
                     onShowTabs = { showTabs = true },
                     onShowMenu = { showTools = true }
                 )
+                if (activeTab.scrollProgress > 0) {
+                    LinearProgressIndicator(
+                        progress = { activeTab.scrollProgress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Transparent
+                    )
+                }
             }
         },
         bottomBar = {
@@ -441,6 +449,14 @@ fun BrowserView(
                     onShowTabs = { showTabs = true },
                     onShowMenu = { showTools = true }
                 )
+                if (activeTab.scrollProgress > 0) {
+                    LinearProgressIndicator(
+                        progress = { activeTab.scrollProgress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = Color.Transparent
+                    )
+                }
             }
         }
     ) { padding ->
