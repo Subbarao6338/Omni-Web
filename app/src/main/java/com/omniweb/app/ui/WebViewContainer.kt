@@ -479,6 +479,16 @@ private fun antiFingerprintScript() = """
 
 private fun mediaSnifferScript() = """
     (function() {
+        function getHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
+            return Math.abs(hash).toString(36);
+        }
+
         function sniff() {
             const media = [];
             const seen = new Set();
@@ -495,7 +505,7 @@ private fun mediaSnifferScript() = """
                     if (isVideo || isAudio || isImage) {
                         seen.add(src);
                         media.push({
-                            id: Math.random().toString(36).substr(2, 9),
+                                id: getHash(src),
                             src: src,
                             type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
                             title: document.title || 'Media File'
@@ -511,22 +521,42 @@ private fun mediaSnifferScript() = """
 
                     seen.add(resource.name);
                     media.push({
-                        id: 'stream-' + Math.random().toString(36).substr(2, 5),
-                        src: resource.name,
+                        id: 'stream-' + getHash(name),
+                        src: name,
                         type: 'video',
                         title: 'Stream: ' + (document.title || 'Video')
                     });
                 }
             });
+
             if (media.length > 0) {
-                Android.postMedia(JSON.stringify(media));
+                const currentJson = JSON.stringify(media);
+                if (currentJson !== lastReportedJson) {
+                    lastReportedJson = currentJson;
+                    Android.postMedia(currentJson);
+                }
             }
         }
+
+        function debouncedSniff() {
+            if (sniffTimeout) clearTimeout(sniffTimeout);
+            sniffTimeout = setTimeout(sniff, 500);
+        }
+
         if (!window.omniSnifferStarted) {
             window.omniSnifferStarted = true;
-            const observer = new MutationObserver(sniff);
-            observer.observe(document.body, { childList: true, subtree: true });
-            setInterval(sniff, 5000);
+            const observer = new MutationObserver((mutations) => {
+                let shouldSniff = false;
+                for (const mutation of mutations) {
+                    if (mutation.addedNodes.length > 0) {
+                        shouldSniff = true;
+                        break;
+                    }
+                }
+                if (shouldSniff) debouncedSniff();
+            });
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            setInterval(sniff, 10000);
             sniff();
         }
     })();
