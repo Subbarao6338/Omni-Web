@@ -322,6 +322,62 @@ fun ReaderModeView(
         else -> Color(0xFFFFFFFF) to Color(0xFF1A1A1A)
     }
 
+    val fontStack = when(fontFamilyType) {
+        "serif" -> "serif"
+        "mono" -> "monospace"
+        else -> "sans-serif"
+    }
+
+    val readerHtml = """
+        <html>
+        <head>
+            <style>
+                body {
+                    background-color: ${String.format("#%06X", (backgroundColor.value.toLong() and 0xFFFFFF))};
+                    color: ${String.format("#%06X", (textColor.value.toLong() and 0xFFFFFF))};
+                    font-family: $fontStack;
+                    font-size: ${fontSize}px;
+                    line-height: 1.6;
+                    padding: 24px;
+                    margin: 0;
+                }
+                h1.reader-title {
+                    font-size: 1.5em;
+                    font-weight: 900;
+                    line-height: 1.2;
+                    margin-bottom: 24px;
+                }
+                img {
+                    max-width: 100%;
+                    height: auto;
+                    border-radius: 8px;
+                    margin: 16px 0;
+                }
+                pre, code {
+                    background-color: rgba(0,0,0,0.05);
+                    padding: 4px;
+                    border-radius: 4px;
+                    font-family: monospace;
+                }
+                blockquote {
+                    border-left: 4px solid #ccc;
+                    padding-left: 16px;
+                    margin-left: 0;
+                    font-style: italic;
+                }
+                a {
+                    color: inherit;
+                    text-decoration: underline;
+                }
+            </style>
+        </head>
+        <body>
+            <h1 class='reader-title'>$title</h1>
+            $content
+        </body>
+        </html>
+    """.trimIndent()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -383,47 +439,22 @@ fun ReaderModeView(
         },
         containerColor = backgroundColor
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = (fontSize * 1.5).sp,
-                fontWeight = FontWeight.Black,
-                lineHeight = (fontSize * 1.8).sp,
-                color = textColor,
-                fontFamily = when(fontFamilyType) {
-                    "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
-                    "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
-                    else -> androidx.compose.ui.text.font.FontFamily.SansSerif
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                android.webkit.WebView(ctx).apply {
+                    setBackgroundColor(backgroundColor.value.toInt())
+                    this.settings.apply {
+                        javaScriptEnabled = false
+                        loadWithOverviewMode = true
+                        useWideViewPort = true
+                    }
                 }
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            val cleanContent = content
-                .replace(Regex("<p.*?>", RegexOption.IGNORE_CASE), "\n\n")
-                .replace(Regex("<br.*?>", RegexOption.IGNORE_CASE), "\n")
-                .replace(Regex("<h[1-6].*?>(.*?)</h[1-6]>", RegexOption.IGNORE_CASE), "\n\n# $1\n\n")
-                .replace(Regex("<li.*?>", RegexOption.IGNORE_CASE), "\n• ")
-                .replace(Regex("<[^>]*>"), "")
-                .replace(Regex("\n{3,}"), "\n\n")
-                .trim()
-
-            Text(
-                text = cleanContent,
-                fontSize = fontSize.sp,
-                lineHeight = (fontSize * 1.6).sp,
-                color = textColor.copy(alpha = 0.9f),
-                fontFamily = when(fontFamilyType) {
-                    "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
-                    "mono" -> androidx.compose.ui.text.font.FontFamily.Monospace
-                    else -> androidx.compose.ui.text.font.FontFamily.SansSerif
-                }
-            )
-        }
+            },
+            update = { webView ->
+                webView.loadDataWithBaseURL(null, readerHtml, "text/html", "UTF-8", null)
+            },
+            modifier = Modifier.padding(padding).fillMaxSize()
+        )
     }
 }
 

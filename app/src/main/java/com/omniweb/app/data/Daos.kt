@@ -209,3 +209,15 @@ interface ReadingListDao {
     @Query("DELETE FROM reading_list")
     suspend fun clearAll()
 }
+
+@Dao
+interface RssItemDao {
+    @Query("SELECT * FROM rss_items ORDER BY timestamp DESC")
+    fun getAllRssItems(): Flow<List<RssItemEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRssItems(items: List<RssItemEntity>)
+
+    @Query("DELETE FROM rss_items")
+    suspend fun clearAllRssItems()
+}

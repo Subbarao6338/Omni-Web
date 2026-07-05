@@ -185,3 +185,12 @@ data class CustomRedirectEntry(
     val target: String,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "rss_items")
+data class RssItemEntity(
+    @PrimaryKey val link: String,
+    val title: String?,
+    val pubDate: String?,
+    val source: String,
+    val timestamp: Long = System.currentTimeMillis()
+)

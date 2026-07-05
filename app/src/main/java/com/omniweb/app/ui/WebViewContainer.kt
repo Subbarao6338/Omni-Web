@@ -200,8 +200,14 @@ fun WebViewContainer(
                         }
                     }
 
-                    setOnScrollChangeListener { _, scrollX, scrollY, _, _ ->
+                    setOnScrollChangeListener { v, scrollX, scrollY, _, _ ->
                         onScrollChanged(scrollX, scrollY)
+                        val webView = v as WebView
+                        val contentHeight = webView.contentHeight * webView.scale
+                        val totalScrollable = contentHeight - webView.height
+                        if (totalScrollable > 0) {
+                            tab.scrollProgress = scrollY.toFloat() / totalScrollable
+                        }
                     }
 
                     setOnLongClickListener {
@@ -479,6 +485,9 @@ private fun antiFingerprintScript() = """
 
 private fun mediaSnifferScript() = """
     (function() {
+        let lastReportedJson = '';
+        let sniffTimeout = null;
+
         function getHash(str) {
             let hash = 0;
             for (let i = 0; i < str.length; i++) {
@@ -521,8 +530,8 @@ private fun mediaSnifferScript() = """
 
                     seen.add(resource.name);
                     media.push({
-                        id: 'stream-' + getHash(name),
-                        src: name,
+                        id: 'stream-' + getHash(resource.name),
+                        src: resource.name,
                         type: 'video',
                         title: 'Stream: ' + (document.title || 'Video')
                     });
