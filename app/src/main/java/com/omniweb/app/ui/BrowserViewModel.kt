@@ -213,6 +213,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             webViewStateCache[tabId]?.let { state ->
                 restoreState(state)
                 webViewStateCache.remove(tabId)
+            } ?: run {
+                // If no saved state bundle, check if we have scroll info in TabInfo
+                tabs.find { it.id == tabId }?.let { tab ->
+                    if (tab.scrollX != 0 || tab.scrollY != 0) {
+                        scrollTo(tab.scrollX, tab.scrollY)
+                    }
+                }
             }
         }
         webViewCache[tabId] = webView

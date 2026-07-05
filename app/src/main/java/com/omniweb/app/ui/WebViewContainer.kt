@@ -425,7 +425,10 @@ fun WebViewContainer(
                 val host = Uri.parse(view.url ?: tab.url).host ?: ""
                 val perSite = viewModel.getPerSiteSettings(host)
 
-                view.settings.javaScriptEnabled = perSite?.javaScriptEnabled ?: settings.javaScriptEnabled
+                val targetJsEnabled = perSite?.javaScriptEnabled ?: settings.javaScriptEnabled
+                if (view.settings.javaScriptEnabled != targetJsEnabled) {
+                    view.settings.javaScriptEnabled = targetJsEnabled
+                }
 
                 val targetUa = if (perSite?.desktopMode == true) {
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

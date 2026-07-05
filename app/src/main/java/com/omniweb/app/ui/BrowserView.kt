@@ -329,6 +329,7 @@ fun BrowserView(
                         }
                     },
                     onScanClick = onOpenScanner,
+                    isIncognito = activeTab.isIncognito,
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -433,6 +434,7 @@ fun BrowserView(
                         }
                     },
                     onScanClick = onOpenScanner,
+                    isIncognito = activeTab.isIncognito,
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -944,7 +946,8 @@ fun BrowserView(
         val blockedTrackers = synchronized(viewModel.blockedTrackersByTab) {
             viewModel.blockedTrackersByTab[activeTab.id]?.toList() ?: emptyList()
         }
-        PrivacyReportView(
+        PrivacyDashboardView(
+            url = activeTab.url,
             blockedTrackers = blockedTrackers,
             onBack = { showPrivacyReport = false }
         )

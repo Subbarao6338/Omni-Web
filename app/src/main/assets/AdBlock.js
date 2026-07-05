@@ -16,7 +16,9 @@
         "[class*='advertisement']", "[id*='advertisement']", "div[class*='display-ad']",
         "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
         "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
-        "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']"
+        "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']",
+        "div[class*='cookie-banner']", "div[id*='consent-popup']",
+        "[id*='newsletter-modal']", ".sp-newsletter-popup", "div[class*='paywall']"
     ];
 
     const joinedSelector = selectors.join(', ');
