@@ -71,6 +71,7 @@ fun BrowserAddressBar(
     onSuggestionClick: (Suggestion) -> Unit,
     blockedCount: Int = 0,
     tabCount: Int = 0,
+    isIncognito: Boolean = false,
     mediaCount: Int = 0,
     onShowTabs: () -> Unit = {},
     onShowMenu: () -> Unit = {}
@@ -219,14 +220,14 @@ fun BrowserAddressBar(
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                                 keyboardActions = KeyboardActions(onGo = { onGo() }),
                                 colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    focusedContainerColor = if (isIncognito) Color(0xFF2D2D2D) else MaterialTheme.colorScheme.surfaceVariant,
+                                    unfocusedContainerColor = if (isIncognito) Color(0xFF2D2D2D) else MaterialTheme.colorScheme.surfaceVariant,
                                     focusedIndicatorColor = Color.Transparent,
                                     unfocusedIndicatorColor = Color.Transparent,
-                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
                                 ),
-                                textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
+                                textStyle = androidx.compose.ui.text.TextStyle(color = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface, fontSize = 16.sp)
                             )
                             androidx.compose.animation.AnimatedVisibility(
                                 visible = isLoading,
@@ -260,6 +261,14 @@ fun BrowserAddressBar(
                                         ListItem(
                                             headlineContent = { Text(suggestion.title, maxLines = 1) },
                                             supportingContent = { Text(suggestion.url, maxLines = 1, fontSize = 12.sp) },
+                                            leadingContent = {
+                                                val icon = when {
+                                                    suggestion.isHistory -> Icons.Default.History
+                                                    suggestion.url == suggestion.title -> Icons.Default.Search
+                                                    else -> Icons.Default.Star
+                                                }
+                                                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                            },
                                             modifier = Modifier.clickable { onSuggestionClick(suggestion) }
                                         )
                                     }

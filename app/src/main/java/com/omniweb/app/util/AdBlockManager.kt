@@ -75,25 +75,25 @@ object AdBlockManager {
 
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
+        val lowerHost = host.lowercase()
 
         // 1. Try full host first
-        getDirectCategory(host)?.let { return it }
+        getDirectCategory(lowerHost)?.let { return it }
 
         // 2. Try parent domains (e.g., ad.doubleclick.net -> doubleclick.net)
-        var dotIdx = host.indexOf('.')
-        while (dotIdx != -1 && dotIdx < host.length - 1) {
-            val suffix = host.substring(dotIdx + 1)
+        var dotIdx = lowerHost.indexOf('.')
+        while (dotIdx != -1 && dotIdx < lowerHost.length - 1) {
+            val suffix = lowerHost.substring(dotIdx + 1)
             if (suffix.isEmpty()) break
 
             getDirectCategory(suffix)?.let { return it }
 
-            dotIdx = host.indexOf('.', dotIdx + 1)
+            dotIdx = lowerHost.indexOf('.', dotIdx + 1)
         }
         return null
     }
 
-    private fun getDirectCategory(host: String): String? {
-        val lowerHost = host.lowercase()
+    private fun getDirectCategory(lowerHost: String): String? {
         // Fast path check using Bloom Filter if initialized
         val filter = bloomFilter
         if (filter != null && !filter.mightContain(lowerHost)) {
