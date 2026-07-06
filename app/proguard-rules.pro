@@ -22,3 +22,6 @@
 # Preserve line number information for debugging stack traces
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Suppress warnings for missing java.beans classes (often used by libraries like SnakeYAML)
+-dontwarn java.beans.**

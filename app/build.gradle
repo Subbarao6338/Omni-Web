@@ -53,6 +53,13 @@ android {
             keyAlias "androiddebugkey"
             keyPassword "android"
         }
+        release {
+            storeFile file("signing.bks")
+            storePassword "android"
+            keyAlias "signing_key"
+            keyPassword "android"
+            storeType "BKS"
+        }
     }
     buildTypes {
         debug {
@@ -61,11 +68,12 @@ android {
         }
         release {
             buildConfigField "String", "GEMINI_API_KEY", "\"${System.getenv('GEMINI_API_KEY') ?: ''}\""
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk {
+                abiFilters 'arm64-v8a'
                 debugSymbolLevel = 'none'
             }
         }
