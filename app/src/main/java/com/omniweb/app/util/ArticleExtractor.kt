@@ -112,10 +112,16 @@ object ArticleExtractor {
         // 5. Semantic Bonuses/Penalties
         val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
         val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description")
-        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend")
+        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar")
 
-        if (positivePatterns.any { attrString.contains(it) }) score += 200f
-        if (negativePatterns.any { attrString.contains(it) }) score -= 200f
+        if (positivePatterns.any { attrString.contains(it) }) {
+            score += 200f
+            if (attrString.contains("article")) score += 100f
+        }
+        if (negativePatterns.any { attrString.contains(it) }) {
+            score -= 200f
+            if (attrString.contains("nav") || attrString.contains("menu")) score -= 150f
+        }
 
         // 6. Image/Media bonus (if within a content block)
         val imgCount = el.select("img").size

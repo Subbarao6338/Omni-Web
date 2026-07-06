@@ -46,7 +46,8 @@ data class PerSiteSettings(
     val desktopMode: Boolean = false,
     val adBlockEnabled: Boolean = true,
     val javaScriptEnabled: Boolean = true,
-    val zoomLevel: Float = 1.0f
+    val zoomLevel: Float = 1.0f,
+    val customUserAgent: String? = null
 )
 
 @Entity(tableName = "history")

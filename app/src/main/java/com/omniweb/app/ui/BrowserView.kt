@@ -165,6 +165,7 @@ fun BrowserView(
     var showPrivacyReport by remember { mutableStateOf(false) }
     var showSiteSettings by remember { mutableStateOf(false) }
     var showAiChat by remember { mutableStateOf(false) }
+    var showTranslateDialog by remember { mutableStateOf(false) }
 
     var passwordToSave by remember { mutableStateOf<Triple<String, String, String>?>(null) } // site, user, pass
     var showVideoSpeed by remember { mutableStateOf(false) }
@@ -726,6 +727,10 @@ fun BrowserView(
                         onOpenDownloads()
                         showTools = false
                     }}
+                    item { ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
+                        showTranslateDialog = true
+                        showTools = false
+                    }}
                     item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             val shortcutManager = context.getSystemService(ShortcutManager::class.java)
@@ -853,6 +858,15 @@ fun BrowserView(
                 Spacer(modifier = Modifier.height(48.dp))
             }
         }
+    }
+
+    if (showTranslateDialog) {
+        TranslateDialog(
+            onLanguageSelected = { lang ->
+                viewModel.translatePage(activeTab.id, lang)
+            },
+            onDismiss = { showTranslateDialog = false }
+        )
     }
 
     if (showSource) {
