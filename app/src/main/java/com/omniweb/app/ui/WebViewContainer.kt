@@ -117,7 +117,9 @@ fun WebViewContainer(
                         allowContentAccess = true
                         allowFileAccess = true
 
-                        val ua = if (initialPerSite?.desktopMode == true) {
+                        val ua = if (initialPerSite?.customUserAgent != null) {
+                            initialPerSite.customUserAgent
+                        } else if (initialPerSite?.desktopMode == true) {
                             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                         } else if (settings.strictPrivacyMode) {
                             "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
@@ -430,7 +432,9 @@ fun WebViewContainer(
                     view.settings.javaScriptEnabled = targetJsEnabled
                 }
 
-                val targetUa = if (perSite?.desktopMode == true) {
+                val targetUa = if (perSite?.customUserAgent != null) {
+                    perSite.customUserAgent
+                } else if (perSite?.desktopMode == true) {
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 } else if (settings.strictPrivacyMode) {
                     "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"

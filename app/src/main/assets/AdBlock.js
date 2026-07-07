@@ -18,7 +18,10 @@
         "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
         "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']",
         "div[class*='cookie-banner']", "div[id*='consent-popup']",
-        "[id*='newsletter-modal']", ".sp-newsletter-popup", "div[class*='paywall']"
+        "[id*='newsletter-modal']", ".sp-newsletter-popup", "div[class*='paywall']",
+        ".ad-bar", ".ad-placer", ".ad-placeholder", ".ad-sense", ".ad-space",
+        ".ad-zone", ".ad-unit", ".adbox", ".adframe", ".adsense", ".advert",
+        ".banner-ad", ".sidebar-ad", ".top-ad", ".bottom-ad"
     ];
 
     const joinedSelector = selectors.join(', ');
@@ -36,8 +39,6 @@
                     if (node.matches(joinedSelector)) {
                         node.style.display = 'none';
                     }
-                    // For performance, we don't querySelectorAll on every addition
-                    // The CSS rule handles most cases automatically.
                 }
             }
         }

@@ -12,7 +12,8 @@ object AdBlockManager {
     private val ADS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {
         addAll(listOf(
             "doubleclick.net", "googleadservices.com", "googlesyndication.com",
-            "moatads.com", "taboola.com", "outbrain.com", "adservice.google.com"
+            "moatads.com", "taboola.com", "outbrain.com", "adservice.google.com",
+            "adnxs.com", "criteo.com", "carbonads.net"
         ))
     }
     private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {

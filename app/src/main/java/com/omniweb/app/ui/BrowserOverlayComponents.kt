@@ -70,6 +70,18 @@ fun SiteSettingsDialog(
                 leadingContent = { Icon(Icons.Default.Javascript, contentDescription = null) }
             )
 
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Custom User Agent", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                OutlinedTextField(
+                    value = currentSettings.customUserAgent ?: "",
+                    onValueChange = { onUpdate(currentSettings.copy(customUserAgent = it.ifBlank { null })) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Default") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onViewPrivacyReport,

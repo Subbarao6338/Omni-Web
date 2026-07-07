@@ -25,7 +25,10 @@ object UrlUtils {
         "!yh" to "https://search.yahoo.com/search?p=",
         "!k" to "https://kotlinlang.org/?q=",
         "!android" to "https://developer.android.com/s/results?q=",
-        "!dg" to "https://duckduckgo.com/?q="
+        "!dg" to "https://duckduckgo.com/?q=",
+        "!so" to "https://stackoverflow.com/search?q=",
+        "!mdn" to "https://developer.mozilla.org/search?q=",
+        "!duck" to "https://duckduckgo.com/?q="
     )
 
     fun resolveUrl(input: String, searchEngine: String): String {

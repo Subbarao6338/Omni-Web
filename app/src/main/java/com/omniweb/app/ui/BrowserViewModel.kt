@@ -12,9 +12,10 @@ import com.omniweb.app.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
-import java.util.UUID
+import java.util.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
@@ -25,7 +26,10 @@ import com.omniweb.app.util.AccessibilityTools
 
 class BrowserViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
-    private val okHttpClient = OkHttpClient()
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(5, TimeUnit.SECONDS)
+        .build()
 
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
@@ -590,6 +594,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     suspend fun chatWithPage(url: String, content: String, message: String, apiKey: String?): String {
         if (apiKey.isNullOrBlank()) return "Please set Gemini API key in Settings."
         return com.omniweb.app.util.PageUtils.chatWithPage(url, content, message, apiKey)
+    }
+
+    fun translatePage(tabId: String, targetLanguage: String) {
+        val webView = webViewCache[tabId] ?: return
+        val url = webView.url ?: return
+        val translateUrl = "https://translate.google.com/translate?sl=auto&tl=$targetLanguage&u=${android.net.Uri.encode(url)}"
+        webView.loadUrl(translateUrl)
     }
 
     private suspend fun fetchSuggestionsInternal(query: String) = withContext(Dispatchers.IO) {
