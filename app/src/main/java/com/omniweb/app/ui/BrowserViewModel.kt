@@ -442,13 +442,17 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             else -> 5 * 60 * 1000L // 5 minutes
         }
 
+        val maxCacheSize = if (memoryInfo.lowMemory) 2 else 5
+
         // Use a list to avoid ConcurrentModificationException
-        val tabsToHibernate = webViewCache.keys.filter { it != activeId && it != splitId }.filter { tabId ->
+        val tabsToHibernate = webViewCache.keys.filter { it != activeId && it != splitId }.toMutableList()
+
+        val filteredToHibernate = tabsToHibernate.filter { tabId ->
             val lastActive = tabLastActive[tabId] ?: 0L
-            force || (now - lastActive > timeout) || memoryInfo.lowMemory
+            force || (now - lastActive > timeout) || memoryInfo.lowMemory || (webViewCache.size > maxCacheSize)
         }
 
-        tabsToHibernate.forEach { tabId ->
+        filteredToHibernate.forEach { tabId ->
             webViewCache.remove(tabId)?.let { webView ->
                 val state = android.os.Bundle()
                 webView.saveState(state)

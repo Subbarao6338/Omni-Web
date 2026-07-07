@@ -19,7 +19,9 @@ object ArticleExtractor {
                 ".breadcrumb, .tags, .author-info, .widget, .popup, .modal, " +
                 ".share, .social, .ad, .advert, .banner, .cookie, .paywall, " +
                 "[id*='ad-'], [class*='ad-'], .cookie-notice, .consent-banner, " +
-                ".newsletter-signup, .promotion, [role='complementary'], [role='navigation']"
+                ".newsletter-signup, .promotion, [role='complementary'], [role='navigation'], " +
+                ".outbrain, .taboola, .revcontent, .z-ad, .recommended-articles, .suggested-content, " +
+                ".article-sidebar, .post-sidebar, .entry-sidebar, .right-column, .left-column"
             doc.select(junkSelector).remove()
 
             // 2. Scoring Based Candidate Selection
@@ -103,7 +105,9 @@ object ArticleExtractor {
         // 4c. Text-to-tag ratio bonus (High density of text relative to tags)
         val tagCount = el.allElements.size.coerceAtLeast(1)
         val textToTagRatio = words.toFloat() / tagCount.toFloat()
-        if (textToTagRatio > 10f) {
+        if (textToTagRatio > 15f) {
+            score *= 2.0f
+        } else if (textToTagRatio > 10f) {
             score *= 1.5f
         } else if (textToTagRatio > 5f) {
             score *= 1.2f
@@ -111,12 +115,12 @@ object ArticleExtractor {
 
         // 5. Semantic Bonuses/Penalties
         val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
-        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description")
-        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar")
+        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description", "prose")
+        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar", "aside", "navigation")
 
         if (positivePatterns.any { attrString.contains(it) }) {
-            score += 200f
-            if (attrString.contains("article")) score += 100f
+            score += 250f
+            if (attrString.contains("article") || attrString.contains("story")) score += 150f
         }
         if (negativePatterns.any { attrString.contains(it) }) {
             score -= 200f

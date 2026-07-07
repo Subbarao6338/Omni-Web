@@ -34,16 +34,23 @@ object AdBlockManager {
     private var initJob: Job? = null
 
     fun init(context: Context): Job {
-        return initJob ?: synchronized(this) {
+        val existingJob = initJob
+        if (existingJob != null && (existingJob.isActive || existingJob.isCompleted)) {
+            return existingJob
+        }
+
+        return synchronized(this) {
             initJob ?: CoroutineScope(Dispatchers.IO).launch {
                 val parser = HostsFileParser()
 
-                loadHosts(context, "hosts.txt", ADS_DOMAINS, parser)
-                loadHosts(context, "malware.txt", MALWARE_DOMAINS, parser)
+                val loadHosts1 = async { loadHosts(context, "hosts.txt", ADS_DOMAINS, parser) }
+                val loadHosts2 = async { loadHosts(context, "malware.txt", MALWARE_DOMAINS, parser) }
+
+                awaitAll(loadHosts1, loadHosts2)
 
                 val allDomains = getAllBlockedDomains()
                 bloomFilter = DefaultBloomFilter(
-                    numberOfElements = allDomains.size.coerceAtLeast(1000),
+                    numberOfElements = allDomains.size.coerceAtLeast(50000),
                     falsePositiveRate = 0.01,
                     hashingAlgorithm = MurmurHashStringAdapter()
                 ).apply {

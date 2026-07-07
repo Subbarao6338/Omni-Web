@@ -1,9 +1,49 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/.
- * Created by CookieJarApps 17/12/2020 */
+(function() {
+    if (window.omniTextReflowApplied) return;
+    window.omniTextReflowApplied = true;
 
-(function () {
-    'use strict';
+    const style = document.createElement('style');
+    style.id = 'omni-text-reflow';
+    style.innerHTML = `
+        html, body {
+            overflow-x: hidden !important;
+            width: 100vw !important;
+            position: relative !important;
+        }
+        * {
+            max-width: 100vw !important;
+            box-sizing: border-box !important;
+            overflow-wrap: break-word !important;
+        }
+        img, video, iframe, table, canvas {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+    `;
+    document.head.appendChild(style);
 
-    document.body.style.width = window.innerWidth /
+    function applyReflow() {
+        const elements = document.querySelectorAll('p, div, article, section, blockquote');
+        const vw = window.innerWidth;
+
+        elements.forEach(el => {
+            if (el.offsetWidth > vw) {
+                el.style.width = '100%';
+                el.style.display = 'block';
+                el.style.float = 'none';
+                el.style.position = 'static';
+            }
+        });
+    }
+
+    // Run on load and on resize/orientation change
+    applyReflow();
+    window.addEventListener('resize', applyReflow);
+    window.addEventListener('orientationchange', applyReflow);
+
+    // Also observe DOM changes
+    const observer = new MutationObserver((mutations) => {
+        applyReflow();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
