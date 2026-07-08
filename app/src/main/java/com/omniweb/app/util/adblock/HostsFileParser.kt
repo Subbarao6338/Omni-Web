@@ -6,36 +6,31 @@ class HostsFileParser {
     fun parseInput(input: InputStreamReader): List<String> {
         val domains = mutableListOf<String>()
         input.forEachLine { line ->
-            val parsed = parseLine(line)
-            if (parsed != null) {
-                domains.add(parsed)
-            }
+            domains.addAll(parseLineToDomains(line))
         }
         return domains
     }
 
-    private fun parseLine(line: String): String? {
+    private fun parseLineToDomains(line: String): List<String> {
         var processed = line.trim()
-        if (processed.isEmpty() || processed.startsWith("#")) return null
+        if (processed.isEmpty() || processed.startsWith("#")) return emptyList()
 
         val commentIndex = processed.indexOf("#")
         if (commentIndex != -1) {
             processed = processed.substring(0, commentIndex).trim()
         }
 
-        val parts = processed.split(Regex("\\s+"))
-        if (parts.size >= 2) {
-            val domain = parts[1]
-            if (domain != "localhost" && domain != "127.0.0.1" && domain != "0.0.0.0" && domain != "::1") {
-                return domain
-            }
-        } else if (parts.size == 1) {
-            val domain = parts[0]
-            if (domain.contains(".") && domain != "127.0.0.1" && domain != "0.0.0.0") {
-                return domain
-            }
+        // Split by whitespace first to check for standard hosts format: 127.0.0.1 domain.com
+        val spaceParts = processed.split(Regex("\\s+"))
+        if (spaceParts.size >= 2 && (spaceParts[0] == "127.0.0.1" || spaceParts[0] == "0.0.0.0")) {
+            val domain = spaceParts[1]
+            return if (domain != "localhost") listOf(domain) else emptyList()
         }
 
-        return null
+        // Handle comma-separated lists or single domains
+        return processed.split(Regex("[\\s,]+"))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it.contains(".") &&
+                     it != "127.0.0.1" && it != "0.0.0.0" && it != "localhost" && it != "::1" }
     }
 }

@@ -30,6 +30,7 @@ fun MediaGrabberView(
 ) {
     var filterType by remember { mutableStateOf("all") }
     val selectedItems = remember { mutableStateListOf<String>() }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val filteredItems = if (filterType == "all") mediaItems else mediaItems.filter {
         if (filterType == "video") it.type == "video"
@@ -53,6 +54,14 @@ fun MediaGrabberView(
                 },
                 actions = {
                     if (selectedItems.isNotEmpty()) {
+                        IconButton(onClick = {
+                            val links = mediaItems.filter { it.id in selectedItems }.joinToString("\n") { it.src }
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Media Links", links))
+                            android.widget.Toast.makeText(context, "Copied ${selectedItems.size} links", android.widget.Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy Selected Links")
+                        }
                         IconButton(onClick = {
                             val toDownload = mediaItems.filter { it.id in selectedItems }
                             onDownload(toDownload)

@@ -3,6 +3,7 @@
     window.omniAdBlockApplied = true;
 
     const selectors = [
+        // Common Ad Containers
         "div[class*='ad-']", "div[id*='ad-']", "div[class*='Ads']",
         "div[class*='banner-ad']", "ins.adsbygoogle", "iframe[id*='google_ads']",
         "div[id*='taboola']", "div[id*='outbrain']", "div[class*='sponsored-content']",
@@ -17,32 +18,50 @@
         "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
         "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
         "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']",
+        // Anti-Adblock / Popups
         "div[class*='cookie-banner']", "div[id*='consent-popup']",
         "[id*='newsletter-modal']", ".sp-newsletter-popup", "div[class*='paywall']",
+        // General Ad classes
         ".ad-bar", ".ad-placer", ".ad-placeholder", ".ad-sense", ".ad-space",
         ".ad-zone", ".ad-unit", ".adbox", ".adframe", ".adsense", ".advert",
-        ".banner-ad", ".sidebar-ad", ".top-ad", ".bottom-ad"
+        ".banner-ad", ".sidebar-ad", ".top-ad", ".bottom-ad",
+        // Specific Providers
+        ".yom-ad-help", "#ad-footer", ".ad_text", ".ad_unit", ".ad-header",
+        ".commercial-ad-container", ".gpt-ad", ".dfp-ad", ".carbon-ad"
     ];
 
     const joinedSelector = selectors.join(', ');
     const style = document.createElement('style');
     style.id = 'omni-adblock-style';
+    // Use more aggressive hiding and also target elements with 'Ad' in text
     style.innerHTML = joinedSelector + ' { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; height: 0 !important; width: 0 !important; z-index: -9999 !important; }';
     document.head.appendChild(style);
 
-    const observer = new MutationObserver((mutations) => {
-        for (let i = 0; i < mutations.length; i++) {
-            const addedNodes = mutations[i].addedNodes;
-            for (let j = 0; j < addedNodes.length; j++) {
-                const node = addedNodes[j];
-                if (node.nodeType === 1) {
-                    if (node.matches(joinedSelector)) {
-                        node.style.display = 'none';
-                    }
+    function hideAds() {
+        document.querySelectorAll(joinedSelector).forEach(el => {
+            el.style.setProperty('display', 'none', 'important');
+        });
+
+        // Hide elements that contain "Advertisement" text and are likely ads
+        document.querySelectorAll('div, span, p').forEach(el => {
+            if (el.children.length === 0 && (el.innerText === 'Advertisement' || el.innerText === 'Sponsored')) {
+                const parent = el.parentElement;
+                if (parent && parent.children.length < 3) {
+                    parent.style.setProperty('display', 'none', 'important');
                 }
             }
-        }
+        });
+    }
+
+    const observer = new MutationObserver((mutations) => {
+        hideAds();
     });
 
+    hideAds();
     observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Additional cleanup after load
+    window.addEventListener('load', hideAds);
+    setTimeout(hideAds, 2000);
+    setTimeout(hideAds, 5000);
 })();
