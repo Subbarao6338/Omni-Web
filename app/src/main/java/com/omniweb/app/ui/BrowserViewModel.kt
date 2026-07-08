@@ -47,14 +47,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     val state = android.os.Bundle()
                     webView.saveState(state)
                     webViewStateCache[entry.key] = state
-
-                    webView.stopLoading()
-                    webView.webChromeClient = null
-                    webView.webViewClient = WebViewClient()
-                    webView.clearHistory()
-                    webView.clearCache(false)
-                    webView.removeAllViews()
-                    webView.destroy()
+                    destroyWebView(webView)
                 }
                 return true
             }
@@ -300,13 +293,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 database.tabDao().deleteTab(TabEntry(removedTab.id, removedTab.url, removedTab.title, index))
             }
             webViewCache.remove(id)?.let { webView ->
-                webView.stopLoading()
-                webView.webChromeClient = null
-                webView.webViewClient = WebViewClient()
-                webView.clearCache(false)
-                webView.clearHistory()
-                webView.removeAllViews()
-                webView.destroy()
+                destroyWebView(webView)
             }
             webViewStateCache.remove(id)
             blockedTrackersByTab.remove(id)
@@ -324,13 +311,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         super.onCleared()
         webViewCache.values.forEach { webView ->
             try {
-                webView.stopLoading()
-                webView.webChromeClient = null
-                webView.webViewClient = WebViewClient()
-                webView.loadUrl("about:blank")
-                webView.clearHistory()
-                webView.removeAllViews()
-                webView.destroy()
+                destroyWebView(webView)
             } catch (e: Exception) {
                 com.omniweb.app.util.LogUtils.e("Error destroying WebView in onCleared", e)
             }
@@ -339,12 +320,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         prewarmedWebView?.let { webView ->
             try {
-                webView.stopLoading()
-                webView.webChromeClient = null
-                webView.webViewClient = WebViewClient()
-                webView.loadUrl("about:blank")
-                webView.removeAllViews()
-                webView.destroy()
+                destroyWebView(webView)
             } catch (e: Exception) {
                 com.omniweb.app.util.LogUtils.e("Error destroying prewarmed WebView", e)
             }
@@ -457,24 +433,29 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                 val state = android.os.Bundle()
                 webView.saveState(state)
                 webViewStateCache[tabId] = state
-
-                webView.stopLoading()
-                webView.webChromeClient = null
-                webView.webViewClient = WebViewClient()
-                webView.loadUrl("about:blank")
-                webView.clearHistory()
-                webView.removeAllViews()
-                webView.destroy()
+                destroyWebView(webView)
             }
         }
 
-        if (memoryInfo.lowMemory) {
+        if (memoryInfo.lowMemory || force) {
             prewarmedWebView?.let {
-                it.destroy()
+                destroyWebView(it)
                 prewarmedWebView = null
             }
             suggestionCache.clear()
+            webViewCache.clear()
         }
+    }
+
+    private fun destroyWebView(webView: WebView) {
+        webView.stopLoading()
+        webView.loadUrl("about:blank")
+        webView.webChromeClient = null
+        webView.webViewClient = WebViewClient()
+        webView.clearHistory()
+        webView.clearCache(true)
+        webView.removeAllViews()
+        webView.destroy()
     }
 
     fun updateSuggestions(query: String) {
