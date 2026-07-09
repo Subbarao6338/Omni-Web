@@ -279,10 +279,10 @@ fun HomeView(
                     SectionHeader("Shortcuts", onAction = { showAddShortcutDialog = true }, actionIcon = Icons.Default.Add)
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(4),
-                        modifier = Modifier.heightIn(max = 400.dp).padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.heightIn(max = 400.dp).padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
                         userScrollEnabled = false
                     ) {
                         items(shortcuts) { shortcut ->
@@ -314,16 +314,16 @@ fun HomeView(
 
             if (mostVisited.isNotEmpty()) {
                 item {
-                    SectionHeader("Top Sites")
+                    SectionHeader("Frequently Visited")
                     Box(modifier = Modifier.padding(horizontal = 24.dp)) {
                         LazyVerticalGrid(
-                            columns = GridCells.Fixed(5),
+                            columns = GridCells.Fixed(4),
                             modifier = Modifier.heightIn(max = 200.dp),
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(20.dp),
                             userScrollEnabled = false
                         ) {
-                            items(mostVisited.take(5)) { entry ->
+                            items(mostVisited.take(8)) { entry ->
                                 val tabInfo = tabs.find { it.url == entry.url }
                                 MostVisitedCard(entry, tabInfo?.faviconBitmap) { onNavigate(entry.url) }
                             }

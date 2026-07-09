@@ -18,6 +18,12 @@
         "div[class*='ad-container']", "div[id*='ad-container']", "div[class*='ad-box']",
         "iframe[src*='ads']", "iframe[src*='advert']", "iframe[src*='track']",
         "[id*='-ad-']", "[class*='-ad-']", "div[class*='sponsored']",
+        // Video & Multimedia Ads
+        "div[class*='video-ad']", "div[class*='player-ad']", "[id*='player-ads']",
+        ".ytp-ad-module", ".ytp-ad-overlay-container",
+        // Social & Tracking
+        "iframe[src*='facebook.com/plugins']", "iframe[src*='twitter.com/widgets']",
+        "[class*='tracking-pixel']", "img[src*='telemetry']",
         // Anti-Adblock / Popups
         "div[class*='cookie-banner']", "div[id*='consent-popup']",
         "[id*='newsletter-modal']", ".sp-newsletter-popup", "div[class*='paywall']",
@@ -25,9 +31,11 @@
         ".ad-bar", ".ad-placer", ".ad-placeholder", ".ad-sense", ".ad-space",
         ".ad-zone", ".ad-unit", ".adbox", ".adframe", ".adsense", ".advert",
         ".banner-ad", ".sidebar-ad", ".top-ad", ".bottom-ad",
+        ".ad-choice", ".ad-notice", ".ad-info",
         // Specific Providers
         ".yom-ad-help", "#ad-footer", ".ad_text", ".ad_unit", ".ad-header",
-        ".commercial-ad-container", ".gpt-ad", ".dfp-ad", ".carbon-ad"
+        ".commercial-ad-container", ".gpt-ad", ".dfp-ad", ".carbon-ad",
+        "div[class*='outbrain_widget']", "div[class*='yahoogemini']"
     ];
 
     const joinedSelector = selectors.join(', ');

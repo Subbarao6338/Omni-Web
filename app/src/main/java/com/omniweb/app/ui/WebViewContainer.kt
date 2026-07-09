@@ -87,6 +87,7 @@ fun WebViewContainer(
         AndroidView(
             factory = { _ ->
                 currentWebView.apply {
+                    (parent as? ViewGroup)?.removeView(this)
                     if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
                         if (settings.torEnabled) {
                             val proxyConfig = ProxyConfig.Builder()
@@ -267,6 +268,8 @@ fun WebViewContainer(
                                 // DNS Pre-fetch for common resources
                                 view?.evaluateJavascript("""
                                     (function() {
+                                        if (window.omniDnsPrefetched) return;
+                                        window.omniDnsPrefetched = true;
                                         const link = document.createElement('link');
                                         link.rel = 'dns-prefetch';
                                         link.href = '${uri.scheme}://${host}';
@@ -296,6 +299,8 @@ fun WebViewContainer(
 
                             val finalBundle = StringBuilder()
                             finalBundle.append("(function() {\n")
+                            finalBundle.append("if (window.omniScriptsInjected) return;\n")
+                            finalBundle.append("window.omniScriptsInjected = true;\n")
                             finalBundle.append(coreScripts).append("\n")
 
                             if (settings.forceZoom) {

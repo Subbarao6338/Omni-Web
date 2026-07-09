@@ -13,7 +13,9 @@ object AdBlockManager {
         addAll(listOf(
             "doubleclick.net", "googleadservices.com", "googlesyndication.com",
             "moatads.com", "taboola.com", "outbrain.com", "adservice.google.com",
-            "adnxs.com", "criteo.com", "carbonads.net"
+            "adnxs.com", "criteo.com", "carbonads.net", "amazon-adsystem.com",
+            "pubmatic.com", "rubiconproject.com", "openx.net", "media.net",
+            "smartadserver.com", "bidswitch.net", "triplelift.com", "indexww.com"
         ))
     }
     private val ANALYTICS_DOMAINS = ConcurrentHashMap.newKeySet<String>().apply {

@@ -412,13 +412,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         val memoryInfo = android.app.ActivityManager.MemoryInfo()
         activityManager?.getMemoryInfo(memoryInfo)
 
+        val availablePercent = if (memoryInfo.totalMem > 0) memoryInfo.availMem.toFloat() / memoryInfo.totalMem else 1f
+        val isCriticalMemory = memoryInfo.lowMemory || availablePercent < 0.15f
+
         // More aggressive timeout if memory is low
         val timeout = when {
-            force || memoryInfo.lowMemory -> 0L
+            force || isCriticalMemory -> 0L
             else -> 5 * 60 * 1000L // 5 minutes
         }
 
-        val maxCacheSize = if (memoryInfo.lowMemory) 2 else 5
+        val maxCacheSize = if (isCriticalMemory) 2 else 5
 
         // Use a list to avoid ConcurrentModificationException
         val tabsToHibernate = webViewCache.keys.filter { it != activeId && it != splitId }.toMutableList()

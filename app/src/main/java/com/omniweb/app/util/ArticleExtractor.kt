@@ -92,10 +92,10 @@ object ArticleExtractor {
         val totalTextLength = totalText.length.coerceAtLeast(1)
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
-        if (linkDensity > 0.4f) { // Lowered from 0.5f
-            score *= 0.02f // More aggressive penalty
-        } else if (linkDensity > 0.15f) { // Lower threshold for penalty
-            score *= (1f - linkDensity * 2f).coerceAtLeast(0f)
+        if (linkDensity > 0.35f) {
+            score *= 0.01f // Even more aggressive penalty for link farms
+        } else if (linkDensity > 0.1f) {
+            score *= (1f - linkDensity * 2.5f).coerceAtLeast(0f)
         }
 
         // 4b. Multi-p bonus (Strong content indicator)
@@ -107,7 +107,9 @@ object ArticleExtractor {
         // 4c. Text-to-tag ratio bonus (High density of text relative to tags)
         val tagCount = el.allElements.size.coerceAtLeast(1)
         val textToTagRatio = words.toFloat() / tagCount.toFloat()
-        if (textToTagRatio > 15f) {
+        if (textToTagRatio > 20f) {
+            score *= 2.5f
+        } else if (textToTagRatio > 15f) {
             score *= 2.0f
         } else if (textToTagRatio > 10f) {
             score *= 1.5f
