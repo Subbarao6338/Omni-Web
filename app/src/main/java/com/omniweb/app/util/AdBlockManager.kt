@@ -48,13 +48,16 @@ object AdBlockManager {
 
                 awaitAll(loadHosts1, loadHosts2)
 
-                val allDomains = getAllBlockedDomains()
+                val totalSize = ADS_DOMAINS.size + ANALYTICS_DOMAINS.size + SOCIAL_DOMAINS.size + MALWARE_DOMAINS.size
                 bloomFilter = DefaultBloomFilter(
-                    numberOfElements = allDomains.size.coerceAtLeast(50000),
+                    numberOfElements = totalSize.coerceAtLeast(50000),
                     falsePositiveRate = 0.01,
                     hashingAlgorithm = MurmurHashStringAdapter()
                 ).apply {
-                    putAll(allDomains)
+                    ADS_DOMAINS.forEach { put(it) }
+                    ANALYTICS_DOMAINS.forEach { put(it) }
+                    SOCIAL_DOMAINS.forEach { put(it) }
+                    MALWARE_DOMAINS.forEach { put(it) }
                 }
             }.also { initJob = it }
         }
@@ -69,8 +72,9 @@ object AdBlockManager {
     private fun loadHosts(context: Context, fileName: String, targetSet: MutableSet<String>, parser: HostsFileParser) {
         try {
             context.assets.open(fileName).use { inputStream ->
-                val domains = parser.parseInput(InputStreamReader(inputStream))
-                targetSet.addAll(domains)
+                parser.parseInput(InputStreamReader(inputStream)).forEach {
+                    targetSet.add(it)
+                }
             }
         } catch (e: Exception) {
             LogUtils.e("Failed to load hosts: $fileName", e)
@@ -78,7 +82,12 @@ object AdBlockManager {
     }
 
     fun getAllBlockedDomains(): Set<String> {
-        return ADS_DOMAINS + ANALYTICS_DOMAINS + SOCIAL_DOMAINS + MALWARE_DOMAINS
+        val result = HashSet<String>(ADS_DOMAINS.size + ANALYTICS_DOMAINS.size + SOCIAL_DOMAINS.size + MALWARE_DOMAINS.size)
+        result.addAll(ADS_DOMAINS)
+        result.addAll(ANALYTICS_DOMAINS)
+        result.addAll(SOCIAL_DOMAINS)
+        result.addAll(MALWARE_DOMAINS)
+        return result
     }
 
     fun getCategory(host: String): String? {

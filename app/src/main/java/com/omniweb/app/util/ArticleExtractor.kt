@@ -21,7 +21,9 @@ object ArticleExtractor {
                 "[id*='ad-'], [class*='ad-'], .cookie-notice, .consent-banner, " +
                 ".newsletter-signup, .promotion, [role='complementary'], [role='navigation'], " +
                 ".outbrain, .taboola, .revcontent, .z-ad, .recommended-articles, .suggested-content, " +
-                ".article-sidebar, .post-sidebar, .entry-sidebar, .right-column, .left-column"
+                ".article-sidebar, .post-sidebar, .entry-sidebar, .right-column, .left-column, " +
+                ".newsletter-box, .wp-block-buttons, .wp-block-separator, .sharedaddy, .jp-relatedposts, " +
+                ".entry-utility, .entry-related, .inline-ad, .inline-newsletter"
             doc.select(junkSelector).remove()
 
             // 2. Scoring Based Candidate Selection
@@ -83,17 +85,17 @@ object ArticleExtractor {
 
         // 3. Punctuation (prose indicator)
         val punctuation = totalText.count { it == ',' || it == '.' || it == ';' || it == ':' || it == '?' || it == '!' }
-        score += punctuation * 5f // Increased from 3
+        score += punctuation * 8f // Increased from 5
 
         // 4. Link density penalty (strongest factor)
         val linkTextLength = el.select("a").sumOf { it.text().length }
         val totalTextLength = totalText.length.coerceAtLeast(1)
         val linkDensity = (linkTextLength.toFloat() / totalTextLength).coerceIn(0f, 1f)
 
-        if (linkDensity > 0.5f) {
-            score *= 0.05f // More aggressive penalty
-        } else if (linkDensity > 0.2f) { // Lower threshold for penalty
-            score *= (1f - linkDensity * 1.5f).coerceAtLeast(0f)
+        if (linkDensity > 0.4f) { // Lowered from 0.5f
+            score *= 0.02f // More aggressive penalty
+        } else if (linkDensity > 0.15f) { // Lower threshold for penalty
+            score *= (1f - linkDensity * 2f).coerceAtLeast(0f)
         }
 
         // 4b. Multi-p bonus (Strong content indicator)

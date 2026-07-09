@@ -316,7 +316,10 @@ fun BrowserView(
                         isFindMode = false
                         findQuery = ""
                         findMatchStatus = ""
-                        viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
+                        viewModel.getOrCreateWebView(activeTab.id, context).apply {
+                            clearMatches()
+                            setFindListener(null)
+                        }
                     },
                     onHomeClick = onBackToHome,
                     onVoiceClick = {
@@ -421,7 +424,10 @@ fun BrowserView(
                         isFindMode = false
                         findQuery = ""
                         findMatchStatus = ""
-                        viewModel.getOrCreateWebView(activeTab.id, context).clearMatches()
+                        viewModel.getOrCreateWebView(activeTab.id, context).apply {
+                            clearMatches()
+                            setFindListener(null)
+                        }
                     },
                     onHomeClick = onBackToHome,
                     onVoiceClick = {

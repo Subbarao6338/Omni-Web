@@ -295,6 +295,7 @@ fun WebViewContainer(
                             )
 
                             val finalBundle = StringBuilder()
+                            finalBundle.append("(function() {\n")
                             finalBundle.append(coreScripts).append("\n")
 
                             if (settings.forceZoom) {
@@ -336,32 +337,35 @@ fun WebViewContainer(
                             finalBundle.append("""
                                 (function() {
                                     Android.getAnnotations().then(json => {
-                                        const annotations = JSON.parse(json);
-                                        annotations.forEach(a => {
-                                            const text = a.text;
-                                            const color = a.color;
-                                            function highlight(node) {
-                                                if (node.nodeType === 3) {
-                                                    const index = node.data.indexOf(text);
-                                                    if (index >= 0) {
-                                                        const range = document.createRange();
-                                                        range.setStart(node, index);
-                                                        range.setEnd(node, index + text.length);
-                                                        const mark = document.createElement('mark');
-                                                        mark.style.backgroundColor = color;
-                                                        range.surroundContents(mark);
-                                                    }
-                                                } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
-                                                    for (let i = 0; i < node.childNodes.length; i++) {
-                                                        highlight(node.childNodes[i]);
+                                        try {
+                                            const annotations = JSON.parse(json);
+                                            annotations.forEach(a => {
+                                                const text = a.text;
+                                                const color = a.color;
+                                                function highlight(node) {
+                                                    if (node.nodeType === 3) {
+                                                        const index = node.data.indexOf(text);
+                                                        if (index >= 0) {
+                                                            const range = document.createRange();
+                                                            range.setStart(node, index);
+                                                            range.setEnd(node, index + text.length);
+                                                            const mark = document.createElement('mark');
+                                                            mark.style.backgroundColor = color;
+                                                            range.surroundContents(mark);
+                                                        }
+                                                    } else if (node.nodeType === 1 && node.childNodes && !/(script|style|mark)/i.test(node.tagName)) {
+                                                        for (let i = 0; i < node.childNodes.length; i++) {
+                                                            highlight(node.childNodes[i]);
+                                                        }
                                                     }
                                                 }
-                                            }
-                                            highlight(document.body);
-                                        });
+                                                highlight(document.body);
+                                            });
+                                        } catch(e) {}
                                     });
                                 })();
                             """.trimIndent())
+                            finalBundle.append("})();")
 
                             view?.evaluateJavascript(finalBundle.toString(), null)
                         }
@@ -508,42 +512,45 @@ private fun mediaSnifferScript() = """
         function sniff() {
             const media = [];
             const seen = new Set();
-            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
+            const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mpd"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
             document.querySelectorAll(selectors).forEach(el => {
                 let src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
                 if (src && src.startsWith('//')) src = 'https:' + src;
                 if (src && src.startsWith('http') && !seen.has(src)) {
-                    const urlObj = new URL(src);
-                    const ext = urlObj.pathname.split('.').pop().toLowerCase();
-                    const isVideo = ['mp4', 'm3u8', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
-                    const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
-                    const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
-                    if (isVideo || isAudio || isImage) {
-                        seen.add(src);
-                        media.push({
+                    try {
+                        const urlObj = new URL(src);
+                        const ext = urlObj.pathname.split('.').pop().toLowerCase();
+                        const isVideo = ['mp4', 'm3u8', 'mpd', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
+                        const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
+                        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
+                        if (isVideo || isAudio || isImage) {
+                            seen.add(src);
+                            media.push({
                                 id: getHash(src),
-                            src: src,
-                            type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
-                            title: document.title || 'Media File'
+                                src: src,
+                                type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
+                                title: document.title || 'Media File'
+                            });
+                        }
+                    } catch(e) {}
+                }
+            });
+            if (window.performance && window.performance.getEntriesByType) {
+                performance.getEntriesByType('resource').forEach(resource => {
+                    const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd') || resource.name.includes('.ts');
+                    if (isHls && !seen.has(resource.name)) {
+                        if (resource.name.includes('google-analytics') || resource.name.includes('doubleclick') || resource.name.includes('telemetry')) return;
+
+                        seen.add(resource.name);
+                        media.push({
+                            id: 'stream-' + getHash(resource.name),
+                            src: resource.name,
+                            type: 'video',
+                            title: 'Stream: ' + (document.title || 'Video')
                         });
                     }
-                }
-            });
-            performance.getEntriesByType('resource').forEach(resource => {
-                const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd') || resource.name.includes('.ts');
-                if (isHls && !seen.has(resource.name)) {
-                    // Ignore common noise
-                    if (resource.name.includes('google-analytics') || resource.name.includes('doubleclick')) return;
-
-                    seen.add(resource.name);
-                    media.push({
-                        id: 'stream-' + getHash(resource.name),
-                        src: resource.name,
-                        type: 'video',
-                        title: 'Stream: ' + (document.title || 'Video')
-                    });
-                }
-            });
+                });
+            }
 
             if (media.length > 0) {
                 const currentJson = JSON.stringify(media);
@@ -556,7 +563,7 @@ private fun mediaSnifferScript() = """
 
         function debouncedSniff() {
             if (sniffTimeout) clearTimeout(sniffTimeout);
-            sniffTimeout = setTimeout(sniff, 500);
+            sniffTimeout = setTimeout(sniff, 1000);
         }
 
         if (!window.omniSnifferStarted) {
@@ -572,7 +579,7 @@ private fun mediaSnifferScript() = """
                 if (shouldSniff) debouncedSniff();
             });
             observer.observe(document.documentElement, { childList: true, subtree: true });
-            setInterval(sniff, 10000);
+            setInterval(sniff, 15000);
             sniff();
         }
     })();
