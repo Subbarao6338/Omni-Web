@@ -334,6 +334,17 @@ fun BrowserView(
                     },
                     onScanClick = onOpenScanner,
                     isIncognito = activeTab.isIncognito,
+                    isPageReadable = activeTab.isPageReadable,
+                    onReaderClick = {
+                        val toolsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source: String? ->
+                            val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
+                                source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
+                            } else source ?: ""
+                            readerContent = PageUtils.extractArticleContent(cleanSource)
+                            isReaderMode = true
+                        }
+                    },
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -442,6 +453,17 @@ fun BrowserView(
                     },
                     onScanClick = onOpenScanner,
                     isIncognito = activeTab.isIncognito,
+                    isPageReadable = activeTab.isPageReadable,
+                    onReaderClick = {
+                        val toolsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source: String? ->
+                            val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
+                                source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
+                            } else source ?: ""
+                            readerContent = PageUtils.extractArticleContent(cleanSource)
+                            isReaderMode = true
+                        }
+                    },
                     suggestions = if (urlInput != activeTab.url) viewModel.searchSuggestions.value else emptyList(),
                     onSuggestionClick = { suggestion ->
                         val target = UrlUtils.resolveUrl(suggestion.url, settings.searchEngine)
@@ -473,38 +495,54 @@ fun BrowserView(
         val splitTab = viewModel.tabs.find { it.id == splitTabId }
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
-                WebViewContainer(
-                    tab = activeTab,
-                    viewModel = viewModel,
-                    settings = settings,
-                    onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
-                    onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                    onTextExtracted = { if (activeTab.id == viewModel.activeTabId.value) pageText = it },
-                    onScrollChanged = { x, y -> viewModel.updateTabScroll(activeTab.id, x, y) },
-                    onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                    onProgressChanged = { activeTab.progress = it },
-                    onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
-                    onIconReceived = { activeTab.faviconBitmap = it },
-                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
-                )
-            }
-            Box(modifier = Modifier.height(4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.primary))
-            Box(modifier = Modifier.weight(1f)) {
-                if (splitTab != null) {
+                if (settings.useGeckoView) {
+                    com.omniweb.app.engine.GeckoViewContainer(
+                        tab = activeTab,
+                        onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
+                        onProgressChanged = { activeTab.progress = it }
+                    )
+                } else {
                     WebViewContainer(
-                        tab = splitTab,
+                        tab = activeTab,
                         viewModel = viewModel,
                         settings = settings,
                         onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
                         onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                        onTextExtracted = { },
-                        onScrollChanged = { x, y -> viewModel.updateTabScroll(splitTab.id, x, y) },
+                        onTextExtracted = { if (activeTab.id == viewModel.activeTabId.value) pageText = it },
+                        onScrollChanged = { x, y -> viewModel.updateTabScroll(activeTab.id, x, y) },
                         onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                        onProgressChanged = { splitTab.progress = it },
-                        onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
-                        onIconReceived = { splitTab.faviconBitmap = it },
+                        onProgressChanged = { activeTab.progress = it },
+                        onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
+                        onIconReceived = { activeTab.faviconBitmap = it },
                         onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
                     )
+                }
+            }
+            Box(modifier = Modifier.height(4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.primary))
+            Box(modifier = Modifier.weight(1f)) {
+                if (splitTab != null) {
+                    if (settings.useGeckoView) {
+                        com.omniweb.app.engine.GeckoViewContainer(
+                            tab = splitTab,
+                            onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
+                            onProgressChanged = { splitTab.progress = it }
+                        )
+                    } else {
+                        WebViewContainer(
+                            tab = splitTab,
+                            viewModel = viewModel,
+                            settings = settings,
+                            onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                            onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                            onTextExtracted = { },
+                            onScrollChanged = { x, y -> viewModel.updateTabScroll(splitTab.id, x, y) },
+                            onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                            onProgressChanged = { splitTab.progress = it },
+                            onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
+                            onIconReceived = { splitTab.faviconBitmap = it },
+                            onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                        )
+                    }
                 }
             }
         }
@@ -515,54 +553,70 @@ fun BrowserView(
             userScrollEnabled = false
         ) { pageIndex ->
             val tab = tabs[pageIndex]
-            val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
-            DisposableEffect(isFindMode) {
-                if (isFindMode && tab.id == activeTab.id) {
-                    currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
-                        if (isDoneCounting) {
-                            findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
-                        }
-                    }
-                } else {
-                    currentWebView.setFindListener(null)
-                }
-                onDispose {
-                    currentWebView.setFindListener(null)
-                }
-            }
-
-            WebViewContainer(
-                tab = tab,
-                viewModel = viewModel,
-                settings = settings,
-                onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
-                onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                onTextExtracted = { text ->
-                    if (tab.id == activeTab.id) {
-                        if (text.startsWith("INSPECT:")) {
+            if (settings.useGeckoView) {
+                com.omniweb.app.engine.GeckoViewContainer(
+                    tab = tab,
+                    onTitleReceived = { title ->
+                        tab.title = title
+                        viewModel.updateTabInDb(tab)
+                        if (!tab.isIncognito) {
                             scope.launch {
-                                snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+                                database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
                             }
-                        } else {
-                            pageText = text
                         }
-                    }
-                },
-                onScrollChanged = { x, y -> viewModel.updateTabScroll(tab.id, x, y) },
-                onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                onProgressChanged = { tab.progress = it },
-                onTitleReceived = { title ->
-                    tab.title = title
-                    viewModel.updateTabInDb(tab)
-                    if (!tab.isIncognito) {
-                        scope.launch {
-                            database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
+                    },
+                    onProgressChanged = { tab.progress = it }
+                )
+            } else {
+                val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
+                DisposableEffect(isFindMode) {
+                    if (isFindMode && tab.id == activeTab.id) {
+                        currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                            if (isDoneCounting) {
+                                findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
+                            }
                         }
+                    } else {
+                        currentWebView.setFindListener(null)
                     }
-                },
-                onIconReceived = { tab.faviconBitmap = it },
-                onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
-            )
+                    onDispose {
+                        currentWebView.setFindListener(null)
+                    }
+                }
+
+                WebViewContainer(
+                    tab = tab,
+                    viewModel = viewModel,
+                    settings = settings,
+                    onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                    onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                    onTextExtracted = { text ->
+                        if (tab.id == activeTab.id) {
+                            if (text.startsWith("INSPECT:")) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+                                }
+                            } else {
+                                pageText = text
+                            }
+                        }
+                    },
+                    onScrollChanged = { x, y -> viewModel.updateTabScroll(tab.id, x, y) },
+                    onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                    onProgressChanged = { tab.progress = it },
+                    onTitleReceived = { title ->
+                        tab.title = title
+                        viewModel.updateTabInDb(tab)
+                        if (!tab.isIncognito) {
+                            scope.launch {
+                                database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
+                            }
+                        }
+                    },
+                    onIconReceived = { tab.faviconBitmap = it },
+                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                )
+            }
         }
     }
 
@@ -603,216 +657,52 @@ fun BrowserView(
     }
 
     if (showTools) {
-        ModalBottomSheet(onDismissRequest = { showTools = false }, containerColor = MaterialTheme.colorScheme.surface) {
-            Column(modifier = Modifier.padding(24.dp).fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState())) {
-                Text("Page Tools", fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.height(24.dp))
-
+        PageToolsSheet(
+            activeTab = activeTab,
+            viewModel = viewModel,
+            settings = settings,
+            isSplitScreen = isSplitScreen,
+            isDesktopMode = isDesktopMode,
+            bookmarks = bookmarks,
+            database = database,
+            onBackToHome = onBackToHome,
+            onOpenDownloads = onOpenDownloads,
+            onOpenSettings = onOpenSettings,
+            onOpenHistory = onOpenHistory,
+            onOpenBookmarks = onOpenBookmarks,
+            onShowAiChat = { showAiChat = true },
+            onShowTranslate = { showTranslateDialog = true },
+            onShowSource = { source ->
+                pageSource = source
+                showSource = true
+            },
+            onShowConsole = { showConsole = true },
+            onShowMediaGrabber = { showMediaGrabber = true },
+            onShowBookmarklets = { showBookmarklets = true },
+            onReaderMode = { source ->
+                readerContent = PageUtils.extractArticleContent(source)
+                isReaderMode = true
+            },
+            onSummarize = { source ->
+                scope.launch {
+                    summaryContent = PageUtils.generateSummary(source, settings.geminiApiKey)
+                }
+            },
+            onQrCode = { qrBitmap = PageUtils.generateQRCode(activeTab.url) },
+            onInsights = { analysisResult = it },
+            onVideoSpeed = { showVideoSpeed = true },
+            onFindInPage = { isFindMode = true },
+            onToggleDesktopMode = {
+                isDesktopMode = !isDesktopMode
                 val toolsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
-
-                ToolCategory("Navigation") {
-                    item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", Color(0xFF3B82F6)) {
-                        if (toolsWebView.canGoBack()) toolsWebView.goBack() else onBackToHome()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Forward", Color(0xFF3B82F6)) {
-                        if (toolsWebView.canGoForward()) toolsWebView.goForward()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Add, "New Tab", Color(0xFF10B981)) {
-                        viewModel.createTab()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Home, "Home", Color(0xFF6B7280)) {
-                        onBackToHome()
-                        showTools = false
-                    }}
-                    item {
-                        val isBookmarkedInternal = bookmarks.any { it.url == activeTab.url }
-                        ToolButton(if (isBookmarkedInternal) Icons.Default.Star else Icons.Default.StarBorder, if (isBookmarkedInternal) "Bookmarked" else "Bookmark", Color(0xFFFFB000)) {
-                        scope.launch {
-                            if (isBookmarkedInternal) {
-                                bookmarks.find { it.url == activeTab.url }?.let { database.bookmarkDao().deleteBookmark(it) }
-                            } else {
-                                database.bookmarkDao().insertBookmark(Bookmark(title = activeTab.title, url = urlInput))
-                            }
-                        }
-                        showTools = false
-                    }}
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                ToolCategory("Page Actions") {
-                    item { ToolButton(if (isSplitScreen) Icons.Default.Fullscreen else Icons.Default.VerticalSplit, if (isSplitScreen) "Single Screen" else "Split Screen", Color(0xFFF59E0B)) {
-                        viewModel.toggleSplitScreen()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.AutoMirrored.Filled.OpenInNew, "Open in App", Color(0xFF3B82F6)) {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(activeTab.url))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "No app can handle this link", Toast.LENGTH_SHORT).show()
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Share, "Share", Color(0xFF3B82F6)) {
-                        toolsWebView.url?.let {
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, it)
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Share Link"))
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.AutoMirrored.Filled.Chat, "AI Chat", Color(0xFF8B5CF6)) {
-                        showAiChat = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.ContentCopy, "Copy Link", Color(0xFF8B5CF6)) {
-                        toolsWebView.url?.let {
-                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", it))
-                            Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Search, "Find", Color(0xFF3B82F6)) {
-                        isFindMode = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.AutoMirrored.Filled.MenuBook, "Reader", Color(0xFFEA580C)) {
-                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source: String? ->
-                            val cleanSource = if (source != null && source.startsWith("\"") && source.endsWith("\"")) {
-                                source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n").replace("\\t", "\t")
-                            } else source ?: ""
-                            readerContent = PageUtils.extractArticleContent(cleanSource)
-                            isReaderMode = true
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(if (isDesktopMode) Icons.Default.Computer else Icons.Default.Smartphone, if (isDesktopMode) "Mobile" else "Desktop", Color(0xFF6366F1)) {
-                        isDesktopMode = !isDesktopMode
-                        toolsWebView.settings.userAgentString = if (isDesktopMode) "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else null
-                        toolsWebView.reload()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.AutoAwesome, "Summarize", Color(0xFF8B5CF6)) {
-                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
-                            scope.launch {
-                                summaryContent = PageUtils.generateSummary(source ?: "", settings.geminiApiKey)
-                            }
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.QrCode, "QR Code", Color(0xFF10B981)) {
-                        qrBitmap = PageUtils.generateQRCode(activeTab.url)
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Insights, "Insights", Color(0xFF10B981)) {
-                        PageAnalyzer.analyze(toolsWebView) {
-                            analysisResult = it
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.SlowMotionVideo, "Video Speed", Color(0xFFEA580C)) {
-                        showVideoSpeed = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.SelfImprovement, "Zen Mode", Color(0xFF10B981)) {
-                        viewModel.toggleZenMode()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.VideoLibrary, "Media Grabber", Color(0xFFEC4899)) {
-                        showMediaGrabber = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Download, "Downloads", Color(0xFF3B82F6)) {
-                        onOpenDownloads()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Translate, "Translate", Color(0xFF3B82F6)) {
-                        showTranslateDialog = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.AddHome, "Add Home", Color(0xFF10B981)) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            val shortcutManager = context.getSystemService(ShortcutManager::class.java)
-                            if (shortcutManager!!.isRequestPinShortcutSupported) {
-                                val pinShortcutInfo = ShortcutInfo.Builder(context, urlInput)
-                                    .setShortLabel(toolsWebView.title ?: "Web Page")
-                                    .setIcon(if (activeTab.faviconBitmap != null) Icon.createWithBitmap(activeTab.faviconBitmap) else Icon.createWithResource(context, com.omniweb.app.R.mipmap.ic_launcher))
-                                    .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(urlInput)))
-                                    .build()
-                                shortcutManager.requestPinShortcut(pinShortcutInfo, null)
-                            }
-                        }
-                        showTools = false
-                    }}
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                ToolCategory("Save & Print") {
-                    item { ToolButton(Icons.Default.CameraAlt, "Full Shot", Color(0xFF06B6D4)) {
-                        PageUtils.takeFullPageScreenshot(context, toolsWebView, activeTab.title)
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.PictureAsPdf, "Save PDF", Color(0xFFEF4444)) {
-                        PageUtils.saveAsPdf(context, toolsWebView, activeTab.title)
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Archive, "Save MHTML", Color(0xFF8B5CF6)) {
-                        scope.launch {
-                            val path = PageUtils.saveAsMhtml(context, toolsWebView, activeTab.title)
-                            database.readingListDao().insertEntry(com.omniweb.app.data.ReadingListEntry(title = activeTab.title, url = activeTab.url, filePath = path))
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Description, "Save MD", Color(0xFF10B981)) {
-                        toolsWebView.evaluateJavascript("(function(){ const clone = document.body.cloneNode(true); clone.querySelectorAll('script, style, iframe, noscript').forEach(el => el.remove()); return clone.innerHTML; })()") { source ->
-                            val clean = if (source != null && source.startsWith("\"") && source.endsWith("\"")) source.substring(1, source.length - 1).replace("\\\"", "\"").replace("\\n", "\n") else source ?: ""
-                            PageUtils.saveAsMarkdown(context, clean, activeTab.title)
-                        }
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Print, "Print", Color(0xFF4B5563)) {
-                        val printManager = context.getSystemService(android.content.Context.PRINT_SERVICE) as android.print.PrintManager
-                        printManager.print("Omni Document", toolsWebView.createPrintDocumentAdapter("Document"), null)
-                        showTools = false
-                    }}
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                ToolCategory("Developer Tools") {
-                    item { ToolButton(Icons.Default.RecordVoiceOver, "Speak", Color(0xFF10B981)) {
-                        viewModel.speak(pageText)
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.VoiceOverOff, "Stop Voice", Color(0xFFEF4444)) {
-                        viewModel.stopSpeaking()
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Code, "Source", Color(0xFFEA580C)) {
-                        toolsWebView.evaluateJavascript("document.documentElement.outerHTML") { source ->
-                            pageSource = source ?: ""
-                            showSource = true
-                            showTools = false
-                        }
-                    }}
-                    item { ToolButton(Icons.Default.Terminal, "Console", Color(0xFF10B981)) {
-                        showConsole = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.Javascript, "Bookmarklets", Color(0xFFFACC15)) {
-                        showBookmarklets = true
-                        showTools = false
-                    }}
-                    item { ToolButton(Icons.Default.BugReport, "Inspect", Color(0xFFEF4444)) {
-                        isInspectMode = true
-                        showTools = false
-                        toolsWebView.evaluateJavascript("""
+                toolsWebView.settings.userAgentString = if (isDesktopMode) "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" else null
+                toolsWebView.reload()
+            },
+            onSpeak = { viewModel.speak(pageText) },
+            onInspectMode = {
+                isInspectMode = true
+                val toolsWebView = viewModel.getOrCreateWebView(activeTab.id, context)
+                toolsWebView.evaluateJavascript("""
                             (function() {
                                 if (window.omniInspector) {
                                     window.omniInspector.start();
@@ -851,19 +741,9 @@ fun BrowserView(
                                 window.omniInspector.start();
                             })();
                         """.trimIndent(), null)
-                    }}
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-                ToolCategory("Browser") {
-                    item { ToolButton(Icons.Default.Settings, "Settings", Color(0xFF4B5563)) { onOpenSettings(); showTools = false }}
-                    item { ToolButton(Icons.Default.History, "History", Color(0xFF607D8B)) { onOpenHistory(); showTools = false }}
-                    item { ToolButton(Icons.Default.Star, "Bookmarks", Color(0xFFFFB000)) { onOpenBookmarks(); showTools = false }}
-                    item { ToolButton(Icons.Default.Download, "Downloads", Color(0xFF3B82F6)) { onOpenDownloads(); showTools = false }}
-                }
-                Spacer(modifier = Modifier.height(48.dp))
-            }
-        }
+            },
+            onDismiss = { showTools = false }
+        )
     }
 
     if (showTranslateDialog) {

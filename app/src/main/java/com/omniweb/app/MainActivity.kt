@@ -206,20 +206,28 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                 }
                 composable("browser") {
                     if (isInPiP) {
-                        WebViewContainer(
-                            tab = activeTab,
-                            viewModel = viewModel,
-                            settings = settings,
-                            onLoginDetected = { _, _, _ -> },
-                            onBookmarkletDetected = { },
-                            onTextExtracted = { },
-                            onScrollChanged = { _, _ -> },
-                            onContextMenu = { },
-                            onProgressChanged = { activeTab.progress = it },
-                            onTitleReceived = { activeTab.title = it },
-                            onIconReceived = { activeTab.faviconBitmap = it },
-                            onConsoleLog = { _, _ -> }
-                        )
+                        if (settings.useGeckoView) {
+                            com.omniweb.app.engine.GeckoViewContainer(
+                                tab = activeTab,
+                                onTitleReceived = { activeTab.title = it },
+                                onProgressChanged = { activeTab.progress = it }
+                            )
+                        } else {
+                            WebViewContainer(
+                                tab = activeTab,
+                                viewModel = viewModel,
+                                settings = settings,
+                                onLoginDetected = { _, _, _ -> },
+                                onBookmarkletDetected = { },
+                                onTextExtracted = { },
+                                onScrollChanged = { _, _ -> },
+                                onContextMenu = { },
+                                onProgressChanged = { activeTab.progress = it },
+                                onTitleReceived = { activeTab.title = it },
+                                onIconReceived = { activeTab.faviconBitmap = it },
+                                onConsoleLog = { _, _ -> }
+                            )
+                        }
                     } else {
                         BrowserView(
                             activeTab = activeTab,

@@ -173,7 +173,8 @@ fun WebViewContainer(
                                     array.put(obj)
                                 }
                                 array.toString()
-                        }
+                        },
+                        onPageReadable = { tab.isPageReadable = it }
                     ), "Android")
 
                     webChromeClient = object : WebChromeClient() {
@@ -355,6 +356,16 @@ fun WebViewContainer(
 
                                     // Metadata & Media
                                     Android.postText(document.body.innerText);
+
+                                    // Reader Mode Detection (Simple Heuristic)
+                                    const paragraphs = document.querySelectorAll('p');
+                                    let totalText = 0;
+                                    paragraphs.forEach(p => totalText += p.innerText.length);
+                                    if (totalText > 1500 || paragraphs.length > 5) {
+                                        Android.onPageReadable(true);
+                                    } else {
+                                        Android.onPageReadable(false);
+                                    }
                                 })();
                             """.trimIndent()).append("\n")
 

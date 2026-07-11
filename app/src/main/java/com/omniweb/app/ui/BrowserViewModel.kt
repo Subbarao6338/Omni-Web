@@ -34,12 +34,14 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     val tabs = mutableStateListOf<TabInfo>()
     private val _activeTabId = MutableStateFlow("")
     val activeTabId: StateFlow<String> = _activeTabId.asStateFlow()
-    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(5, 0.75f, true) {
+    private val webViewCache = object : java.util.LinkedHashMap<String, WebView>(6, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, WebView>?): Boolean {
             if (size > 5) {
                 eldest?.let { entry ->
                     // Do not remove the active or split tab from cache
                     if (entry.key == _activeTabId.value || entry.key == _splitTabId.value) {
+                        // If eldest is active, LinkedHashMap might not remove it easily,
+                        // but since we access it (moveToFront), it shouldn't be eldest.
                         return false
                     }
 
@@ -48,8 +50,8 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
                     webView.saveState(state)
                     webViewStateCache[entry.key] = state
                     destroyWebView(webView)
+                    return true
                 }
-                return true
             }
             return false
         }

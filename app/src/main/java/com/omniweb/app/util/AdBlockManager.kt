@@ -145,6 +145,7 @@ object AdBlockManager {
     }
 
     fun shouldBlock(host: String): Boolean {
+        if (bloomFilter?.mightContain(host) == true) return true
         return getCategory(host) != null
     }
 
