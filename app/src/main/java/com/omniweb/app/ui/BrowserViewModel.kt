@@ -403,7 +403,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun hibernateTabsIfNeeded(force: Boolean = false) {
+    fun hibernateTabsIfNeeded(force: Boolean = false, isCritical: Boolean = false) {
         val now = System.currentTimeMillis()
         val activeId = _activeTabId.value
         val splitId = _splitTabId.value
@@ -413,7 +413,7 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
         activityManager?.getMemoryInfo(memoryInfo)
 
         val availablePercent = if (memoryInfo.totalMem > 0) memoryInfo.availMem.toFloat() / memoryInfo.totalMem else 1f
-        val isCriticalMemory = memoryInfo.lowMemory || availablePercent < 0.15f
+        val isCriticalMemory = memoryInfo.lowMemory || availablePercent < 0.15f || isCritical
 
         // More aggressive timeout if memory is low
         val timeout = when {

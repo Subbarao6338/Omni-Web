@@ -38,38 +38,55 @@
         "div[class*='outbrain_widget']", "div[class*='yahoogemini']"
     ];
 
-    const joinedSelector = selectors.join(', ');
     const style = document.createElement('style');
     style.id = 'omni-adblock-style';
-    // Use more aggressive hiding and also target elements with 'Ad' in text
-    style.innerHTML = joinedSelector + ' { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; height: 0 !important; width: 0 !important; z-index: -9999 !important; }';
+    style.innerHTML = selectors.join(', ') + ' { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; height: 0 !important; width: 0 !important; z-index: -9999 !important; }';
     document.head.appendChild(style);
 
-    function hideAds() {
-        document.querySelectorAll(joinedSelector).forEach(el => {
+    function hideAds(root = document) {
+        // Handle Shadow DOM
+        const allElements = root.querySelectorAll('*');
+        allElements.forEach(el => {
+            if (el.shadowRoot) {
+                hideAds(el.shadowRoot);
+            }
+        });
+
+        root.querySelectorAll(selectors.join(', ')).forEach(el => {
             el.style.setProperty('display', 'none', 'important');
         });
 
-        // Hide elements that contain "Advertisement" text and are likely ads
-        document.querySelectorAll('div, span, p').forEach(el => {
-            if (el.children.length === 0 && (el.innerText === 'Advertisement' || el.innerText === 'Sponsored')) {
-                const parent = el.parentElement;
-                if (parent && parent.children.length < 3) {
-                    parent.style.setProperty('display', 'none', 'important');
+        // Heuristic: Hide elements that contain "Advertisement" text
+        const textNodes = [];
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        let node;
+        while(node = walker.nextNode()) {
+            if (node.textContent.trim() === 'Advertisement' || node.textContent.trim() === 'Sponsored') {
+                textNodes.push(node);
+            }
+        }
+
+        textNodes.forEach(textNode => {
+            const el = textNode.parentElement;
+            if (el && el.children.length === 0) {
+                const container = el.closest('div, section, aside');
+                if (container && container.innerText.length < 100) {
+                    container.style.setProperty('display', 'none', 'important');
                 }
             }
         });
     }
 
+    let timeout = null;
     const observer = new MutationObserver((mutations) => {
-        hideAds();
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            hideAds();
+        }, 500);
     });
 
     hideAds();
     observer.observe(document.documentElement, { childList: true, subtree: true });
 
-    // Additional cleanup after load
-    window.addEventListener('load', hideAds);
-    setTimeout(hideAds, 2000);
-    setTimeout(hideAds, 5000);
+    window.addEventListener('load', () => hideAds());
 })();

@@ -50,9 +50,15 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
-        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE) {
-            val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
-            viewModel.hibernateTabsIfNeeded(force = true)
+        val viewModel = androidx.lifecycle.ViewModelProvider(this)[BrowserViewModel::class.java]
+        when (level) {
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                viewModel.hibernateTabsIfNeeded(force = true, isCritical = true)
+            }
+            android.content.ComponentCallbacks2.TRIM_MEMORY_MODERATE,
+            android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+                viewModel.hibernateTabsIfNeeded(force = true)
+            }
         }
     }
 

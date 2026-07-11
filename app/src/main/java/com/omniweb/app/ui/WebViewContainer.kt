@@ -307,9 +307,10 @@ fun WebViewContainer(
                                 finalBundle.append("(function() { const meta = document.querySelector('meta[name=\"viewport\"]'); if (meta) meta.setAttribute(\"content\",\"width=device-width\"); else { const n = document.createElement('meta'); n.name='viewport'; n.content='width=device-width'; document.head.appendChild(n); } })();").append("\n")
                             }
 
-                            // Password Management
+                            // Combined Injections
                             finalBundle.append("""
                                 (function() {
+                                    // Password Management
                                     function findForms() {
                                         document.querySelectorAll('form').forEach(form => {
                                             form.addEventListener('submit', function() {
@@ -322,25 +323,8 @@ fun WebViewContainer(
                                         });
                                     }
                                     setTimeout(findForms, 1000);
-                                })();
-                            """.trimIndent()).append("\n")
 
-                            finalBundle.append("Android.postText(document.body.innerText);\n")
-
-                            // Media Sniffer
-                            finalBundle.append(mediaSnifferScript()).append("\n")
-
-                            // Playback Speed
-                            finalBundle.append("(function() { document.querySelectorAll('video').forEach(v => v.playbackRate = ${tab.playbackSpeed}); })();\n")
-
-                            // Anti-fingerprinting
-                            if (settings.strictPrivacyMode) {
-                                finalBundle.append(antiFingerprintScript()).append("\n")
-                            }
-
-                            // Annotations
-                            finalBundle.append("""
-                                (function() {
+                                    // Annotations
                                     Android.getAnnotations().then(json => {
                                         try {
                                             const annotations = JSON.parse(json);
@@ -368,8 +352,18 @@ fun WebViewContainer(
                                             });
                                         } catch(e) {}
                                     });
+
+                                    // Metadata & Media
+                                    Android.postText(document.body.innerText);
                                 })();
-                            """.trimIndent())
+                            """.trimIndent()).append("\n")
+
+                            finalBundle.append(mediaSnifferScript()).append("\n")
+                            finalBundle.append("(function() { document.querySelectorAll('video').forEach(v => v.playbackRate = ${tab.playbackSpeed}); })();\n")
+
+                            if (settings.strictPrivacyMode) {
+                                finalBundle.append(antiFingerprintScript()).append("\n")
+                            }
                             finalBundle.append("})();")
 
                             view?.evaluateJavascript(finalBundle.toString(), null)
