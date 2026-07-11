@@ -1,5 +1,7 @@
 package com.omniweb.app.ui
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -285,16 +288,26 @@ fun HomeView(
                         verticalArrangement = Arrangement.spacedBy(24.dp),
                         userScrollEnabled = false
                     ) {
-                        items(shortcuts) { shortcut ->
-                            ShortcutItem(
-                                shortcut,
-                                onClick = { onNavigate(shortcut.url) },
-                                onLongClick = {
-                                    scope.launch {
-                                        database.shortcutDao().deleteShortcut(shortcut)
+                        itemsIndexed(shortcuts) { index, shortcut ->
+                            var visible by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(index * 50L)
+                                visible = true
+                            }
+                            AnimatedVisibility(
+                                visible = visible,
+                                enter = fadeIn(animationSpec = tween(500)) + scaleIn(initialScale = 0.8f)
+                            ) {
+                                ShortcutItem(
+                                    shortcut,
+                                    onClick = { onNavigate(shortcut.url) },
+                                    onLongClick = {
+                                        scope.launch {
+                                            database.shortcutDao().deleteShortcut(shortcut)
+                                        }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
                         item {
                             AddShortcutItem(onClick = { showAddShortcutDialog = true })

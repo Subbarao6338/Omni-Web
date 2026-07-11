@@ -482,29 +482,13 @@ fun SettingsView(
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Firefox Sync (Extensions)", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Import Userscript from URL", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
+                    var scriptUrl by remember { mutableStateOf("") }
                     OutlinedTextField(
-                        value = settings.firefoxUserId ?: "",
-                        onValueChange = {
-                            scope.launch {
-                                database.settingsDao().updateSettings(settings.copy(firefoxUserId = it.ifBlank { null }))
-                            }
-                        },
-                        label = { Text("Firefox User ID") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = settings.firefoxCollectionName ?: "",
-                        onValueChange = {
-                            scope.launch {
-                                database.settingsDao().updateSettings(settings.copy(firefoxCollectionName = it.ifBlank { null }))
-                            }
-                        },
-                        label = { Text("Collection Name") },
+                        value = scriptUrl,
+                        onValueChange = { scriptUrl = it },
+                        placeholder = { Text("https://example.com/script.js") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
@@ -512,49 +496,36 @@ fun SettingsView(
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
                         onClick = {
-                            val userId = settings.firefoxUserId
-                            val collectionName = settings.firefoxCollectionName
-                            if (!userId.isNullOrBlank() && !collectionName.isNullOrBlank()) {
+                            if (scriptUrl.isNotBlank()) {
                                 scope.launch(kotlinx.coroutines.Dispatchers.IO) {
                                     try {
-                                        val url = "https://addons.mozilla.org/api/v4/accounts/account/$userId/collections/$collectionName/addons/"
-                                        val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                        val connection = java.net.URL(scriptUrl).openConnection() as java.net.HttpURLConnection
                                         val response = connection.inputStream.bufferedReader().readText()
-                                        val json = org.json.JSONObject(response)
-                                        val addons = json.getJSONArray("results")
-                                        for (i in 0 until addons.length()) {
-                                            val addon = addons.getJSONObject(i).getJSONObject("addon")
-                                            val name = addon.getString("name")
-                                            val guid = addon.getString("guid")
-                                            // Firefox extensions on Android usually work via userscripts if proxied or native support
-                                            // For now, we add them as named placeholder userscripts or log them
-                                            database.userScriptDao().insertScript(
-                                                com.omniweb.app.data.UserScript(
-                                                    name = "Extension: $name",
-                                                    script = "// Firefox Extension GUID: $guid\n// Sync implementation pending native engine support",
-                                                    enabled = true,
-                                                    type = "userscript"
-                                                )
+                                        database.userScriptDao().insertScript(
+                                            com.omniweb.app.data.UserScript(
+                                                name = scriptUrl.substringAfterLast("/"),
+                                                script = response,
+                                                enabled = true,
+                                                type = "userscript"
                                             )
-                                        }
+                                        )
                                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            Toast.makeText(context, "Synced ${addons.length()} extensions", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Userscript imported", Toast.LENGTH_SHORT).show()
+                                            scriptUrl = ""
                                         }
                                     } catch (e: Exception) {
                                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                            Toast.makeText(context, "Sync failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 }
-                            } else {
-                                Toast.makeText(context, "Please enter User ID and Collection Name", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(Icons.Default.Sync, contentDescription = null)
+                        Icon(Icons.Default.Download, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Sync Firefox Collection")
+                        Text("Import Script")
                     }
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)

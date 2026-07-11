@@ -330,9 +330,12 @@ fun ReaderModeView(
 
     val (backgroundColor, textColor) = when (effectiveTheme) {
         "dark" -> Color(0xFF121212) to Color(0xFFE0E0E0)
-        "sepia" -> Color(0xFFF4ECD8) to Color(0xFF5B4636)
+        "sepia" -> Color(0xFFFBF0D9) to Color(0xFF5B4636)
         else -> Color(0xFFFFFFFF) to Color(0xFF1A1A1A)
     }
+
+    var lineSpacing by remember { mutableFloatStateOf(1.6f) }
+    var letterSpacing by remember { mutableFloatStateOf(0f) }
 
     val fontStack = when(fontFamilyType) {
         "serif" -> "serif"
@@ -349,9 +352,11 @@ fun ReaderModeView(
                     color: ${String.format("#%06X", (textColor.value.toLong() and 0xFFFFFF))};
                     font-family: $fontStack;
                     font-size: ${fontSize}px;
-                    line-height: 1.6;
+                    line-height: $lineSpacing;
+                    letter-spacing: ${letterSpacing}px;
                     padding: 24px;
                     margin: 0;
+                    transition: all 0.3s ease;
                 }
                 h1.reader-title {
                     font-size: 1.5em;
@@ -439,6 +444,11 @@ fun ReaderModeView(
                         onUpdateSettings(settings.copy(readerFontFamily = nextFont))
                     }) {
                         Icon(Icons.Default.FontDownload, contentDescription = "Toggle Font")
+                    }
+                    IconButton(onClick = {
+                        lineSpacing = if (lineSpacing > 2.0f) 1.2f else lineSpacing + 0.2f
+                    }) {
+                        Icon(Icons.Default.FormatLineSpacing, contentDescription = "Line Spacing")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

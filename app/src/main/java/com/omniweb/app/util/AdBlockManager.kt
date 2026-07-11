@@ -29,6 +29,28 @@ object AdBlockManager {
     }
     private val MALWARE_DOMAINS = ConcurrentHashMap.newKeySet<String>()
 
+    private class TrieNode {
+        val children = HashMap<String, TrieNode>()
+        var category: String? = null
+    }
+
+    @Volatile
+    private var root = TrieNode().apply {
+        // Initialize with default domains for unit tests where init() might not be called with assets
+        listOf(
+            "doubleclick.net", "googleadservices.com", "googlesyndication.com",
+            "moatads.com", "taboola.com", "outbrain.com", "adservice.google.com",
+            "adnxs.com", "criteo.com", "carbonads.net", "amazon-adsystem.com",
+            "pubmatic.com", "rubiconproject.com", "openx.net", "media.net",
+            "smartadserver.com", "bidswitch.net", "triplelift.com", "indexww.com"
+        ).forEach { insertToTrie(this, it, "[Ad]") }
+        listOf(
+            "google-analytics.com", "googletagmanager.com", "hotjar.com", "clarity.ms",
+            "mixpanel.com", "amplitude.com", "segment.com"
+        ).forEach { insertToTrie(this, it, "[Analytics]") }
+        listOf("facebook.com", "fbcdn.net", "ads-twitter.com").forEach { insertToTrie(this, it, "[Social]") }
+    }
+
     @Volatile
     private var bloomFilter: DefaultBloomFilter<String>? = null
 
@@ -50,6 +72,13 @@ object AdBlockManager {
 
                 awaitAll(loadHosts1, loadHosts2)
 
+                val newRoot = TrieNode()
+                ADS_DOMAINS.forEach { insertToTrie(newRoot, it, "[Ad]") }
+                ANALYTICS_DOMAINS.forEach { insertToTrie(newRoot, it, "[Analytics]") }
+                SOCIAL_DOMAINS.forEach { insertToTrie(newRoot, it, "[Social]") }
+                MALWARE_DOMAINS.forEach { insertToTrie(newRoot, it, "[Malware]") }
+                root = newRoot
+
                 val totalSize = ADS_DOMAINS.size + ANALYTICS_DOMAINS.size + SOCIAL_DOMAINS.size + MALWARE_DOMAINS.size
                 bloomFilter = DefaultBloomFilter(
                     numberOfElements = totalSize.coerceAtLeast(50000),
@@ -63,6 +92,15 @@ object AdBlockManager {
                 }
             }.also { initJob = it }
         }
+    }
+
+    private fun insertToTrie(root: TrieNode, domain: String, category: String) {
+        val parts = domain.lowercase().split('.').reversed()
+        var current = root
+        for (part in parts) {
+            current = current.children.getOrPut(part) { TrieNode() }
+        }
+        current.category = category
     }
 
     suspend fun awaitIdling() {
@@ -96,34 +134,12 @@ object AdBlockManager {
         if (host.isEmpty()) return null
         val lowerHost = host.lowercase()
 
-        // 1. Try full host first
-        getDirectCategory(lowerHost)?.let { return it }
-
-        // 2. Try parent domains (e.g., ad.doubleclick.net -> doubleclick.net)
-        var dotIdx = lowerHost.indexOf('.')
-        while (dotIdx != -1 && dotIdx < lowerHost.length - 1) {
-            val suffix = lowerHost.substring(dotIdx + 1)
-            if (suffix.isEmpty()) break
-
-            getDirectCategory(suffix)?.let { return it }
-
-            dotIdx = lowerHost.indexOf('.', dotIdx + 1)
+        val parts = lowerHost.split('.').reversed()
+        var current = root
+        for (part in parts) {
+            current = current.children[part] ?: return null
+            if (current.category != null) return current.category
         }
-        return null
-    }
-
-    private fun getDirectCategory(lowerHost: String): String? {
-        // Fast path check using Bloom Filter if initialized
-        val filter = bloomFilter
-        if (filter != null && !filter.mightContain(lowerHost)) {
-            return null
-        }
-
-        // Precise check against individual sets
-        if (MALWARE_DOMAINS.contains(lowerHost)) return "[Malware]"
-        if (ADS_DOMAINS.contains(lowerHost)) return "[Ad]"
-        if (ANALYTICS_DOMAINS.contains(lowerHost)) return "[Analytics]"
-        if (SOCIAL_DOMAINS.contains(lowerHost)) return "[Social]"
 
         return null
     }

@@ -85,7 +85,9 @@ object ArticleExtractor {
 
         // 3. Punctuation (prose indicator)
         val punctuation = totalText.count { it == ',' || it == '.' || it == ';' || it == ':' || it == '?' || it == '!' }
-        score += punctuation * 8f // Increased from 5
+        val punctuationDensity = if (totalText.length > 0) punctuation.toFloat() / totalText.length else 0f
+        score += punctuation * 12f // Increased from 8
+        if (punctuationDensity > 0.02) score += 100f // Bonus for high punctuation density (likely prose)
 
         // 4. Link density penalty (strongest factor)
         val linkTextLength = el.select("a").sumOf { it.text().length }
