@@ -94,6 +94,7 @@ data class Settings(
     val readerTheme: String = "system",
     val readerFontFamily: String = "serif",
     val toolbarLocation: String = "bottom",
+    val useGeckoView: Boolean = false,
     val firefoxUserId: String? = null,
     val firefoxCollectionName: String? = null
 )

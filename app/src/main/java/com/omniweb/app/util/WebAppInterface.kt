@@ -11,7 +11,8 @@ class WebAppInterface(
     private val onMediaDetected: (List<MediaItem>) -> Unit,
     private val onTextExtracted: (String) -> Unit,
     private val onLoginFormDetected: (String, String) -> Unit = { _, _ -> },
-    private val onGetAnnotations: () -> String = { "[]" }
+    private val onGetAnnotations: () -> String = { "[]" },
+    private val onPageReadable: (Boolean) -> Unit = {}
 ) {
     private val handler = Handler(Looper.getMainLooper())
 
@@ -50,6 +51,11 @@ class WebAppInterface(
     @JavascriptInterface
     fun getAnnotations(): String {
         return onGetAnnotations()
+    }
+
+    @JavascriptInterface
+    fun onPageReadable(isReadable: Boolean) {
+        handler.post { onPageReadable(isReadable) }
     }
 
     @JavascriptInterface
