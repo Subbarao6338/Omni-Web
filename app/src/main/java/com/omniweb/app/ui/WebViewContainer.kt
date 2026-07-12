@@ -25,6 +25,7 @@ import androidx.webkit.ProxyController
 import com.omniweb.app.data.Settings
 import com.omniweb.app.data.TabInfo
 import com.omniweb.app.data.AnnotationEntity
+import com.omniweb.app.data.MediaItem
 import com.omniweb.app.util.AdBlockManager
 import com.omniweb.app.util.UrlUtils
 import com.omniweb.app.util.WebAppInterface
@@ -396,6 +397,12 @@ fun WebViewContainer(
                                     return WebResourceResponse("text/plain", "UTF-8", null)
                                 }
                             }
+
+                            val reqUrl = request?.url?.toString() ?: ""
+                            if (reqUrl.isNotBlank()) {
+                                sniffRequest(reqUrl, tab)
+                            }
+
                             // Don't add headers to third party requests to avoid issues
                             if (reqHost == pageHost) {
                                 request?.requestHeaders?.put("DNT", "1")
@@ -474,6 +481,32 @@ fun WebViewContainer(
     }
 }
 
+private fun sniffRequest(url: String, tab: TabInfo) {
+    val lowerUrl = url.lowercase()
+
+    val isVideo = listOf(".mp4", ".m3u8", ".mpd", ".webm", ".mov", ".m4v", ".3gp", ".ts", ".avi", ".mkv").any { lowerUrl.contains(it) }
+    val isAudio = listOf(".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma").any { lowerUrl.contains(it) }
+    val isImage = listOf(".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico").any { lowerUrl.contains(it) }
+
+    if (isVideo || isAudio || isImage) {
+        // Ignore analytics, advertising, telemetry, trackers
+        if (lowerUrl.contains("google-analytics") || lowerUrl.contains("doubleclick") || lowerUrl.contains("telemetry") || lowerUrl.contains("/ad/") || lowerUrl.contains("tracker")) {
+            return
+        }
+
+        val type = if (isVideo) "video" else if (isAudio) "audio" else "image"
+
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            // Check if already contains
+            if (tab.detectedMedia.none { it.src == url }) {
+                val title = url.substringBefore("?").substringAfterLast("/").ifBlank { "Media File" }
+                val id = "sniffed-" + Math.abs(url.hashCode()).toString(36)
+                tab.detectedMedia.add(MediaItem(id = id, type = type, src = url, title = title))
+            }
+        }
+    }
+}
+
 private fun antiFingerprintScript() = """
     (function() {
         const hideProperty = (obj, prop, value) => {
@@ -523,6 +556,7 @@ private fun mediaSnifferScript() = """
             const media = [];
             const seen = new Set();
             const selectors = 'video, audio, source, img, a[href*=".mp4"], a[href*=".m3u8"], a[href*=".mpd"], a[href*=".mp3"], a[href*=".m4a"], a[href*=".wav"], a[href*=".jpg"], a[href*=".png"], a[href*=".webp"], a[href*=".gif"]';
+
             document.querySelectorAll(selectors).forEach(el => {
                 let src = el.src || el.getAttribute('src') || el.currentSrc || el.href;
                 if (src && src.startsWith('//')) src = 'https:' + src;
@@ -530,9 +564,9 @@ private fun mediaSnifferScript() = """
                     try {
                         const urlObj = new URL(src);
                         const ext = urlObj.pathname.split('.').pop().toLowerCase();
-                        const isVideo = ['mp4', 'm3u8', 'mpd', 'webm', 'mov', 'm4v'].includes(ext) || el.tagName.toLowerCase() === 'video';
-                        const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac'].includes(ext) || el.tagName.toLowerCase() === 'audio';
-                        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext) || el.tagName.toLowerCase() === 'img';
+                        const isVideo = ['mp4', 'm3u8', 'mpd', 'webm', 'mov', 'm4v', '3gp', 'ts', 'avi', 'mkv'].includes(ext) || el.tagName.toLowerCase() === 'video';
+                        const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac', 'flac', 'wma'].includes(ext) || el.tagName.toLowerCase() === 'audio';
+                        const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'].includes(ext) || el.tagName.toLowerCase() === 'img';
                         if (isVideo || isAudio || isImage) {
                             seen.add(src);
                             media.push({
@@ -545,22 +579,35 @@ private fun mediaSnifferScript() = """
                     } catch(e) {}
                 }
             });
+
             if (window.performance && window.performance.getEntriesByType) {
                 performance.getEntriesByType('resource').forEach(resource => {
-                    const isHls = resource.name.includes('.m3u8') || resource.name.includes('.mpd') || resource.name.includes('.ts');
-                    if (isHls && !seen.has(resource.name)) {
-                        if (resource.name.includes('google-analytics') || resource.name.includes('doubleclick') || resource.name.includes('telemetry')) return;
+                    const rUrl = resource.name;
+                    if (rUrl && rUrl.startsWith('http') && !seen.has(rUrl)) {
+                        if (rUrl.includes('google-analytics') || rUrl.includes('doubleclick') || rUrl.includes('telemetry') || rUrl.includes('/ad/') || rUrl.includes('tracker')) return;
 
-                        seen.add(resource.name);
-                        media.push({
-                            id: 'stream-' + getHash(resource.name),
-                            src: resource.name,
-                            type: 'video',
-                            title: 'Stream: ' + (document.title || 'Video')
-                        });
+                        try {
+                            const urlObj = new URL(rUrl);
+                            const ext = urlObj.pathname.split('.').pop().toLowerCase();
+                            const isVideo = ['mp4', 'm3u8', 'mpd', 'webm', 'mov', 'm4v', '3gp', 'ts', 'avi', 'mkv'].includes(ext);
+                            const isAudio = ['mp3', 'm4a', 'wav', 'ogg', 'aac', 'flac', 'wma'].includes(ext);
+                            const isImage = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico'].includes(ext);
+
+                            if (isVideo || isAudio || isImage) {
+                                seen.add(rUrl);
+                                media.push({
+                                    id: 'resource-' + getHash(rUrl),
+                                    src: rUrl,
+                                    type: isVideo ? 'video' : (isAudio ? 'audio' : 'image'),
+                                    title: 'Network resource: ' + (rUrl.split('/').pop().split('?')[0] || 'Media')
+                                });
+                            }
+                        } catch(e) {}
                     }
                 });
             }
+
+            attachMediaListeners();
 
             if (media.length > 0) {
                 const currentJson = JSON.stringify(media);
@@ -569,6 +616,17 @@ private fun mediaSnifferScript() = """
                     Android.postMedia(currentJson);
                 }
             }
+        }
+
+        function attachMediaListeners() {
+            document.querySelectorAll('video, audio').forEach(el => {
+                if (!el.omniSniffed) {
+                    el.omniSniffed = true;
+                    ['play', 'load', 'loadedmetadata'].forEach(evt => {
+                        el.addEventListener(evt, sniff);
+                    });
+                }
+            });
         }
 
         function debouncedSniff() {

@@ -24,9 +24,18 @@ class OmniDownloadManager(private val context: Context) {
     fun startDownload(url: String, fileName: String) {
         val sanitizedName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
             .replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val isVideoUrl = url.contains("youtube.com") || url.contains("youtu.be") || url.contains("instagram.com") || url.contains("x.com") || url.contains("facebook.com")
 
-        if (isVideoUrl) {
+        val lowerUrl = url.lowercase()
+        val ext = lowerUrl.substringAfterLast(".", "").substringBefore("?")
+        val isDirectFile = listOf(
+            "mp4", "webm", "mov", "m4v", "3gp", "ts", "avi", "mkv",
+            "mp3", "m4a", "wav", "ogg", "aac", "flac", "wma",
+            "jpg", "jpeg", "png", "webp", "gif", "svg", "ico", "pdf", "zip", "rar", "apk"
+        ).contains(ext)
+
+        val useYtDl = !isDirectFile && (url.startsWith("http://") || url.startsWith("https://"))
+
+        if (useYtDl) {
             scope.launch {
                 startYtDlDownload(url, sanitizedName)
             }
