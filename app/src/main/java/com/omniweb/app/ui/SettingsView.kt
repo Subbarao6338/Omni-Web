@@ -205,21 +205,6 @@ fun SettingsView(
                         )
                     }
                 )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
-                ListItem(
-                    headlineContent = { Text("Use GeckoView Engine") },
-                    supportingContent = { Text("Use Mozilla's engine instead of System WebView (Experimental)") },
-                    trailingContent = {
-                        Switch(
-                            checked = settings.useGeckoView,
-                            onCheckedChange = { enabled ->
-                                scope.launch {
-                                    database.settingsDao().updateSettings(settings.copy(useGeckoView = enabled))
-                                }
-                            }
-                        )
-                    }
-                )
             }
 
             SettingsSection("Downloads", Icons.Default.Download) {
