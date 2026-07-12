@@ -101,7 +101,6 @@ repositories {
     google()
     mavenCentral()
     maven { url 'https://jitpack.io' }
-    maven { url "https://maven.mozilla.org/maven2/" }
 }
 
 dependencies {
@@ -143,8 +142,6 @@ dependencies {
     // Jsoup
     implementation "org.jsoup:jsoup:$jsoupVersion"
 
-    // GeckoView
-    implementation "org.mozilla.geckoview:geckoview-beta-arm64-v8a:$geckoviewVersion"
 
     // OkHttp
     implementation "com.squareup.okhttp3:okhttp:$okHttpVersion"

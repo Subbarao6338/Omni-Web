@@ -495,54 +495,38 @@ fun BrowserView(
         val splitTab = viewModel.tabs.find { it.id == splitTabId }
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             Box(modifier = Modifier.weight(1f)) {
-                if (settings.useGeckoView) {
-                    com.omniweb.app.engine.GeckoViewContainer(
-                        tab = activeTab,
-                        onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
-                        onProgressChanged = { activeTab.progress = it }
-                    )
-                } else {
-                    WebViewContainer(
-                        tab = activeTab,
-                        viewModel = viewModel,
-                        settings = settings,
-                        onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
-                        onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                        onTextExtracted = { if (activeTab.id == viewModel.activeTabId.value) pageText = it },
-                        onScrollChanged = { x, y -> viewModel.updateTabScroll(activeTab.id, x, y) },
-                        onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                        onProgressChanged = { activeTab.progress = it },
-                        onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
-                        onIconReceived = { activeTab.faviconBitmap = it },
-                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
-                    )
-                }
+                WebViewContainer(
+                    tab = activeTab,
+                    viewModel = viewModel,
+                    settings = settings,
+                    onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                    onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                    onTextExtracted = { if (activeTab.id == viewModel.activeTabId.value) pageText = it },
+                    onScrollChanged = { x, y -> viewModel.updateTabScroll(activeTab.id, x, y) },
+                    onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                    onProgressChanged = { activeTab.progress = it },
+                    onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
+                    onIconReceived = { activeTab.faviconBitmap = it },
+                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                )
             }
             Box(modifier = Modifier.height(4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.primary))
             Box(modifier = Modifier.weight(1f)) {
                 if (splitTab != null) {
-                    if (settings.useGeckoView) {
-                        com.omniweb.app.engine.GeckoViewContainer(
-                            tab = splitTab,
-                            onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
-                            onProgressChanged = { splitTab.progress = it }
-                        )
-                    } else {
-                        WebViewContainer(
-                            tab = splitTab,
-                            viewModel = viewModel,
-                            settings = settings,
-                            onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
-                            onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                            onTextExtracted = { },
-                            onScrollChanged = { x, y -> viewModel.updateTabScroll(splitTab.id, x, y) },
-                            onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                            onProgressChanged = { splitTab.progress = it },
-                            onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
-                            onIconReceived = { splitTab.faviconBitmap = it },
-                            onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
-                        )
-                    }
+                    WebViewContainer(
+                        tab = splitTab,
+                        viewModel = viewModel,
+                        settings = settings,
+                        onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                        onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                        onTextExtracted = { },
+                        onScrollChanged = { x, y -> viewModel.updateTabScroll(splitTab.id, x, y) },
+                        onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                        onProgressChanged = { splitTab.progress = it },
+                        onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
+                        onIconReceived = { splitTab.faviconBitmap = it },
+                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                    )
                 }
             }
         }
@@ -553,70 +537,54 @@ fun BrowserView(
             userScrollEnabled = false
         ) { pageIndex ->
             val tab = tabs[pageIndex]
-            if (settings.useGeckoView) {
-                com.omniweb.app.engine.GeckoViewContainer(
-                    tab = tab,
-                    onTitleReceived = { title ->
-                        tab.title = title
-                        viewModel.updateTabInDb(tab)
-                        if (!tab.isIncognito) {
-                            scope.launch {
-                                database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
-                            }
+            val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
+            DisposableEffect(isFindMode) {
+                if (isFindMode && tab.id == activeTab.id) {
+                    currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+                        if (isDoneCounting) {
+                            findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
                         }
-                    },
-                    onProgressChanged = { tab.progress = it }
-                )
-            } else {
-                val currentWebView = viewModel.getOrCreateWebView(tab.id, context)
-                DisposableEffect(isFindMode) {
-                    if (isFindMode && tab.id == activeTab.id) {
-                        currentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
-                            if (isDoneCounting) {
-                                findMatchStatus = if (numberOfMatches > 0) "${activeMatchOrdinal + 1}/$numberOfMatches" else "0/0"
-                            }
-                        }
-                    } else {
-                        currentWebView.setFindListener(null)
                     }
-                    onDispose {
-                        currentWebView.setFindListener(null)
-                    }
+                } else {
+                    currentWebView.setFindListener(null)
                 }
-
-                WebViewContainer(
-                    tab = tab,
-                    viewModel = viewModel,
-                    settings = settings,
-                    onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
-                    onBookmarkletDetected = { showAddBookmarkletDialog = it },
-                    onTextExtracted = { text ->
-                        if (tab.id == activeTab.id) {
-                            if (text.startsWith("INSPECT:")) {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
-                                }
-                            } else {
-                                pageText = text
-                            }
-                        }
-                    },
-                    onScrollChanged = { x, y -> viewModel.updateTabScroll(tab.id, x, y) },
-                    onContextMenu = { contextMenuResult = it; showContextMenu = true },
-                    onProgressChanged = { tab.progress = it },
-                    onTitleReceived = { title ->
-                        tab.title = title
-                        viewModel.updateTabInDb(tab)
-                        if (!tab.isIncognito) {
-                            scope.launch {
-                                database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
-                            }
-                        }
-                    },
-                    onIconReceived = { tab.faviconBitmap = it },
-                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
-                )
+                onDispose {
+                    currentWebView.setFindListener(null)
+                }
             }
+
+            WebViewContainer(
+                tab = tab,
+                viewModel = viewModel,
+                settings = settings,
+                onLoginDetected = { site, user, pass -> passwordToSave = Triple(site, user, pass) },
+                onBookmarkletDetected = { showAddBookmarkletDialog = it },
+                onTextExtracted = { text ->
+                    if (tab.id == activeTab.id) {
+                        if (text.startsWith("INSPECT:")) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(text.removePrefix("INSPECT:"))
+                            }
+                        } else {
+                            pageText = text
+                        }
+                    }
+                },
+                onScrollChanged = { x, y -> viewModel.updateTabScroll(tab.id, x, y) },
+                onContextMenu = { contextMenuResult = it; showContextMenu = true },
+                onProgressChanged = { tab.progress = it },
+                onTitleReceived = { title ->
+                    tab.title = title
+                    viewModel.updateTabInDb(tab)
+                    if (!tab.isIncognito) {
+                        scope.launch {
+                            database.historyDao().insertHistory(HistoryEntry(title = title, url = tab.url))
+                        }
+                    }
+                },
+                onIconReceived = { tab.faviconBitmap = it },
+                onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+            )
         }
     }
 

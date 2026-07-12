@@ -70,6 +70,42 @@ fun BookmarksView(
         }
     }
 
+    val exportHtmlLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/html")
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                try {
+                    context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        val htmlContent = com.omniweb.app.util.BookmarkExporter.exportToHtml(bookmarks)
+                        outputStream.write(htmlContent.toByteArray())
+                        Toast.makeText(context, "Bookmarks exported successfully as HTML", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val exportTxtLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                try {
+                    context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        val txtContent = com.omniweb.app.util.BookmarkExporter.exportToTxt(bookmarks)
+                        outputStream.write(txtContent.toByteArray())
+                        Toast.makeText(context, "Bookmarks exported successfully as TXT", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             Column {
@@ -82,8 +118,40 @@ fun BookmarksView(
                     },
                     actions = {
                         if (selectedTab == 0) {
-                            IconButton(onClick = { importFileLauncher.launch(arrayOf("text/html")) }) {
-                                Icon(Icons.Default.FileUpload, contentDescription = "Import from HTML")
+                            var showMenu by remember { mutableStateOf(false) }
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = "Bookmark Options")
+                                }
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Import Bookmarks") },
+                                        onClick = {
+                                            showMenu = false
+                                            importFileLauncher.launch(arrayOf("text/html", "text/plain"))
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Export as HTML") },
+                                        onClick = {
+                                            showMenu = false
+                                            exportHtmlLauncher.launch("bookmarks.html")
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Export as TXT") },
+                                        onClick = {
+                                            showMenu = false
+                                            exportTxtLauncher.launch("bookmarks.txt")
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) }
+                                    )
+                                }
                             }
                         }
                         if (selectedTab == 1 && viewModel != null) {
