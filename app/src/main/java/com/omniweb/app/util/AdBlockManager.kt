@@ -132,12 +132,11 @@ object AdBlockManager {
 
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
-        val lowerHost = host.lowercase()
 
-        val parts = lowerHost.split('.').reversed()
+        val parts = host.split('.').reversed()
         var current = root
         for (part in parts) {
-            current = current.children[part] ?: return null
+            current = current.children[part] ?: break
             if (current.category != null) return current.category
         }
 
@@ -145,8 +144,10 @@ object AdBlockManager {
     }
 
     fun shouldBlock(host: String): Boolean {
-        if (bloomFilter?.mightContain(host) == true) return true
-        return getCategory(host) != null
+        if (host.isEmpty()) return false
+        val lowerHost = host.lowercase()
+        if (bloomFilter?.mightContain(lowerHost) == true) return true
+        return getCategory(lowerHost) != null
     }
 
     @Volatile

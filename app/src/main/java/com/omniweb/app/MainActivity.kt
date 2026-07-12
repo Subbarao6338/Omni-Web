@@ -78,17 +78,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
         if (isInPictureInPictureMode) {
             // Hide system UI in PiP mode
-            window.decorView.systemUiVisibility = (android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE
-                    or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION)
+            controller!!.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller!!.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             // Restore system UI when exiting PiP
-            window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
+            controller!!.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
 
