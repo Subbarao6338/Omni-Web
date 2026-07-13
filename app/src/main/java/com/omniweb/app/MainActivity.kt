@@ -81,11 +81,11 @@ class MainActivity : ComponentActivity() {
         val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
         if (isInPictureInPictureMode) {
             // Hide system UI in PiP mode
-            controller!!.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
-            controller!!.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             // Restore system UI when exiting PiP
-            controller!!.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
         }
     }
 

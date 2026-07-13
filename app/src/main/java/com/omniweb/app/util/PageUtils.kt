@@ -264,4 +264,24 @@ object PageUtils {
             return null
         }
     }
+
+    fun captureTabThumbnail(webView: WebView): Bitmap? {
+        return try {
+            val width = webView.width
+            val height = webView.height
+            if (width <= 0 || height <= 0) return null
+
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            webView.draw(canvas)
+
+            // Scale down to a reasonable thumbnail size
+            val targetWidth = 400
+            val targetHeight = (height * (targetWidth.toFloat() / width)).toInt()
+            Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        } catch (e: Exception) {
+            LogUtils.e("Failed to capture tab thumbnail", e)
+            null
+        }
+    }
 }

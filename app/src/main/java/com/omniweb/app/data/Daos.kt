@@ -16,6 +16,9 @@ interface BookmarkDao {
 
     @Delete
     suspend fun deleteBookmark(bookmark: Bookmark)
+
+    @Query("SELECT * FROM bookmarks WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' LIMIT :limit")
+    suspend fun searchBookmarks(query: String, limit: Int): List<Bookmark>
 }
 
 @Dao
@@ -52,6 +55,9 @@ interface HistoryDao {
 
     @Query("SELECT title, url, COUNT(url) as visitCount FROM history GROUP BY url ORDER BY visitCount DESC LIMIT :limit")
     fun getMostVisited(limit: Int = 8): Flow<List<MostVisitedEntry>>
+
+    @Query("SELECT * FROM history WHERE title LIKE '%' || :query || '%' OR url LIKE '%' || :query || '%' LIMIT :limit")
+    suspend fun searchHistory(query: String, limit: Int): List<HistoryEntry>
 }
 
 data class MostVisitedEntry(

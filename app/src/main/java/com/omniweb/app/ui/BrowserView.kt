@@ -628,7 +628,6 @@ fun BrowserView(
         PageToolsSheet(
             activeTab = activeTab,
             viewModel = viewModel,
-            settings = settings,
             isSplitScreen = isSplitScreen,
             isDesktopMode = isDesktopMode,
             bookmarks = bookmarks,

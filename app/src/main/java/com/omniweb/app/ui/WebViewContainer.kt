@@ -208,6 +208,7 @@ fun WebViewContainer(
                     setOnScrollChangeListener { v, scrollX, scrollY, _, _ ->
                         onScrollChanged(scrollX, scrollY)
                         val webView = v as WebView
+                        @Suppress("DEPRECATION")
                         val contentHeight = webView.contentHeight * webView.scale
                         val totalScrollable = contentHeight - webView.height
                         if (totalScrollable > 0) {
@@ -283,6 +284,7 @@ fun WebViewContainer(
 
                         override fun onPageFinished(view: WebView?, url: String?) {
                             tab.isLoading = false
+                            view?.let { tab.thumbnail = com.omniweb.app.util.PageUtils.captureTabThumbnail(it) }
 
                             val host = Uri.parse(url ?: "").host ?: ""
                             val perSite = viewModel.getPerSiteSettings(host)

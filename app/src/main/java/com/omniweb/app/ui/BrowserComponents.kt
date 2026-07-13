@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.SwipeToDismissBox
@@ -149,7 +150,7 @@ fun BrowserAddressBar(
 
                     if (isPageReadable) {
                         IconButton(onClick = onReaderClick) {
-                            Icon(Icons.Default.MenuBook, contentDescription = "Reader Mode", tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = "Reader Mode", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
 
@@ -416,13 +417,21 @@ fun TabGridSwitcher(
                                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                // In a real app, we would show a screenshot of the page here
-                                Icon(
-                                    Icons.Default.Language,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                    modifier = Modifier.size(48.dp)
-                                )
+                                if (tab.thumbnail != null) {
+                                    Image(
+                                        bitmap = tab.thumbnail!!.asImageBitmap(),
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Language,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
                             }
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
