@@ -23,7 +23,12 @@ object ArticleExtractor {
                 ".outbrain, .taboola, .revcontent, .z-ad, .recommended-articles, .suggested-content, " +
                 ".article-sidebar, .post-sidebar, .entry-sidebar, .right-column, .left-column, " +
                 ".newsletter-box, .wp-block-buttons, .wp-block-separator, .sharedaddy, .jp-relatedposts, " +
-                ".entry-utility, .entry-related, .inline-ad, .inline-newsletter"
+                ".entry-utility, .entry-related, .inline-ad, .inline-newsletter, " +
+                ".cookie-consent, .gdpr, .notice-banner, .top-nav, .bottom-nav, .mobile-nav, " +
+                ".search-form, .search-box, .login-box, .signup-box, .user-profile, " +
+                ".pagination, .next-post, .prev-post, .related-links, .popular-posts, " +
+                ".sidebar-content, .sidebar-widget, .sticky-ad, .floating-ad, .interstitial, " +
+                ".survey-box, .feedback-form, .rating-stars, .comment-form, .comment-list"
             doc.select(junkSelector).remove()
 
             // 2. Scoring Based Candidate Selection
@@ -51,10 +56,49 @@ object ArticleExtractor {
 
             finalElement.allElements.forEach { el ->
                 if (allowedTags.contains(el.tagName())) {
+                    // Only take elements that are not inside known junk containers that might have survived pre-cleanup
+                    var curr = el.parent()
+                    var isInsideForbidden = false
+                    while (curr != null && curr != finalElement) {
+                        val cls = curr.className().lowercase()
+                        val id = curr.id().lowercase()
+                        if (curr.tagName() == "aside" || curr.tagName() == "nav" ||
+                            cls.contains("sidebar") || cls.contains("comment") ||
+                            cls.contains("ad-") || id.contains("sidebar") || id.contains("comment")) {
+                            isInsideForbidden = true
+                            break
+                        }
+                        curr = curr.parent()
+                    }
+                    if (isInsideForbidden) return@forEach
+
                     val parent = el.parent()
                     if (parent == finalElement || parent == null || !allowedTags.contains(parent.tagName())) {
+                        // Handle images specially (lazy loading, etc)
+                        if (el.tagName() == "img") {
+                            val src = el.attr("src")
+                            val dataSrc = el.attr("data-src")
+                            val dataLazySrc = el.attr("data-lazy-src")
+                            val srcset = el.attr("srcset")
+
+                            val finalSrc = when {
+                                !dataSrc.isNullOrBlank() -> dataSrc
+                                !dataLazySrc.isNullOrBlank() -> dataLazySrc
+                                !src.isNullOrBlank() -> src
+                                else -> ""
+                            }
+
+                            if (finalSrc.isNotBlank()) {
+                                el.attr("src", finalSrc)
+                                if (srcset.isNotBlank()) el.removeAttr("srcset")
+                                el.removeAttr("loading")
+                                result.append(el.outerHtml())
+                            }
+                            return@forEach
+                        }
+
                         // Scoring individual items within candidate
-                        if (el.tagName() == "p" && el.text().length < 10) return@forEach
+                        if (el.tagName() == "p" && el.text().trim().length < 10) return@forEach
                         result.append(el.outerHtml())
                     }
                 }
@@ -121,16 +165,16 @@ object ArticleExtractor {
 
         // 5. Semantic Bonuses/Penalties
         val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
-        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description", "prose")
-        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar", "aside", "navigation")
+        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description", "prose", "main-column", "content-area", "paper")
+        val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar", "aside", "navigation", "breadcrumb", "tags", "author", "popup", "modal", "utility")
 
         if (positivePatterns.any { attrString.contains(it) }) {
-            score += 250f
-            if (attrString.contains("article") || attrString.contains("story")) score += 150f
+            score += 300f
+            if (attrString.contains("article") || attrString.contains("story") || attrString.contains("post")) score += 200f
         }
         if (negativePatterns.any { attrString.contains(it) }) {
-            score -= 200f
-            if (attrString.contains("nav") || attrString.contains("menu")) score -= 150f
+            score -= 300f
+            if (attrString.contains("nav") || attrString.contains("menu") || attrString.contains("sidebar")) score -= 200f
         }
 
         // 6. Image/Media bonus (if within a content block)

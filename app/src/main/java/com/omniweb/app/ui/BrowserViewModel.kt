@@ -338,6 +338,13 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
     fun selectTab(id: String) {
         _activeTabId.value = id
         tabLastActive[id] = System.currentTimeMillis()
+
+        // Ensure the selected tab is moved to the front of the cache
+        webViewCache[id]?.let {
+            webViewCache.remove(id)
+            webViewCache[id] = it
+        }
+
         hibernateTabsIfNeeded()
     }
 
@@ -377,6 +384,12 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
             if (otherTab != null) {
                 _splitTabId.value = otherTab.id
                 _isSplitScreen.value = true
+
+                // Ensure split tab is also moved to front of cache
+                webViewCache[otherTab.id]?.let {
+                    webViewCache.remove(otherTab.id)
+                    webViewCache[otherTab.id] = it
+                }
             } else {
                 createTab()
                 val newTabId = tabs.last().id
@@ -419,11 +432,16 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
         // More aggressive timeout if memory is low
         val timeout = when {
-            force || isCriticalMemory -> 0L
+            isCriticalMemory -> 0L
+            force -> 60 * 1000L // 1 minute if forced but not critical
             else -> 5 * 60 * 1000L // 5 minutes
         }
 
-        val maxCacheSize = if (isCriticalMemory) 2 else 5
+        val maxCacheSize = when {
+            isCriticalMemory -> 1
+            availablePercent < 0.25f -> 3
+            else -> 5
+        }
 
         // Use a list to avoid ConcurrentModificationException
         val tabsToHibernate = webViewCache.keys.filter { it != activeId && it != splitId }.toMutableList()
