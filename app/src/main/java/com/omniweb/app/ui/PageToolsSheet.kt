@@ -30,7 +30,6 @@ import kotlinx.coroutines.launch
 fun PageToolsSheet(
     activeTab: TabInfo,
     viewModel: BrowserViewModel,
-    settings: Settings,
     isSplitScreen: Boolean,
     isDesktopMode: Boolean,
     bookmarks: List<Bookmark>,

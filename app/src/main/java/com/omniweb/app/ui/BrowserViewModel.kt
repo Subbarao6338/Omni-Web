@@ -613,15 +613,11 @@ class BrowserViewModel(application: Application) : AndroidViewModel(application)
 
     private suspend fun fetchSuggestionsInternal(query: String) = withContext(Dispatchers.IO) {
         val historyDeferred = async {
-            (database.historyDao().getAllHistory().firstOrNull() ?: emptyList()).filter {
-                it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
-            }.take(5).map { Suggestion(it.title, it.url, isHistory = true) }
+            database.historyDao().searchHistory(query, 5).map { Suggestion(it.title, it.url, isHistory = true) }
         }
 
         val bookmarksDeferred = async {
-            (database.bookmarkDao().getAllBookmarks().firstOrNull() ?: emptyList()).filter {
-                it.title.contains(query, ignoreCase = true) || it.url.contains(query, ignoreCase = true)
-            }.take(5).map { Suggestion(it.title, it.url, isHistory = false) }
+            database.bookmarkDao().searchBookmarks(query, 5).map { Suggestion(it.title, it.url, isHistory = false) }
         }
 
         val liveDeferred = async { fetchLiveSuggestions(query) }

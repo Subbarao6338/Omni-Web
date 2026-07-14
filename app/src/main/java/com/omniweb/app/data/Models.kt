@@ -24,6 +24,7 @@ class TabInfo(
     val detectedMedia = mutableStateListOf<MediaItem>()
     var scrollProgress by mutableFloatStateOf(0f)
     var isPageReadable by mutableStateOf(false)
+    var thumbnail by mutableStateOf<Bitmap?>(null)
 }
 
 data class MediaItem(val id: String, val type: String, val src: String, val title: String)
