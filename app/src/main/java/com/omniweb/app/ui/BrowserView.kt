@@ -1074,6 +1074,15 @@ fun BrowserView(
                     }
                 }
             },
+            onSearch = {
+                viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function() { return window.getSelection().toString(); })();") { selection ->
+                    val text = selection?.trim()?.removeSurrounding("\"") ?: ""
+                    if (text.isNotEmpty()) {
+                        val searchUrl = settings.searchEngine + android.net.Uri.encode(text)
+                        viewModel.createTab(url = searchUrl, title = "Search: $text")
+                    }
+                }
+            },
             onCopyAsMarkdown = {
                 viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("""
                     (function() {

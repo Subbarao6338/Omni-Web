@@ -246,6 +246,7 @@ fun ContextMenuSheet(
     onDownload: (String) -> Unit,
     onHighlight: () -> Unit,
     onExplain: () -> Unit,
+    onSearch: () -> Unit,
     onCopyAsMarkdown: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -277,6 +278,12 @@ fun ContextMenuSheet(
                 headlineContent = { Text("Highlight Selection") },
                     leadingContent = { Icon(Icons.Default.BorderColor, null) },
                 modifier = Modifier.clickable { onHighlight(); onDismiss() }
+            )
+
+            ListItem(
+                headlineContent = { Text("Search for Selection") },
+                leadingContent = { Icon(Icons.Default.Search, null) },
+                modifier = Modifier.clickable { onSearch(); onDismiss() }
             )
 
             ListItem(
