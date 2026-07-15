@@ -176,6 +176,7 @@ fun BrowserView(
     var contextMenuResult by remember { mutableStateOf<WebView.HitTestResult?>(null) }
 
     var showQuickActions by remember { mutableStateOf(false) }
+    var pendingDownload by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -185,6 +186,21 @@ fun BrowserView(
     ) { isGranted ->
         if (!isGranted) {
             Toast.makeText(context, "Permission denied. Cannot download.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val downloadFolderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        uri?.let {
+            context.contentResolver.takePersistableUriPermission(
+                it,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            pendingDownload?.let { (url, name) ->
+                downloadManager.startDownload(url, name, it.toString())
+            }
+            pendingDownload = null
         }
     }
 
@@ -507,7 +523,15 @@ fun BrowserView(
                     onProgressChanged = { activeTab.progress = it },
                     onTitleReceived = { activeTab.title = it; viewModel.updateTabInDb(activeTab) },
                     onIconReceived = { activeTab.faviconBitmap = it },
-                    onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) },
+                        onDownload = { url, name ->
+                            if (settings.askDownloadLocation) {
+                                pendingDownload = url to name
+                                downloadFolderPickerLauncher.launch(null)
+                            } else {
+                                downloadManager.startDownload(url, name)
+                            }
+                        }
                 )
             }
             Box(modifier = Modifier.height(4.dp).fillMaxWidth().background(MaterialTheme.colorScheme.primary))
@@ -525,7 +549,15 @@ fun BrowserView(
                         onProgressChanged = { splitTab.progress = it },
                         onTitleReceived = { splitTab.title = it; viewModel.updateTabInDb(splitTab) },
                         onIconReceived = { splitTab.faviconBitmap = it },
-                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                        onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) },
+                        onDownload = { url, name ->
+                            if (settings.askDownloadLocation) {
+                                pendingDownload = url to name
+                                downloadFolderPickerLauncher.launch(null)
+                            } else {
+                                downloadManager.startDownload(url, name)
+                            }
+                        }
                     )
                 }
             }
@@ -583,7 +615,15 @@ fun BrowserView(
                     }
                 },
                 onIconReceived = { tab.faviconBitmap = it },
-                onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) }
+                onConsoleLog = { msg, level -> consoleLogs.add(ConsoleLog(msg, level)) },
+                onDownload = { url, name ->
+                    if (settings.askDownloadLocation) {
+                        pendingDownload = url to name
+                        downloadFolderPickerLauncher.launch(null)
+                    } else {
+                        downloadManager.startDownload(url, name)
+                    }
+                }
             )
         }
     }
@@ -735,10 +775,15 @@ fun BrowserView(
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
-            items.forEach { item ->
-                downloadManager.startDownload(item.src, item.title)
+            if (settings.askDownloadLocation && items.size == 1) {
+                pendingDownload = items[0].src to items[0].title
+                downloadFolderPickerLauncher.launch(null)
+            } else {
+                items.forEach { item ->
+                    downloadManager.startDownload(item.src, item.title)
+                }
+                Toast.makeText(context, "Started ${items.size} downloads", Toast.LENGTH_SHORT).show()
             }
-            Toast.makeText(context, "Started ${items.size} downloads", Toast.LENGTH_SHORT).show()
         }) { showMediaGrabber = false }
     }
 
@@ -979,7 +1024,14 @@ fun BrowserView(
                 clipboard.setPrimaryClip(android.content.ClipData.newPlainText("URL", url))
                 Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
             },
-            onDownload = { url -> downloadManager.startDownload(url, "Image") },
+            onDownload = { url ->
+                if (settings.askDownloadLocation) {
+                    pendingDownload = url to "Download"
+                    downloadFolderPickerLauncher.launch(null)
+                } else {
+                    downloadManager.startDownload(url, "Download")
+                }
+            },
             onHighlight = {
                 viewModel.getOrCreateWebView(activeTab.id, context).evaluateJavascript("(function() { return window.getSelection().toString(); })();") { selection ->
                     val text = selection?.trim()?.removeSurrounding("\"") ?: ""

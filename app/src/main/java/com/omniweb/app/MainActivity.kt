@@ -215,7 +215,11 @@ fun OmniBrowserApp(viewModel: BrowserViewModel = viewModel()) {
                             onProgressChanged = { activeTab.progress = it },
                             onTitleReceived = { activeTab.title = it },
                             onIconReceived = { activeTab.faviconBitmap = it },
-                            onConsoleLog = { _, _ -> }
+                            onConsoleLog = { _, _ -> },
+                            onDownload = { url, name ->
+                                val downloadManager = com.omniweb.app.util.OmniDownloadManager(appContext)
+                                downloadManager.startDownload(url, name)
+                            }
                         )
                     } else {
                         BrowserView(

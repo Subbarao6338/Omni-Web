@@ -68,6 +68,7 @@ data class Settings(
     val accentColor: String = "#3B82F6",
     val darkMode: Boolean = false, // Deprecated but kept for migration if needed
     val downloadPath: String? = null,
+    val askDownloadLocation: Boolean = false,
     val restoreTabsOnStart: Boolean = true,
     val clearDataOnExit: Boolean = false,
     val javaScriptEnabled: Boolean = true,
@@ -94,6 +95,8 @@ data class Settings(
     val readerTheme: String = "system",
     val readerFontFamily: String = "serif",
     val toolbarLocation: String = "bottom",
+    val hibernationTimeoutMillis: Long = 300000L,
+    val maxWebViewCacheSize: Int = 5,
     val useGeckoView: Boolean = false,
     val firefoxUserId: String? = null,
     val firefoxCollectionName: String? = null

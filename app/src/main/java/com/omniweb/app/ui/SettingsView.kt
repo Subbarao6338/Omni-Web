@@ -209,6 +209,21 @@ fun SettingsView(
 
             SettingsSection("Downloads", Icons.Default.Download) {
                 ListItem(
+                    headlineContent = { Text("Ask where to save files") },
+                    supportingContent = { Text("Always prompt for download location") },
+                    trailingContent = {
+                        Switch(
+                            checked = settings.askDownloadLocation,
+                            onCheckedChange = { enabled ->
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(askDownloadLocation = enabled))
+                                }
+                            }
+                        )
+                    }
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                ListItem(
                     headlineContent = { Text("Download Path") },
                     supportingContent = { Text(settings.downloadPath ?: "Default (Downloads folder)") },
                     trailingContent = {
@@ -479,6 +494,48 @@ fun SettingsView(
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true
                     )
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Tab Hibernation Timeout", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var timeoutMinutes by remember(settings.hibernationTimeoutMillis) { mutableIntStateOf((settings.hibernationTimeoutMillis / 60000).toInt()) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Slider(
+                            value = timeoutMinutes.toFloat(),
+                            onValueChange = { timeoutMinutes = it.toInt() },
+                            onValueChangeFinished = {
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(hibernationTimeoutMillis = timeoutMinutes.toLong() * 60000L))
+                                }
+                            },
+                            valueRange = 1f..60f,
+                            steps = 59,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("${timeoutMinutes}m", modifier = Modifier.width(48.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, fontWeight = FontWeight.Bold)
+                    }
+                }
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Max WebView Cache Size", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    var cacheSize by remember(settings.maxWebViewCacheSize) { mutableIntStateOf(settings.maxWebViewCacheSize) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Slider(
+                            value = cacheSize.toFloat(),
+                            onValueChange = { cacheSize = it.toInt() },
+                            onValueChangeFinished = {
+                                scope.launch {
+                                    database.settingsDao().updateSettings(settings.copy(maxWebViewCacheSize = cacheSize))
+                                }
+                            },
+                            valueRange = 1f..20f,
+                            steps = 19,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("$cacheSize", modifier = Modifier.width(48.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End, fontWeight = FontWeight.Bold)
+                    }
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
                 Column(modifier = Modifier.padding(16.dp)) {
