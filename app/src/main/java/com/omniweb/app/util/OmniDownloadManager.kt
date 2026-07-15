@@ -21,7 +21,7 @@ class OmniDownloadManager(private val context: Context) {
     private val db = AppDatabase.getDatabase(context)
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    fun startDownload(url: String, fileName: String) {
+    fun startDownload(url: String, fileName: String, customPath: String? = null) {
         val sanitizedName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
             .replace(Regex("[^a-zA-Z0-9._-]"), "_")
 
@@ -37,17 +37,19 @@ class OmniDownloadManager(private val context: Context) {
 
         if (useYtDl) {
             scope.launch {
-                startYtDlDownload(url, sanitizedName)
+                startYtDlDownload(url, sanitizedName, customPath)
             }
         } else {
-            enqueueStandardDownload(url, sanitizedName)
+            enqueueStandardDownload(url, sanitizedName, customPath)
         }
     }
 
-    private fun enqueueStandardDownload(url: String, fileName: String) {
+    private fun enqueueStandardDownload(url: String, fileName: String, customPath: String? = null) {
         scope.launch {
             try {
                 val settings = db.settingsDao().getSettings().firstOrNull()
+                val targetPath = customPath ?: settings?.downloadPath
+
                 val request = DownloadManager.Request(Uri.parse(url))
                     .setTitle(fileName)
                     .setDescription("Downloading file...")
@@ -56,8 +58,8 @@ class OmniDownloadManager(private val context: Context) {
                     .setAllowedOverRoaming(true)
 
                 var customUri: Uri? = null
-                if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
-                    val treeUri = Uri.parse(settings.downloadPath)
+                if (targetPath != null && targetPath.startsWith("content://")) {
+                    val treeUri = Uri.parse(targetPath)
                     val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
                     if (pickedDir != null && pickedDir.exists() && pickedDir.canWrite()) {
                         val newFile = pickedDir.createFile(getMimeType(fileName), fileName)
@@ -70,8 +72,8 @@ class OmniDownloadManager(private val context: Context) {
                     } else {
                         request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
                     }
-                } else if (settings?.downloadPath != null) {
-                    val file = File(settings.downloadPath, fileName)
+                } else if (targetPath != null) {
+                    val file = File(targetPath, fileName)
                     request.setDestinationUri(Uri.fromFile(file))
                 } else {
                     request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
@@ -104,9 +106,10 @@ class OmniDownloadManager(private val context: Context) {
         return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
     }
 
-    private suspend fun startYtDlDownload(url: String, fileName: String) {
+    private suspend fun startYtDlDownload(url: String, fileName: String, customPath: String? = null) {
         val downloadId = System.currentTimeMillis() // Generate a temporary ID
         val settings = db.settingsDao().getSettings().firstOrNull()
+        val targetPath = customPath ?: settings?.downloadPath
 
         val tempFile = File(context.cacheDir, "yt_dl_temp_${System.currentTimeMillis()}")
 
@@ -153,8 +156,8 @@ class OmniDownloadManager(private val context: Context) {
 
             // Move to destination
             val finalPath: String?
-            if (settings?.downloadPath != null && settings.downloadPath.startsWith("content://")) {
-                val treeUri = Uri.parse(settings.downloadPath)
+            if (targetPath != null && targetPath.startsWith("content://")) {
+                val treeUri = Uri.parse(targetPath)
                 val pickedDir = DocumentFile.fromTreeUri(context, treeUri)
                 if (pickedDir == null || !pickedDir.exists() || !pickedDir.canWrite()) {
                     throw Exception("Selected download folder is not accessible or writable")
@@ -170,8 +173,8 @@ class OmniDownloadManager(private val context: Context) {
                 } else {
                     throw Exception("Failed to create file in selected folder")
                 }
-            } else if (settings?.downloadPath != null) {
-                val downloadFolder = File(settings.downloadPath).apply { if (!exists()) mkdirs() }
+            } else if (targetPath != null) {
+                val downloadFolder = File(targetPath).apply { if (!exists()) mkdirs() }
                 val destFile = File(downloadFolder, fileName)
                 tempFile.renameTo(destFile)
                 finalPath = destFile.absolutePath

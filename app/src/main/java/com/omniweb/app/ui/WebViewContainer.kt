@@ -53,7 +53,8 @@ fun WebViewContainer(
     onProgressChanged: (Float) -> Unit,
     onTitleReceived: (String) -> Unit,
     onIconReceived: (Bitmap?) -> Unit,
-    onConsoleLog: (String, String) -> Unit
+    onConsoleLog: (String, String) -> Unit,
+    onDownload: (String, String) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -146,10 +147,9 @@ fun WebViewContainer(
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, !settings.blockThirdPartyCookies)
                     }
 
-                    setDownloadListener { url, _, _, _, _ ->
-                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                        intent.data = android.net.Uri.parse(url)
-                        context.startActivity(intent)
+                    setDownloadListener { url, _, contentDisposition, mimetype, _ ->
+                        val fileName = URLUtil.guessFileName(url, contentDisposition, mimetype)
+                        onDownload(url, fileName)
                     }
 
                     addJavascriptInterface(WebAppInterface(
