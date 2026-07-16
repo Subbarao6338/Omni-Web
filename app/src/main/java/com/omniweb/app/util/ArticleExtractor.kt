@@ -79,9 +79,15 @@ object ArticleExtractor {
                             val src = el.attr("src")
                             val dataSrc = el.attr("data-src")
                             val dataLazySrc = el.attr("data-lazy-src")
+                            val dataOriginal = el.attr("data-original")
+                            val dataActualSrc = el.attr("data-actual-src")
+                            val fileSrc = el.attr("file-src")
                             val srcset = el.attr("srcset")
 
                             val finalSrc = when {
+                                !dataOriginal.isNullOrBlank() -> dataOriginal
+                                !dataActualSrc.isNullOrBlank() -> dataActualSrc
+                                !fileSrc.isNullOrBlank() -> fileSrc
                                 !dataSrc.isNullOrBlank() -> dataSrc
                                 !dataLazySrc.isNullOrBlank() -> dataLazySrc
                                 !src.isNullOrBlank() -> src
@@ -165,12 +171,12 @@ object ArticleExtractor {
 
         // 5. Semantic Bonuses/Penalties
         val attrString = (el.className() + " " + el.id() + " " + el.attr("role")).lowercase()
-        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description", "prose", "main-column", "content-area", "paper")
+        val positivePatterns = listOf("article", "content", "post", "body", "main", "entry", "story", "text", "description", "prose", "main-column", "content-area", "paper", "main-content", "article-body", "post-content")
         val negativePatterns = listOf("sidebar", "comment", "footer", "menu", "nav", "widget", "promo", "banner", "ad-", "social", "related", "share", "meta", "recommend", "header", "toolbar", "aside", "navigation", "breadcrumb", "tags", "author", "popup", "modal", "utility")
 
         if (positivePatterns.any { attrString.contains(it) }) {
             score += 300f
-            if (attrString.contains("article") || attrString.contains("story") || attrString.contains("post")) score += 200f
+            if (attrString.contains("article") || attrString.contains("story") || attrString.contains("post") || attrString.contains("main-content") || attrString.contains("article-body")) score += 200f
         }
         if (negativePatterns.any { attrString.contains(it) }) {
             score -= 300f

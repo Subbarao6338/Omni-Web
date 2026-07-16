@@ -95,9 +95,10 @@ object AdBlockManager {
     }
 
     private fun insertToTrie(root: TrieNode, domain: String, category: String) {
-        val parts = domain.lowercase().split('.').reversed()
+        val parts = domain.lowercase().removeSuffix(".").split('.').reversed()
         var current = root
         for (part in parts) {
+            if (part.isBlank()) continue
             current = current.children.getOrPut(part) { TrieNode() }
         }
         current.category = category
@@ -113,7 +114,10 @@ object AdBlockManager {
         try {
             context.assets.open(fileName).use { inputStream ->
                 parser.parseInput(InputStreamReader(inputStream)).forEach {
-                    targetSet.add(it)
+                    val domain = it.lowercase().removeSuffix(".")
+                    if (domain.isNotBlank()) {
+                        targetSet.add(domain)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -132,10 +136,13 @@ object AdBlockManager {
 
     fun getCategory(host: String): String? {
         if (host.isEmpty()) return null
+        val lowerHost = host.lowercase().removeSuffix(".")
 
-        val parts = host.split('.').reversed()
+        val parts = lowerHost.split('.')
         var current = root
-        for (part in parts) {
+        for (i in parts.indices.reversed()) {
+            val part = parts[i]
+            if (part.isBlank()) continue
             current = current.children[part] ?: break
             if (current.category != null) return current.category
         }
@@ -145,8 +152,19 @@ object AdBlockManager {
 
     fun shouldBlock(host: String): Boolean {
         if (host.isEmpty()) return false
-        val lowerHost = host.lowercase()
-        if (bloomFilter?.mightContain(lowerHost) == true) return true
+        val lowerHost = host.lowercase().removeSuffix(".")
+
+        // Fast path: iterative suffix check in Bloom Filter
+        var currentHost = lowerHost
+        while (currentHost.contains('.')) {
+            if (bloomFilter?.mightContain(currentHost) == true) return true
+            val firstDot = currentHost.indexOf('.')
+            if (firstDot == -1 || firstDot == currentHost.length - 1) break
+            currentHost = currentHost.substring(firstDot + 1)
+        }
+        if (bloomFilter?.mightContain(currentHost) == true) return true
+
+        // Fallback to Trie for precise matching
         return getCategory(lowerHost) != null
     }
 

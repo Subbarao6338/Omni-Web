@@ -71,17 +71,23 @@ class ScriptProvider(private val context: Context) {
                     const style = document.createElement('style');
                     style.id = 'omni-force-black';
                     style.innerHTML = `
+                        :root {
+                            color-scheme: dark !important;
+                        }
                         html, body {
                             background-color: #000000 !important;
                             color: #ffffff !important;
                         }
-                        * {
-                            background-color: transparent !important;
-                            color: inherit !important;
-                        }
-                        div, section, article, p, span, li, h1, h2, h3, h4, h5, h6 {
+                        div:not([class*="bg-"]):not([style*="background"]),
+                        section:not([class*="bg-"]):not([style*="background"]),
+                        article, p, span, li, h1, h2, h3, h4, h5, h6 {
                             background-color: transparent !important;
                             color: #e0e0e0 !important;
+                        }
+                        input, textarea, select {
+                            background-color: #1a1a1a !important;
+                            color: #ffffff !important;
+                            border: 1px solid #333 !important;
                         }
                         a {
                             color: #8ab4f8 !important;
@@ -101,13 +107,23 @@ class ScriptProvider(private val context: Context) {
                     window.omniDeepDark = true;
                     const style = document.createElement('style');
                     style.innerHTML = `
+                        :root {
+                            color-scheme: dark !important;
+                        }
                         html, body {
                             background-color: #121212 !important;
                             color: #e0e0e0 !important;
                         }
-                        div, section, article, p, span, li, h1, h2, h3, h4, h5, h6 {
+                        div:not([class*="bg-"]):not([style*="background"]),
+                        section:not([class*="bg-"]):not([style*="background"]),
+                        article, p, span, li, h1, h2, h3, h4, h5, h6 {
                             background-color: transparent !important;
                             color: #e0e0e0 !important;
+                        }
+                        input, textarea, select {
+                            background-color: #242424 !important;
+                            color: #e0e0e0 !important;
+                            border: 1px solid #444 !important;
                         }
                         a {
                             color: #bb86fc !important;
