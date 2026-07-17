@@ -85,21 +85,25 @@ fun WebViewContainer(
         }
     }
 
+    // Dynamic Tor settings observer using LaunchedEffect to avoid redundant/frequent updates in the update block of AndroidView
+    LaunchedEffect(settings.torEnabled, settings.torProxyHost, settings.torProxyPort) {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            if (settings.torEnabled) {
+                val proxyConfig = ProxyConfig.Builder()
+                    .addProxyRule("${settings.torProxyHost}:${settings.torProxyPort}")
+                    .addDirect().build()
+                ProxyController.getInstance().setProxyOverride(proxyConfig, { run {} }, { })
+            } else {
+                ProxyController.getInstance().clearProxyOverride({ run {} }, { })
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().nestedScroll(pullToRefreshState.nestedScrollConnection)) {
         AndroidView(
             factory = { _ ->
                 currentWebView.apply {
                     (parent as? ViewGroup)?.removeView(this)
-                    if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-                        if (settings.torEnabled) {
-                            val proxyConfig = ProxyConfig.Builder()
-                                .addProxyRule("${settings.torProxyHost}:${settings.torProxyPort}")
-                                .addDirect().build()
-                            ProxyController.getInstance().setProxyOverride(proxyConfig, { }, { })
-                        } else {
-                            ProxyController.getInstance().clearProxyOverride({ }, { })
-                        }
-                    }
 
                     val initialHost = Uri.parse(tab.url).host ?: ""
                     val initialPerSite = viewModel.getPerSiteSettings(initialHost)
