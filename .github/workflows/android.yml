@@ -151,6 +151,5 @@ jobs:
           prerelease: false
           make_latest: true
           generate_release_notes: true
-          allowUpdates: true
           target_commitish: ${{ github.sha }}
           fail_on_unmatched_files: true
